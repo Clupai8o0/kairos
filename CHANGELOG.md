@@ -19,10 +19,10 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 - [ ] Initial migration applied to a fresh DB
 - [x] Smoke-test route handler at `/api/health`
 - [x] Vitest + msw setup with one passing test
-- [ ] Tasks CRUD (route handlers + service + tests)
-- [ ] Tags CRUD
-- [ ] Views CRUD
-- [ ] Calendar list/select endpoint
+- [x] Tasks CRUD (route handlers + service + tests)
+- [x] Tags CRUD
+- [x] Views CRUD
+- [x] Calendar list/select endpoint
 - [x] Marketing route group scaffolded with placeholder landing page
 - [x] App route group scaffolded with placeholder dashboard behind Better Auth
 - [ ] Vercel preview deploys working from PRs
@@ -39,6 +39,11 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 *(nothing — first session can start)*
 
 ### Next concrete action
+**Session 3** — Scheduler pure-function pipeline. Read `references/scheduling-engine.md` first.
+
+---
+*(old Session 1 next-action, kept for reference)*
+
 **Session 1** — see `references/migration-from-old-build.md` "Order of operations":
 1. `pnpm create next-app kairos --typescript --tailwind --app --src-dir=false --import-alias="@/*"`
 2. Add ESLint custom rules
@@ -83,6 +88,37 @@ Append new entries at the top. Use the template below.
 ---
 
 ## Sessions
+
+## 2026-04-15 — Session 2: Tasks/Tags/Views/Calendars CRUD
+
+**Goal for this session:** Build full CRUD for tasks (with tags), tags, views, and a calendar list/select endpoint.
+
+**Built:**
+- `lib/auth/helpers.ts` — `requireAuth()` helper (returns userId or 401 Response)
+- `lib/services/tasks.ts` — listTasks, getTask, createTask, updateTask, deleteTask; tasks returned with `tags[]`
+- `app/api/tasks/route.ts` + `app/api/tasks/[id]/route.ts` — full CRUD, Zod validation
+- `lib/services/tags.ts` — full CRUD
+- `app/api/tags/route.ts` + `app/api/tags/[id]/route.ts`
+- `lib/services/views.ts` — full CRUD
+- `app/api/views/route.ts` + `app/api/views/[id]/route.ts`
+- `lib/services/calendars.ts` — listCalendars, setCalendarSelected
+- `app/api/calendars/route.ts` + `app/api/calendars/[id]/route.ts`
+- Integration tests for all four feature groups (mocked services + auth helper via vi.doMock)
+
+**Decisions made:**
+- Services mocked in integration tests via `vi.doMock()` (not `vi.mock()`) for per-test isolation — avoids Vitest hoisting constraints
+- `requireAuth()` returns `{ userId } | Response` — checked with `instanceof Response` in each handler
+- Tasks always returned with `tags[]` array — service handles the join
+- `z.record(z.string(), z.unknown())` used instead of `z.record(z.unknown())` — Zod 4 requires two arguments
+
+**Files touched:** 17 files created
+
+**Tests added:** ~32
+
+**Next action:**
+- Session 3: Scheduler pure-function pipeline (`lib/scheduler/urgency.ts`, `slots.ts`, `placement.ts`, `splitting.ts`, `recurrence.ts`, `candidates.ts`, `runner.ts`) with unit tests. Read `references/scheduling-engine.md` first.
+
+---
 
 ## 2026-04-15 — Session 1: Base project setup
 

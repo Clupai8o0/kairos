@@ -18,10 +18,10 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 - [ ] Initial migration applied to a fresh DB
 - [x] Smoke-test route handler at `/api/health`
 - [x] Vitest + msw setup with one passing test
-- [ ] Tasks CRUD (route handlers + service + tests)
-- [ ] Tags CRUD
-- [ ] Views CRUD
-- [ ] Calendar list/select endpoint
+- [x] Tasks CRUD (route handlers + service + tests)
+- [x] Tags CRUD
+- [x] Views CRUD
+- [x] Calendar list/select endpoint
 - [x] Marketing route group scaffolded with placeholder landing page
 - [x] App route group scaffolded with placeholder dashboard behind Better Auth
 - [ ] Vercel preview deploys working from PRs
