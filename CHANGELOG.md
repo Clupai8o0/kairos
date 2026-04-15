@@ -8,23 +8,23 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 
 ## Current State
 
-**Phase:** 1 — Foundations (not started)
+**Phase:** 1 — Foundations (in progress)
 
 ### Built
-- [ ] `pnpm create next-app` baseline with TypeScript strict + Tailwind v4 + App Router
-- [ ] ESLint config with custom rules (ban `Project`/`projectId`, ban direct LLM provider imports)
-- [ ] Drizzle setup + Neon connection
-- [ ] Better Auth + Google OAuth (one flow grants app login + GCal scopes)
-- [ ] Drizzle schema for: `users`, `tasks`, `tags`, `taskTags`, `views`, `googleAccounts`, `googleCalendars`, `blackoutDays`, `scheduleWindows`, `jobs`, plus Better Auth tables
+- [x] `pnpm create next-app` baseline with TypeScript strict + Tailwind v4 + App Router
+- [x] ESLint config with custom rules (ban `Project`/`projectId`, ban direct LLM provider imports)
+- [x] Drizzle setup + Neon connection
+- [x] Better Auth + Google OAuth (one flow grants app login + GCal scopes)
+- [x] Drizzle schema for: `users`, `tasks`, `tags`, `taskTags`, `views`, `googleAccounts`, `googleCalendars`, `blackoutDays`, `scheduleWindows`, `jobs`, plus Better Auth tables
 - [ ] Initial migration applied to a fresh DB
-- [ ] Smoke-test route handler at `/api/health`
-- [ ] Vitest + msw setup with one passing test
+- [x] Smoke-test route handler at `/api/health`
+- [x] Vitest + msw setup with one passing test
 - [ ] Tasks CRUD (route handlers + service + tests)
 - [ ] Tags CRUD
 - [ ] Views CRUD
 - [ ] Calendar list/select endpoint
-- [ ] Marketing route group scaffolded with placeholder landing page
-- [ ] App route group scaffolded with placeholder dashboard behind Better Auth
+- [x] Marketing route group scaffolded with placeholder landing page
+- [x] App route group scaffolded with placeholder dashboard behind Better Auth
 - [ ] Vercel preview deploys working from PRs
 - [ ] Production deploy from main working
 - [ ] Phase 1 definition-of-done met
@@ -84,4 +84,36 @@ Append new entries at the top. Use the template below.
 
 ## Sessions
 
-*(none yet)*
+## 2026-04-15 — Session 1: Base project setup
+
+**Goal for this session:** Bootstrap the Next.js 16 app with TypeScript strict, Tailwind v4, Drizzle+Neon, Better Auth+Google OAuth, ESLint custom rules, `/api/health`, Vitest+msw, and route group scaffolding.
+
+**Built:**
+- `pnpm create next-app` baseline — Next.js 16.2.3, React 19, TypeScript strict, Tailwind v4, App Router
+- ESLint custom rules: `no-project-entity` (bans `Project`/`projectId`/`projects` identifiers) + `no-llm-provider-imports` (bans direct LLM provider SDKs outside `lib/llm/` and `lib/plugins/builtin/`)
+- Drizzle ORM 0.45.2 + `@neondatabase/serverless` configured via `lib/db/client.ts`
+- Full Drizzle schema: `user`, `session`, `account`, `verification` (Better Auth), `tasks` (no `projectId`), `tags`, `taskTags`, `views`, `blackoutDays`, `scheduleWindows`, `scheduleLogs`, `googleAccounts`, `googleCalendars`, `jobs` (partial unique index on `idempotencyKey`), `scratchpads`, `scratchpadPluginConfigs`, `pluginInstalls`
+- Schema integrity: self-referencing FK on `tasks.parentTaskId`, unique constraints on `googleAccounts(userId, googleAccountId)`, `googleCalendars(googleAccountId, calendarId)`, `pluginInstalls(userId, pluginName)`, performance indexes on `tasks(userId, status)` and `jobs(status, runAfter)`
+- Better Auth 1.6.4 + Google OAuth (single flow grants app login + `https://www.googleapis.com/auth/calendar` scope), `accessType: 'offline'` for refresh tokens
+- `/api/auth/[...all]` catch-all handler via `toNextJsHandler`
+- `/api/health` — DB connectivity smoke test (200 on success, 503 on failure)
+- `vitest.config.ts` + `vitest.setup.ts` (msw node server), `tests/unit/health.test.ts` — 2/2 passing
+- `app/(marketing)/` route group — landing page placeholder
+- `app/(app)/` route group — auth guard (redirects to `/` if unauthenticated) + dashboard placeholder
+- `components/providers.tsx` — TanStack Query provider
+- `vercel.json` — cron declaration for `/api/cron/drain` (every minute)
+- `.env.local.example` with all required env vars documented
+- `lib/utils/id.ts` — CUID2 wrapper
+
+**Decisions made:**
+- All decisions follow ADRs 001–R13. No new ADRs needed.
+- Better Auth adapter uses `camelCase: true` to match Drizzle's camelCase field names.
+- `tasks.parentTaskId` uses a lazy self-referencing FK (`(): AnyPgColumn => tasks.id`) to avoid circular import.
+- ESLint config uses native Next.js 16 flat config format (no FlatCompat needed).
+
+**Files touched:** ~35 files created, 3 modified
+
+**Tests added:** 2
+
+**Next action:**
+- Session 2: Tasks CRUD — `POST /api/tasks`, `GET /api/tasks`, `GET /api/tasks/:id`, `PATCH /api/tasks/:id`, `DELETE /api/tasks/:id` + Tags CRUD + Views CRUD, service layer under `lib/services/`, integration tests via msw. Start by reading `references/api-contract.md`.

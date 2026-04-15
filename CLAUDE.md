@@ -178,6 +178,7 @@ Route handlers call services. Services call pipelines, plugins, and `lib/db`. Pi
 - [ ] No `Project` / `projectId` reappearing
 - [ ] No long-running operation in a route handler — use the `jobs` table
 - [ ] ESLint clean
+- [ ] **Commit after every completed feature** — each self-contained addition (route handler, service, schema change, test suite) gets its own commit before moving to the next
 
 ### End
 - [ ] Append a session log to `CHANGELOG.md`

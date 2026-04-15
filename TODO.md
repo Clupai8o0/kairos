@@ -10,35 +10,35 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 
 ### Build checklist
 
-- [ ] `pnpm create next-app` baseline with TypeScript strict + Tailwind v4 + App Router
-- [ ] ESLint config with custom rules (ban `Project`/`projectId`, ban direct LLM provider imports)
-- [ ] Drizzle setup + Neon connection
-- [ ] Better Auth + Google OAuth (one flow grants app login + GCal scopes)
-- [ ] Drizzle schema for: `users`, `tasks`, `tags`, `taskTags`, `views`, `googleAccounts`, `googleCalendars`, `blackoutDays`, `scheduleWindows`, `jobs`, plus Better Auth tables
+- [x] `pnpm create next-app` baseline with TypeScript strict + Tailwind v4 + App Router
+- [x] ESLint config with custom rules (ban `Project`/`projectId`, ban direct LLM provider imports)
+- [x] Drizzle setup + Neon connection
+- [x] Better Auth + Google OAuth (one flow grants app login + GCal scopes)
+- [x] Drizzle schema for: `users`, `tasks`, `tags`, `taskTags`, `views`, `googleAccounts`, `googleCalendars`, `blackoutDays`, `scheduleWindows`, `jobs`, plus Better Auth tables
 - [ ] Initial migration applied to a fresh DB
-- [ ] Smoke-test route handler at `/api/health`
-- [ ] Vitest + msw setup with one passing test
+- [x] Smoke-test route handler at `/api/health`
+- [x] Vitest + msw setup with one passing test
 - [ ] Tasks CRUD (route handlers + service + tests)
 - [ ] Tags CRUD
 - [ ] Views CRUD
 - [ ] Calendar list/select endpoint
-- [ ] Marketing route group scaffolded with placeholder landing page
-- [ ] App route group scaffolded with placeholder dashboard behind Better Auth
+- [x] Marketing route group scaffolded with placeholder landing page
+- [x] App route group scaffolded with placeholder dashboard behind Better Auth
 - [ ] Vercel preview deploys working from PRs
 - [ ] Production deploy from main working
 - [ ] Phase 1 definition-of-done met
 
 ### Session 1 — bootstrap
 
-1. [ ] `pnpm create next-app kairos --typescript --tailwind --app --src-dir=false --import-alias="@/*"`
-2. [ ] Add ESLint custom rules
-3. [ ] Install Drizzle + drizzle-kit + `@neondatabase/serverless`
-4. [ ] Install Better Auth + Drizzle adapter
+1. [x] `pnpm create next-app kairos --typescript --tailwind --app --src-dir=false --import-alias="@/*"`
+2. [x] Add ESLint custom rules
+3. [x] Install Drizzle + drizzle-kit + `@neondatabase/serverless`
+4. [x] Install Better Auth + Drizzle adapter
 5. [ ] Set up Neon project (free tier) and add `DATABASE_URL` to `.env.local`
 6. [ ] Set up Google Cloud OAuth credentials with both `email`/`profile` and `https://www.googleapis.com/auth/calendar` scopes
-7. [ ] Write Drizzle schema for `users`, `tasks`, `tags`, `taskTags`, plus Better Auth's required tables
+7. [x] Write Drizzle schema for `users`, `tasks`, `tags`, `taskTags`, plus Better Auth's required tables
 8. [ ] Generate + apply the first migration
-9. [ ] Add a `/api/health` route handler that confirms DB connectivity
+9. [x] Add a `/api/health` route handler that confirms DB connectivity
 10. [ ] Push to GitHub, hook up Vercel, confirm preview deploys
 
 ### Definition of done
