@@ -219,3 +219,30 @@ If any of these happen, stop, say so, and reset before continuing.
 - Any new dependency
 - Any change that affects the public API contract
 - Any change that touches more than 5 files at once
+
+---
+
+## Skills & design system
+
+### Design system
+`DESIGN.md` (Linear-inspired) is the design reference. Read it before writing any UI component. Use semantic tokens from it—never hardcode colors.
+
+### Animation strategy
+- **Landing page (`app/(marketing)/`):** GSAP for scroll-driven, orchestrated animations. Skills: `gsap-core`, `gsap-scrolltrigger`, `gsap-timeline`, `gsap-react`.
+- **Dashboard (`app/(app)/`):** Framer Motion for micro-interactions (hover, mount/unmount, layout shifts). Lighter weight, React-native integration.
+- Don't mix—GSAP on marketing, Framer Motion in-app.
+
+### Skills by module
+
+| Working on…                     | Use these skills                                               |
+|---------------------------------|----------------------------------------------------------------|
+| UI components (shadcn)          | `shadcn-component-discovery`, `shadcn-component-review`        |
+| Landing page animations         | `gsap-core`, `gsap-react`, `gsap-scrolltrigger`, `gsap-timeline`, `gsap-performance` |
+| Dashboard micro-animations      | (framer-motion—no skill, use library docs)                     |
+| Design tokens / theming         | `design-dna`, `theme-factory`                                  |
+| UI/UX review                    | `userinterface-wiki`, `ui-ux-pro-max`, `web-design-guidelines` |
+| Frontend patterns               | `frontend-design`, `vercel-react-best-practices`, `vercel-composition-patterns` |
+| Code review                     | `code-review`, `verification-before-completion`                |
+| Debugging                       | `systematic-debugging`                                         |
+| Testing                         | `test-driven-development`, `webapp-testing`                    |
+| Planning                        | `writing-plans`, `executing-plans`                             |
