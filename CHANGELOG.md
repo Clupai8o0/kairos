@@ -39,7 +39,7 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 *(nothing — first session can start)*
 
 ### Next concrete action
-**Session 3** — Scheduler pure-function pipeline. Read `references/scheduling-engine.md` first.
+**Session 4** — GCal layer. Build `lib/gcal/` (auth.ts, calendars.ts, freebusy.ts, events.ts, errors.ts), then wire the real `GCalAdapter` into `runner.ts`. Read `references/gcal-integration.md` first (create it if missing).
 
 ---
 *(old Session 1 next-action, kept for reference)*
@@ -88,6 +88,36 @@ Append new entries at the top. Use the template below.
 ---
 
 ## Sessions
+
+## 2026-04-16 — Session 3: Scheduler pure-function pipeline
+
+**Goal for this session:** Build the full `lib/scheduler/` pipeline with unit tests.
+
+**Built:**
+- `references/scheduling-engine.md` — spec doc for the scheduler pipeline
+- `lib/scheduler/types.ts` — shared types (ScheduleWindow, TimeSlot, BusyInterval, ScoredTask, PlacedChunk, RecurrenceRule)
+- `lib/scheduler/urgency.ts` — pure urgency scoring (priority × deadline proximity)
+- `lib/scheduler/candidates.ts` — filter + sort tasks ready to schedule; `buildDoneSet` helper
+- `lib/scheduler/slots.ts` — `computeFreeSlots` (windows − blackouts − busy) + `consumeSlot`
+- `lib/scheduler/placement.ts` — `placeTask` (first-fit, buffer-aware) + `placementConsumedRange`
+- `lib/scheduler/splitting.ts` — `splitTask` (greedy chunk allocation across slots)
+- `lib/scheduler/recurrence.ts` — `generateOccurrences` (daily/weekly/monthly/yearly + byDayOfWeek + until + count)
+- `lib/scheduler/runner.ts` — orchestrator with real DB logic + `GCalAdapter` interface for injectable GCal calls (stubbed until lib/gcal/ exists)
+- 64 unit tests across 6 test files — all passing
+
+**Decisions made:**
+- `runner.ts` accepts `GCalAdapter` as an optional parameter rather than importing from `lib/gcal/` directly — keeps GCal decoupled until that layer is built, and makes the runner unit-testable without a GCal mock
+- `until` in RecurrenceRule treated as end-of-day (23:59:59) so occurrences on the until date are always included
+- `buildDoneSet` treats both `'done'` and `'scheduled'` statuses as satisfying dependencies
+
+**Files touched:** 15 files created
+
+**Tests added:** 64
+
+**Next action:**
+- Session 4: `lib/gcal/` — auth.ts, calendars.ts, freebusy.ts, events.ts, errors.ts. Wire real `GCalAdapter` into runner.ts. Read `references/gcal-integration.md` first.
+
+---
 
 ## 2026-04-15 — Session 2: Tasks/Tags/Views/Calendars CRUD
 

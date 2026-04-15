@@ -60,7 +60,7 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 
 ### Backend
 
-- [ ] `lib/scheduler/` — pure-function pipeline: `urgency.ts`, `slots.ts`, `placement.ts`, `splitting.ts`, `recurrence.ts`, `candidates.ts`, plus `runner.ts`
+- [x] `lib/scheduler/` — pure-function pipeline: `urgency.ts`, `slots.ts`, `placement.ts`, `splitting.ts`, `recurrence.ts`, `candidates.ts`, plus `runner.ts`
 - [ ] `lib/gcal/` — `auth.ts`, `calendars.ts`, `freebusy.ts`, `events.ts`, `errors.ts`
 - [ ] `lib/plugins/` — `host.ts`, `types.ts`, `context.ts`
 - [ ] `lib/plugins/builtin/text-to-tasks/` — bundled plugin
