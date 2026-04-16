@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import type { Task, CalendarEvent } from '@/lib/hooks/types';
 
 const HOUR_PX = 64;
@@ -24,20 +24,42 @@ function isSameDay(a: Date, b: Date) {
 interface EventBlockProps {
   top: number;
   height: number;
-  color: string;
   label: string;
   sublabel?: string;
-  border?: string;
+  // GCal event
+  color?: string;
+  // Task event — renders with left-border accent style
+  isTask?: boolean;
 }
 
-function EventBlock({ top, height, color, label, sublabel, border }: EventBlockProps) {
+function EventBlock({ top, height, label, sublabel, color, isTask }: EventBlockProps) {
+  const style: React.CSSProperties = isTask
+    ? {
+        position: 'absolute',
+        top,
+        height: Math.max(18, height),
+        left: 2,
+        right: 2,
+        backgroundColor: 'var(--color-task-event-bg)',
+        borderLeft: '3px solid var(--color-accent)',
+        zIndex: 3,
+      }
+    : {
+        position: 'absolute',
+        top,
+        height: Math.max(18, height),
+        left: 2,
+        right: 2,
+        backgroundColor: color,
+        zIndex: 2,
+      };
+
   return (
-    <div
-      style={{ position: 'absolute', top, height: Math.max(18, height), left: 2, right: 2, backgroundColor: color, border: border ? `1px solid ${border}` : undefined, zIndex: 2 }}
-      className="rounded px-1.5 py-0.5 overflow-hidden cursor-default"
-    >
-      <p className="text-[10px] text-white font-[510] leading-tight truncate">{label}</p>
-      {sublabel && height > 26 && <p className="text-[9px] text-white/70 truncate">{sublabel}</p>}
+    <div style={style} className="rounded px-1.5 py-0.5 overflow-hidden cursor-default">
+      <p className={`text-[10px] font-[510] leading-tight truncate ${isTask ? 'text-fg' : 'text-white'}`}>{label}</p>
+      {sublabel && height > 26 && (
+        <p className={`text-[9px] truncate ${isTask ? 'text-fg-3' : 'text-white/70'}`}>{sublabel}</p>
+      )}
     </div>
   );
 }
@@ -84,6 +106,12 @@ export function CalendarWeek({ weekStart, tasks, events, isLoading = false }: Pr
     d.setDate(d.getDate() + i);
     return d;
   });
+
+  // GCal event IDs that belong to Kairos tasks — filter them out of the raw events list
+  const taskGcalIds = useMemo(
+    () => new Set(tasks.map((t) => t.gcalEventId).filter(Boolean) as string[]),
+    [tasks],
+  );
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -135,6 +163,7 @@ export function CalendarWeek({ weekStart, tasks, events, isLoading = false }: Pr
 
             const dayEvents = events.filter((e) => {
               if (e.isAllDay) return false;
+              if (taskGcalIds.has(e.id)) return false; // rendered as task block instead
               const s = new Date(e.start);
               return s >= dayStart && s <= dayEnd;
             });
@@ -162,7 +191,7 @@ export function CalendarWeek({ weekStart, tasks, events, isLoading = false }: Pr
                   />
                 ))}
 
-                {/* GCal events */}
+                {/* GCal events (task-owned events are excluded via taskGcalIds filter above) */}
                 {!isLoading && dayEvents.map((event) => {
                   const s = new Date(event.start);
                   const e = new Date(event.end);
@@ -180,7 +209,7 @@ export function CalendarWeek({ weekStart, tasks, events, isLoading = false }: Pr
                   );
                 })}
 
-                {/* Kairos tasks */}
+                {/* Kairos tasks — distinct left-border style */}
                 {dayTasks.map((task) => {
                   const s = new Date(task.scheduledAt!);
                   const startMins = toMins(s);
@@ -190,8 +219,7 @@ export function CalendarWeek({ weekStart, tasks, events, isLoading = false }: Pr
                       key={task.id}
                       top={startMins * (HOUR_PX / 60)}
                       height={durationMins * (HOUR_PX / 60)}
-                      color="var(--color-brand)"
-                      border="var(--color-accent)"
+                      isTask
                       label={task.title}
                       sublabel={task.durationMins ? `${task.durationMins} min` : undefined}
                     />

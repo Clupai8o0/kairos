@@ -169,10 +169,13 @@ export async function updateTask(
   return getTask(userId, id);
 }
 
-export async function deleteTask(userId: string, id: string): Promise<boolean> {
+export async function deleteTask(
+  userId: string,
+  id: string,
+): Promise<{ id: string; gcalEventId: string | null } | null> {
   const [deleted] = await db
     .delete(tasks)
     .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
-    .returning({ id: tasks.id });
-  return !!deleted;
+    .returning({ id: tasks.id, gcalEventId: tasks.gcalEventId });
+  return deleted ?? null;
 }

@@ -59,6 +59,9 @@
   --color-ghost-3: oklch(100% 0 0 / 0.05);
   --color-wire: oklch(100% 0 0 / 0.08);
   --color-wire-2: oklch(100% 0 0 / 0.05);
+
+  /* Calendar — Kairos task event block background */
+  --color-task-event-bg: #181a3e;
 }
 
 html {

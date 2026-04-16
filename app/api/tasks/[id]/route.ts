@@ -75,5 +75,14 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const { id } = await params;
   const deleted = await deleteTask(userId, id);
   if (!deleted) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  // Fire-and-forget: remove the associated GCal event if one exists
+  if (deleted.gcalEventId) {
+    const gcalEventId = deleted.gcalEventId;
+    import('@/lib/gcal/events')
+      .then(({ deleteEvent }) => deleteEvent(userId, 'primary', gcalEventId))
+      .catch(() => {});
+  }
+
   return new NextResponse(null, { status: 204 });
 }

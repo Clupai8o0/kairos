@@ -234,7 +234,7 @@ describe('DELETE /api/tasks/:id', () => {
     const { DELETE } = await setupRouteModule(
       '@/app/api/tasks/[id]/route',
       { userId: MOCK_USER_ID },
-      { getTask: vi.fn(), updateTask: vi.fn(), deleteTask: vi.fn().mockResolvedValue(true) },
+      { getTask: vi.fn(), updateTask: vi.fn(), deleteTask: vi.fn().mockResolvedValue({ id: 'task-1', gcalEventId: null }) },
     );
     const res = await DELETE(
       jsonRequest('http://localhost/api/tasks/task-1', { method: 'DELETE' }),
@@ -247,7 +247,7 @@ describe('DELETE /api/tasks/:id', () => {
     const { DELETE } = await setupRouteModule(
       '@/app/api/tasks/[id]/route',
       { userId: MOCK_USER_ID },
-      { getTask: vi.fn(), updateTask: vi.fn(), deleteTask: vi.fn().mockResolvedValue(false) },
+      { getTask: vi.fn(), updateTask: vi.fn(), deleteTask: vi.fn().mockResolvedValue(null) },
     );
     const res = await DELETE(
       jsonRequest('http://localhost/api/tasks/ghost', { method: 'DELETE' }),
