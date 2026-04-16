@@ -61,22 +61,22 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 ### Backend
 
 - [x] `lib/scheduler/` — pure-function pipeline: `urgency.ts`, `slots.ts`, `placement.ts`, `splitting.ts`, `recurrence.ts`, `candidates.ts`, plus `runner.ts`
-- [ ] `lib/gcal/` — `auth.ts`, `calendars.ts`, `freebusy.ts`, `events.ts`, `errors.ts`
-- [ ] `lib/plugins/` — `host.ts`, `types.ts`, `context.ts`
-- [ ] `lib/plugins/builtin/text-to-tasks/` — bundled plugin
-- [ ] `lib/llm/` — Vercel AI SDK abstraction; `complete()` resolves to user's configured provider
-- [ ] `app/api/schedule/run/route.ts` — manual full schedule run (enqueues chunked jobs)
-- [ ] `app/api/cron/drain/route.ts` — Vercel Cron target, drains the `jobs` table
-- [ ] `app/api/scratchpad` routes — create entry, list, process (routes to plugin), commit (creates tasks + enqueues placement jobs + self-triggers `/api/cron/drain` fire-and-forget)
-- [ ] `app/api/plugins` routes — list installed, configure, enable/disable
-- [ ] Schedule-on-write hook in the `tasks` POST/PATCH handlers — enqueues a `schedule:single-task` job
+- [x] `lib/gcal/` — `auth.ts`, `calendars.ts`, `freebusy.ts`, `events.ts`, `errors.ts`
+- [x] `lib/plugins/` — `host.ts`, `types.ts`, `context.ts`
+- [x] `lib/plugins/builtin/text-to-tasks/` — bundled plugin
+- [x] `lib/llm/` — Vercel AI SDK abstraction; `complete()` resolves to user's configured provider
+- [x] `app/api/schedule/run/route.ts` — manual full schedule run (enqueues chunked jobs)
+- [x] `app/api/cron/drain/route.ts` — Vercel Cron target, drains the `jobs` table
+- [x] `app/api/scratchpad` routes — create entry, list, process (routes to plugin), commit (creates tasks + enqueues placement jobs + self-triggers `/api/cron/drain` fire-and-forget)
+- [x] `app/api/plugins` routes — list installed, configure, enable/disable
+- [x] Schedule-on-write hook in the `tasks` POST/PATCH handlers — enqueues a `schedule:single-task` job
 - [x] `vercel.json` cron config: `/api/cron/drain` daily at midnight UTC (hobby plan limitation — single-task placement is inline, batch placement self-triggers drain)
 
 ### Frontend
 
-- [ ] Routes under `app/(app)/`: `dashboard`, `tasks`, `schedule`, `scratchpad`, `tags`, `views`, `settings`
-- [ ] Default design pack ("Obsidian"), ported from old build's CSS as semantic tokens
-- [ ] TanStack Query for all data fetching; no raw `fetch` in components
+- [x] Routes under `app/(app)/`: `dashboard`, `tasks`, `schedule`, `scratchpad`, `tags`, `views`, `settings`
+- [x] Default design pack ("Obsidian"), ported from old build's CSS as semantic tokens
+- [x] TanStack Query for all data fetching; no raw `fetch` in components
 - [ ] Server Components used where appropriate (lists that don't need interactivity)
 
 ### Definition of done

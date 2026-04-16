@@ -89,6 +89,78 @@ Append new entries at the top. Use the template below.
 
 ## Sessions
 
+## 2026-04-16 — Session 4: Phase 2 backend
+
+**Goal for this session:** Build the full Phase 2 backend — GCal layer, LLM abstraction, plugin system, job queue, scratchpad, and related routes.
+
+**Built:**
+- `lib/gcal/` — errors.ts, auth.ts, freebusy.ts, events.ts, calendars.ts, adapter.ts
+- `lib/llm/index.ts` — complete() + completeStructured() via Vercel AI SDK (openai/anthropic/ollama)
+- `lib/plugins/types.ts`, `context.ts`, `host.ts` — plugin system
+- `lib/plugins/builtin/text-to-tasks/` — bundled text extraction plugin with ruleset support
+- `lib/services/jobs.ts` — enqueueJob, claimPendingJobs, markJobDone/Failed
+- `lib/services/scratchpad.ts` — CRUD + process + commit
+- `app/api/cron/drain/route.ts` — Vercel Cron drain (GET + POST)
+- `app/api/schedule/run/route.ts` — manual full-run trigger
+- `app/api/scratchpad/` — list, create, get, delete, process, commit routes
+- `app/api/plugins/` — list, get, patch routes
+- `app/api/calendars/sync/route.ts` — GCal calendar list sync
+- Schedule-on-write hook in task create/update handlers
+- Removed `@better-auth/infra` (was unused)
+- Fixed Zod v4 compatibility in plugin types (z.record requires explicit key type)
+
+**Decisions made:**
+- Vercel hobby plan daily cron: scratchpad commit self-triggers drain (fire-and-forget POST to /api/cron/drain) so batch-created tasks are scheduled immediately
+- GCalAdapter injected into runner.ts — no circular dep, fully testable without GCal mock
+
+**Files touched:** ~35 files created/modified
+
+**Tests added:** ~25
+
+**Next action:**
+- Session 5: Phase 2 frontend — dashboard, tasks, schedule, scratchpad, tags, views, settings routes under app/(app)/
+
+---
+
+## 2026-04-16 — Session 4 (parallel): Frontend — design system + all app routes
+
+**Goal for this session:** Build the full Phase 2 frontend — design tokens, app shell, all 7 page routes, TanStack Query hooks, and landing page.
+
+**Built:**
+- `app/globals.css` — Linear-inspired design system: `@theme` semantic tokens (`canvas`, `surface`, `surface-2/3`, `fg/fg-2/3/4`, `brand`, `accent/2`, `success`, `emerald`, `line/2`, `ghost/2/3`, `wire/2`), Inter Variable font, dark scrollbar, selection highlight
+- `app/layout.tsx` — Inter Variable font via `next/font/google` with `--font-inter` CSS variable
+- `lib/auth/client.ts` — Better Auth React client (`createAuthClient`)
+- `lib/hooks/types.ts` — Client-safe interfaces: `Tag`, `Task`, `TaskStatus`, `View`, `GoogleCalendar`
+- `lib/hooks/use-tasks.ts` — TanStack Query: `useTasks`, `useCreateTask`, `useUpdateTask`, `useDeleteTask`
+- `lib/hooks/use-tags.ts` — TanStack Query: `useTags`, `useCreateTag`, `useUpdateTag`, `useDeleteTag`
+- `lib/hooks/use-views.ts` — TanStack Query: `useViews`, `useCreateView`, `useUpdateView`, `useDeleteView`
+- `lib/hooks/use-calendars.ts` — TanStack Query: `useCalendars`, `useToggleCalendar`
+- `components/app/sidebar.tsx` — Left nav with icons (Dashboard, Tasks, Schedule, Scratchpad, Tags, Views, Settings), active state, user session display + sign-out
+- `app/(app)/layout.tsx` — Full app shell: auth guard + sidebar + content area
+- `app/(app)/dashboard/page.tsx` — Stats grid (pending/in-progress/scheduled/done), upcoming deadlines list, tags summary
+- `app/(app)/tasks/page.tsx` — Full task CRUD: filter tabs by status, task cards with status toggle/edit/delete, Framer Motion animated list, TaskModal with react-hook-form + Zod (title, description, priority, deadline, schedulable, duration, tag multi-select)
+- `app/(app)/tags/page.tsx` — Tag CRUD: inline create/edit forms with color picker (10 presets)
+- `app/(app)/views/page.tsx` — View CRUD: named views with inline create
+- `app/(app)/schedule/page.tsx` — Scheduled task list (sorted by scheduledAt), empty state with context
+- `app/(app)/scratchpad/page.tsx` — Text input + Extract Tasks button wired to `/api/scratchpad/process` (404 handled gracefully until backend is ready)
+- `app/(app)/settings/page.tsx` — Account info + GCal calendar toggle switches + LLM provider placeholder
+- `app/(marketing)/page.tsx` — Landing page with sign-in CTA via `authClient.signIn.social`
+
+**Decisions made:**
+- Zod `.default()` removed from form schemas — zodResolver v5 with Zod v4 infers `.default()` fields as optional in the resolver, causing type mismatches; defaults moved to `useForm`'s `defaultValues` instead
+- `oklch(100% 0 0 / N)` used for translucent white values in `@theme` (ghost/wire tokens) — oklch is Tailwind v4's native color space and handles alpha correctly
+- `'use client'` added to hook files — explicitly marks them as client-only, prevents accidental server imports
+- React Compiler warning on `form.watch()` accepted as known limitation of react-hook-form — doesn't affect runtime, just skips memoization on the TaskModal component
+
+**Files touched:** 18 files
+
+**Tests added:** 0 (UI components; test coverage in future session via webapp-testing or manual)
+
+**Next action:**
+- Session 5: `lib/gcal/` layer — auth.ts, calendars.ts, freebusy.ts, events.ts, errors.ts. Wire real `GCalAdapter` into runner.ts. Read `references/gcal-integration.md` first.
+
+---
+
 ## 2026-04-16 — Session 3: Scheduler pure-function pipeline
 
 **Goal for this session:** Build the full `lib/scheduler/` pipeline with unit tests.
