@@ -1,2 +1,55 @@
-node_modules
+# ---- Dependencies ----
+node_modules/
+.pnp
+.pnp.js
+
+# ---- Next.js build output ----
+.next/
+out/
+dist/
+build/
+
+# ---- Environment files ----
+# .env.example is safe (placeholder values only) and should be committed.
+# Everything else is ignored.
+.env
 .env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+
+# ---- TypeScript ----
+*.tsbuildinfo
+next-env.d.ts
+
+# ---- Drizzle ----
+# Generated migrations are committed; the local journal is not sensitive
+# but the client-side build artifacts are not needed.
+
+# ---- Testing ----
+coverage/
+.nyc_output/
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- Editors / IDEs ----
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ---- Vercel ----
+.vercel
+
+# ---- Misc ----
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
