@@ -1,0 +1,1 @@
+ALTER TABLE "google_calendars" ADD COLUMN "show_as_busy" boolean DEFAULT true NOT NULL;

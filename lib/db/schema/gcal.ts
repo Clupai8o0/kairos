@@ -36,6 +36,7 @@ export const googleCalendars = pgTable(
     name: text('name').notNull(),
     color: text('color'),
     selected: boolean('selected').notNull().default(false),
+    showAsBusy: boolean('show_as_busy').notNull().default(true),
     isPrimary: boolean('is_primary').notNull().default(false),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),

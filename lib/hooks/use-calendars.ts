@@ -25,10 +25,33 @@ export function useCalendarEvents(start: Date, end: Date) {
       apiFetch<CalendarEvent[]>(
         `/api/calendars/events?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`,
       ),
-    staleTime: 5 * 60 * 1000, // 5 min
+    staleTime: 5 * 60 * 1000,
   });
 }
 
+export function useSyncCalendars() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiFetch<GoogleCalendar[]>('/api/calendars/sync', { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: CALENDARS_KEY }),
+  });
+}
+
+export function useUpdateCalendar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...patch }: { id: string; selected?: boolean; showAsBusy?: boolean }) =>
+      apiFetch<GoogleCalendar>(`/api/calendars/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: CALENDARS_KEY }),
+  });
+}
+
+/** @deprecated use useUpdateCalendar */
 export function useToggleCalendar() {
   const qc = useQueryClient();
   return useMutation({

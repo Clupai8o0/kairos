@@ -50,7 +50,9 @@ export interface GoogleCalendar {
   googleAccountId: string;
   calendarId: string;
   name: string;
+  color: string | null;
   selected: boolean;
+  showAsBusy: boolean;
   createdAt: string;
   updatedAt: string;
 }

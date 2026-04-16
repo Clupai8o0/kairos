@@ -9,15 +9,19 @@ export async function listCalendars(userId: string): Promise<GoogleCalendar[]> {
   return db.select().from(googleCalendars).where(eq(googleCalendars.userId, userId));
 }
 
-export async function setCalendarSelected(
+export async function updateCalendar(
   userId: string,
   id: string,
-  selected: boolean,
+  patch: { selected?: boolean; showAsBusy?: boolean },
 ): Promise<GoogleCalendar | null> {
   const [row] = await db
     .update(googleCalendars)
-    .set({ selected, updatedAt: new Date() })
+    .set({ ...patch, updatedAt: new Date() })
     .where(and(eq(googleCalendars.id, id), eq(googleCalendars.userId, userId)))
     .returning();
   return row ?? null;
 }
+
+// Kept for backwards-compat with existing callers
+export const setCalendarSelected = (userId: string, id: string, selected: boolean) =>
+  updateCalendar(userId, id, { selected });

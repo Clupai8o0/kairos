@@ -8,6 +8,13 @@
       "when": 1776295417953,
       "tag": "0000_minor_synch",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776308654056,
+      "tag": "0001_eager_inertia",
+      "breakpoints": true
     }
   ]
 }

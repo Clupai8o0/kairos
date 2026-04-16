@@ -1,6 +1,6 @@
 'use client';
 
-import { useCalendars, useToggleCalendar } from '@/lib/hooks/use-calendars';
+import { useCalendars, useUpdateCalendar, useSyncCalendars } from '@/lib/hooks/use-calendars';
 import { usePlugins, useTogglePlugin } from '@/lib/hooks/use-plugins';
 import { authClient } from '@/lib/auth/client';
 import { useRouter } from 'next/navigation';
@@ -43,7 +43,8 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
 export default function SettingsPage() {
   const { data: calendars, isLoading: calsLoading } = useCalendars();
   const { data: plugins, isLoading: pluginsLoading } = usePlugins();
-  const toggleCalendar = useToggleCalendar();
+  const updateCalendar = useUpdateCalendar();
+  const syncCalendars = useSyncCalendars();
   const togglePlugin = useTogglePlugin();
   const { data: session } = authClient.useSession();
   const router = useRouter();
@@ -90,38 +91,77 @@ export default function SettingsPage() {
         {/* Calendars */}
         <Section
           title="Google Calendars"
-          description="Enable the calendars Kairos reads free/busy from and writes events to."
+          description="Choose which calendars Kairos shows and schedules around."
         >
+          <div className="flex justify-end mb-1">
+            <button
+              onClick={() => syncCalendars.mutate()}
+              disabled={syncCalendars.isPending}
+              className="flex items-center gap-1.5 text-xs font-[510] text-fg-3 hover:text-fg border border-wire hover:border-wire-2 px-2.5 py-1.5 rounded transition-colors disabled:opacity-50"
+            >
+              {syncCalendars.isPending ? (
+                <span className="w-3 h-3 border-2 border-wire border-t-accent rounded-full animate-spin" />
+              ) : (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9m-9 9a9 9 0 019-9" />
+                </svg>
+              )}
+              Sync from Google
+            </button>
+          </div>
+
           {calsLoading ? (
             <div className="space-y-2">
               {[...Array(2)].map((_, i) => (
-                <div key={i} className="h-12 bg-ghost rounded-lg animate-pulse" />
+                <div key={i} className="h-14 bg-ghost rounded-lg animate-pulse" />
               ))}
             </div>
           ) : calendars && calendars.length > 0 ? (
             calendars.map((cal) => (
               <div
                 key={cal.id}
-                className="flex items-center justify-between px-4 py-3 rounded-lg bg-ghost border border-wire-2"
+                className="flex items-center justify-between px-4 py-3 rounded-lg bg-ghost border border-wire-2 gap-4"
               >
-                <div>
-                  <p className="text-fg-2 text-sm font-[510]">{cal.name}</p>
-                  <p className="text-fg-4 text-xs">{cal.calendarId}</p>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: cal.color ?? '#5e6ad2' }}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-fg-2 text-sm font-[510] truncate">{cal.name}</p>
+                    <p className="text-fg-4 text-[11px] truncate">{cal.calendarId}</p>
+                  </div>
                 </div>
-                <Toggle
-                  checked={cal.selected}
-                  onChange={(v) => toggleCalendar.mutate({ id: cal.id, selected: v })}
-                  disabled={toggleCalendar.isPending}
-                />
+                <div className="flex items-center gap-4 shrink-0">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <span className="text-[11px] text-fg-4">Show</span>
+                    <Toggle
+                      checked={cal.selected}
+                      onChange={(v) => updateCalendar.mutate({ id: cal.id, selected: v })}
+                      disabled={updateCalendar.isPending}
+                    />
+                  </label>
+                  <label className={`flex items-center gap-1.5 ${cal.selected ? 'cursor-pointer' : 'opacity-40 pointer-events-none'}`}>
+                    <span className="text-[11px] text-fg-4">Busy</span>
+                    <Toggle
+                      checked={cal.showAsBusy}
+                      onChange={(v) => updateCalendar.mutate({ id: cal.id, showAsBusy: v })}
+                      disabled={updateCalendar.isPending || !cal.selected}
+                    />
+                  </label>
+                </div>
               </div>
             ))
           ) : (
             <div className="px-4 py-5 rounded-lg bg-ghost border border-wire-2 text-center">
-              <p className="text-fg-4 text-sm">No calendars connected.</p>
-              <p className="text-fg-4 text-xs mt-1">
-                Calendars sync after Google OAuth grants calendar access. Try visiting{' '}
-                <code className="text-accent text-[11px]">/api/calendars/sync</code>.
-              </p>
+              <p className="text-fg-4 text-sm mb-2">No calendars found.</p>
+              <button
+                onClick={() => syncCalendars.mutate()}
+                disabled={syncCalendars.isPending}
+                className="text-xs font-[510] text-accent hover:text-accent-2 transition-colors"
+              >
+                {syncCalendars.isPending ? 'Syncing…' : 'Sync from Google →'}
+              </button>
             </div>
           )}
         </Section>
