@@ -82,6 +82,18 @@ export interface Scratchpad {
   updatedAt: string;
 }
 
+export interface CalendarEvent {
+  id: string;
+  summary: string | null;
+  description: string | null;
+  start: string;
+  end: string;
+  calendarId: string;
+  calendarColor: string | null;
+  calendarName: string;
+  isAllDay: boolean;
+}
+
 export interface Plugin {
   name: string;
   version: string;

@@ -1,6 +1,6 @@
 'use client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { GoogleCalendar } from './types';
+import type { GoogleCalendar, CalendarEvent } from './types';
 
 const CALENDARS_KEY = ['calendars'] as const;
 
@@ -15,6 +15,17 @@ export function useCalendars() {
   return useQuery({
     queryKey: CALENDARS_KEY,
     queryFn: () => apiFetch<GoogleCalendar[]>('/api/calendars'),
+  });
+}
+
+export function useCalendarEvents(start: Date, end: Date) {
+  return useQuery({
+    queryKey: ['calendar-events', start.toISOString(), end.toISOString()],
+    queryFn: () =>
+      apiFetch<CalendarEvent[]>(
+        `/api/calendars/events?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`,
+      ),
+    staleTime: 5 * 60 * 1000, // 5 min
   });
 }
 
