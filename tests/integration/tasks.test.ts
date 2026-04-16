@@ -2,6 +2,9 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Mock global fetch to swallow fire-and-forget drain calls
+global.fetch = vi.fn().mockResolvedValue({} as Response);
+
 const MOCK_USER_ID = 'user-test-1';
 
 const MOCK_TASK = {
@@ -53,6 +56,7 @@ async function setupRouteModule(
     requireAuth: vi.fn().mockResolvedValue(authResult),
   }));
   vi.doMock('@/lib/services/tasks', () => tasksMock);
+  vi.doMock('@/lib/services/jobs', () => ({ enqueueJob: vi.fn().mockResolvedValue(null) }));
   return import(modulePath);
 }
 

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth } from '@/lib/auth/helpers';
 import { createTask, listTasks } from '@/lib/services/tasks';
+import { enqueueJob } from '@/lib/services/jobs';
 
 const CreateTaskSchema = z.object({
   title: z.string().min(1).max(500),
@@ -47,5 +48,19 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const task = await createTask(userId, parsed.data);
+
+  // Enqueue placement if task is schedulable, then self-trigger drain (fire-and-forget)
+  if (parsed.data.schedulable !== false) {
+    await enqueueJob('schedule:single-task', {
+      userId,
+      payload: { taskId: task.id },
+      idempotencyKey: `schedule:single-task:${task.id}`,
+    });
+    fetch(
+      new URL('/api/cron/drain', process.env.BETTER_AUTH_URL ?? 'http://localhost:3000').toString(),
+      { method: 'POST' },
+    ).catch(() => {/* fire-and-forget */});
+  }
+
   return NextResponse.json(task, { status: 201 });
 }

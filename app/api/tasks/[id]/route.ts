@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth } from '@/lib/auth/helpers';
 import { deleteTask, getTask, updateTask } from '@/lib/services/tasks';
+import { enqueueJob } from '@/lib/services/jobs';
 
 const UpdateTaskSchema = z.object({
   title: z.string().min(1).max(500).optional(),
@@ -45,6 +46,24 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const task = await updateTask(userId, id, parsed.data);
   if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  // Re-schedule if scheduling-related fields changed
+  const scheduleFields: (keyof typeof parsed.data)[] = [
+    'durationMins', 'deadline', 'priority', 'schedulable', 'bufferMins', 'isSplittable', 'dependsOn',
+  ];
+  const touchesSchedule = scheduleFields.some((f) => f in parsed.data);
+  if (touchesSchedule && parsed.data.schedulable !== false) {
+    await enqueueJob('schedule:single-task', {
+      userId,
+      payload: { taskId: id },
+      idempotencyKey: `schedule:single-task:${id}:${Date.now()}`,
+    });
+    fetch(
+      new URL('/api/cron/drain', process.env.BETTER_AUTH_URL ?? 'http://localhost:3000').toString(),
+      { method: 'POST' },
+    ).catch(() => {/* fire-and-forget */});
+  }
+
   return NextResponse.json(task);
 }
 
