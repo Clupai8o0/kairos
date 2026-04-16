@@ -42,13 +42,26 @@ function EventBlock({ top, height, color, label, sublabel, border }: EventBlockP
   );
 }
 
+// Skeleton event slots per day column (index 0 = Mon … 6 = Sun).
+// Positions are in fractional hours so weekends are intentionally sparse.
+const SKELETON_SLOTS = [
+  [{ hour: 9, h: 1 }, { hour: 14, h: 0.75 }],
+  [{ hour: 10, h: 0.5 }, { hour: 15, h: 1 }],
+  [{ hour: 9, h: 0.75 }, { hour: 11, h: 0.5 }, { hour: 14.5, h: 0.75 }],
+  [{ hour: 13, h: 1 }],
+  [{ hour: 9, h: 1.5 }, { hour: 14, h: 0.5 }],
+  [{ hour: 11, h: 0.5 }],
+  [],
+] as const;
+
 interface Props {
   weekStart: Date;
   tasks: Task[];
   events: CalendarEvent[];
+  isLoading?: boolean;
 }
 
-export function CalendarWeek({ weekStart, tasks, events }: Props) {
+export function CalendarWeek({ weekStart, tasks, events, isLoading = false }: Props) {
   const [now, setNow] = useState(() => new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -133,8 +146,24 @@ export function CalendarWeek({ weekStart, tasks, events }: Props) {
                   <div key={h} style={{ height: HOUR_PX }} className="border-b border-wire-2" />
                 ))}
 
+                {/* Loading skeleton */}
+                {isLoading && SKELETON_SLOTS[dayIdx].map((slot, si) => (
+                  <div
+                    key={si}
+                    style={{
+                      position: 'absolute',
+                      top: slot.hour * HOUR_PX,
+                      height: slot.h * HOUR_PX,
+                      left: 2,
+                      right: 2,
+                      zIndex: 2,
+                    }}
+                    className="rounded bg-surface-3 animate-pulse"
+                  />
+                ))}
+
                 {/* GCal events */}
-                {dayEvents.map((event) => {
+                {!isLoading && dayEvents.map((event) => {
                   const s = new Date(event.start);
                   const e = new Date(event.end);
                   const startMins = toMins(s);

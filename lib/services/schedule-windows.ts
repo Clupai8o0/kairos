@@ -28,22 +28,20 @@ export async function setScheduleWindows(
   userId: string,
   windows: WindowInput[],
 ): Promise<ScheduleWindowRow[]> {
-  return db.transaction(async (tx) => {
-    await tx.delete(scheduleWindows).where(eq(scheduleWindows.userId, userId));
+  await db.delete(scheduleWindows).where(eq(scheduleWindows.userId, userId));
 
-    if (windows.length === 0) return [];
+  if (windows.length === 0) return [];
 
-    return tx
-      .insert(scheduleWindows)
-      .values(
-        windows.map((w) => ({
-          id: newId(),
-          userId,
-          dayOfWeek: w.dayOfWeek,
-          startTime: w.startTime,
-          endTime: w.endTime,
-        })),
-      )
-      .returning();
-  });
+  return db
+    .insert(scheduleWindows)
+    .values(
+      windows.map((w) => ({
+        id: newId(),
+        userId,
+        dayOfWeek: w.dayOfWeek,
+        startTime: w.startTime,
+        endTime: w.endTime,
+      })),
+    )
+    .returning();
 }

@@ -37,7 +37,12 @@ export default function SchedulePage() {
   }, [weekStart]);
 
   const { data: tasks = [] } = useTasks({ status: 'scheduled' });
-  const { data: events = [] } = useCalendarEvents(weekStart, weekEnd);
+  const {
+    data: events = [],
+    isLoading: eventsLoading,
+    isFetching: eventsFetching,
+    refetch: refetchEvents,
+  } = useCalendarEvents(weekStart, weekEnd);
 
   function prevWeek() {
     setWeekStart((d) => { const n = new Date(d); n.setDate(n.getDate() - 7); return n; });
@@ -85,6 +90,28 @@ export default function SchedulePage() {
 
         <button
           onClick={() => {
+            const p = refetchEvents().then((result) => {
+              if (result.status === 'error') throw result.error;
+            });
+            toast.promise(p, {
+              loading: 'Refreshing calendar…',
+              success: 'Calendar updated',
+              error: (e) => (e as Error)?.message ?? 'Failed to refresh',
+            });
+          }}
+          disabled={eventsFetching}
+          className="flex items-center gap-1.5 text-xs font-[510] text-fg-3 hover:text-fg border border-wire hover:border-wire-2 px-2.5 py-1 rounded transition-colors disabled:opacity-40"
+          aria-label="Refresh calendar"
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M23 4v6h-6" /><path d="M1 20v-6h6" />
+            <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+          </svg>
+          Refresh
+        </button>
+
+        <button
+          onClick={() => {
             const p = runSchedule.mutateAsync();
             toast.promise(p, {
               loading: 'Scheduling tasks…',
@@ -103,7 +130,7 @@ export default function SchedulePage() {
 
       </header>
 
-      <CalendarWeek weekStart={weekStart} tasks={tasks} events={events} />
+      <CalendarWeek weekStart={weekStart} tasks={tasks} events={events} isLoading={eventsLoading} />
     </div>
   );
 }

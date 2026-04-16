@@ -25,7 +25,8 @@ export function useCalendarEvents(start: Date, end: Date) {
       apiFetch<CalendarEvent[]>(
         `/api/calendars/events?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`,
       ),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,   // treat as fresh for 5 min (no background refetch on revisit)
+    gcTime: 30 * 60 * 1000,     // keep cached data for 30 min after last subscriber
   });
 }
 
