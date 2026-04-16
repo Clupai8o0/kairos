@@ -1,36 +1,89 @@
-# Kairos — Claude Project Context
+# Kairos
 
-This bundle is the project knowledge for the Kairos rewrite. Drop every file in this folder into a new Claude chat project as project knowledge.
+**AI-native scheduling and task management.** Paste notes, emails, or ideas — Kairos extracts the tasks and automatically schedules them into your Google Calendar.
 
-## What Kairos is
-An AI-native scheduling and task management app. Tasks go in, the engine decides when they happen, Google Calendar reflects reality. Phase 3 onward becomes open source with a plugin marketplace.
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/kairos-app/kairos&env=DATABASE_URL,BETTER_AUTH_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET&envDescription=See%20.env.example%20for%20documentation&project-name=kairos&repository-name=kairos)
 
-## What this rewrite is for
-The previous build was a Python/FastAPI backend (`kairos-api`) plus a Next.js frontend (`kairos-app`) across two repos. It worked but suffered from: bloated services (scheduler at 973 lines, gcal_service at 1051), drift from locked decisions (a `Project` model still existed despite the tags-only ADR), hardcoded LLM calls inside service code, and two-repo coordination overhead.
+---
 
-The rewrite collapses everything into a **single Next.js 16 application on Vercel**. One TypeScript codebase handles frontend, API routes, background jobs, and the landing page. Total cost to operate: ~$1/mo (just the domain). Vercel + Neon free tiers cover the rest.
+## What it does
 
-Stack switch from Python to TypeScript happened because the original stack choice (ADR-001) was anchored in the Meta Back-End cert, which Sam is no longer pursuing. With that constraint dropped, the TypeScript-on-Vercel path is more efficient for a solo dev.
+- **Scratchpad** — paste any text; the bundled AI plugin extracts actionable tasks
+- **Schedule-on-write** — creating a task automatically finds its next available slot in your calendar
+- **Full re-schedule** — run a full optimisation pass that respects priorities, deadlines, and free/busy time
+- **Plugin-first** — the scratchpad routes through a plugin host; swap or extend without touching core code
+- **Theme system** — two built-in packs (dark + light); a marketplace with community packs arrives in phase 4
 
-## Read order
-1. `00-vision.md` — what Kairos is for, who it's for, what makes it different
-2. `01-rewrite-rationale.md` — why the old build failed, why the stack changed, what to keep, what to drop
-3. `02-architecture.md` — locked decisions, including the rewrite-specific ADR-R1..R13
-4. `03-data-model.md` — the slimmed-down entity model in Drizzle terms
-5. `04-phases.md` — phase 1 / 2 / 3 (open source) / 4 (marketplace)
-6. `05-plugin-system.md` — how plugins, scratchpad rulesets, and custom memory work
-7. `06-design-system.md` — placeholder; design system intentionally deferred
-8. `07-landing-page.md` — landing page brief; lives in the same Next.js app
-9. `08-tech-stack.md` — the full stack (Next.js, Drizzle, Better Auth, Vercel AI SDK, etc.)
-10. `09-working-style.md` — how Sam works with Claude on this project
-11. `10-claude-code-workflow.md` — how to use Claude Code effectively for the rewrite
-12. `11-hosting-and-monetisation.md` — Vercel + Neon hosting, hosted/self-host split, BYO LLM model
+## Stack
 
-## Suggested project system prompt
-> You are assisting Sam on the Kairos rewrite — an AI-native scheduling and task management app being rebuilt as a single Next.js 16 application on Vercel. The previous Python/FastAPI build is being replaced. Read `01-rewrite-rationale.md` and `02-architecture.md` before proposing anything structural. Stay in the layer Sam is currently at (vision → architecture → implementation) and don't jump ahead. Direct, concise, no fluff. Em dashes without spaces. Respect locked decisions: tags-only (no Project entity), Google Calendar as sole source of truth for time, single Next.js app for everything, schedule-on-write, plugin-first scratchpad, BYO LLM keys via the AI SDK abstraction. Don't propose speculative features for V1. When proposing code, prefer deletion over addition — the rewrite exists because the old build was too big. Verify current information (hosting prices, library versions, free tiers) via web search before recommending — these change constantly.
+Next.js 16 · TypeScript strict · Tailwind v4 · Drizzle + Postgres · Better Auth · Vercel AI SDK · TanStack Query · Framer Motion · GSAP
 
-## Migration from the old build
-- **Code:** not ported. Rebuilt from spec. The old Python files are reference material when the spec is unclear, not source for translation.
-- **Data:** not migrated. Clean slate. Old build's data is dev/test data; nothing to preserve.
-- **Old repos:** archived on GitHub (read-only), kept for reference, not actively maintained.
-- **Reference docs from the old build:** the algorithmic and behavioural ones (`scheduling-engine.md`, `testing.md`, `gcal-integration.md`, `data-model.md`, `api-contract.md`) are language-independent and carry forward into the new repo's `references/` folder, with a banner noting the implementation language has changed.
+---
+
+## Self-host with Docker
+
+```bash
+git clone https://github.com/kairos-app/kairos
+cd kairos
+cp .env.example .env.local
+# Fill in BETTER_AUTH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and LLM keys
+docker compose up
+```
+
+The `docker compose up` command starts the Next.js app on port 3000 and a Postgres 16 instance. Migrations run automatically on startup.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full local dev setup (without Docker).
+
+---
+
+## Deploy to Vercel
+
+Click the button above, or:
+
+1. Fork this repo
+2. Create a Neon project at [neon.tech](https://neon.tech) (free tier)
+3. Import the repo in Vercel and set the environment variables from `.env.example`
+4. Run `pnpm db:migrate` against your Neon database once (or let the first request trigger it)
+
+---
+
+## Environment variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | Yes | Postgres connection string |
+| `BETTER_AUTH_SECRET` | Yes | Random secret — `openssl rand -base64 32` |
+| `BETTER_AUTH_URL` | Yes | App origin, e.g. `https://yourdomain.com` |
+| `GOOGLE_CLIENT_ID` | Yes | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth client secret |
+| `LLM_PROVIDER` | No | `openai` (default) · `anthropic` · `ollama` |
+| `LLM_MODEL` | No | Model ID for the chosen provider |
+| `OPENAI_API_KEY` | LLM=openai | OpenAI API key |
+| `ANTHROPIC_API_KEY` | LLM=anthropic | Anthropic API key |
+| `OLLAMA_URL` | LLM=ollama | Ollama base URL |
+| `KAIROS_MODE` | No | `self-hosted` (default) · `hosted` |
+
+---
+
+## Architecture
+
+```
+app/api/          → Route handlers (thin — parse, auth, delegate)
+lib/services/     → Business logic
+lib/scheduler/    → Pure-function scheduling pipeline (urgency, slots, placement, splitting)
+lib/gcal/         → Google Calendar modules (auth, events, free/busy)
+lib/plugins/      → Plugin host + bundled text-to-tasks plugin
+lib/llm/          → Vercel AI SDK abstraction (OpenAI / Anthropic / Ollama)
+```
+
+Locked decisions: tags-only taxonomy (no `Project` entity), Google Calendar as the only time store, schedule-on-write for single tasks, plugin-first scratchpad. See `references/architecture-decisions.md`.
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+MIT — see [LICENSE](LICENSE).

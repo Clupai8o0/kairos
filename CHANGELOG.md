@@ -8,55 +8,38 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 
 ## Current State
 
-**Phase:** 1 — Foundations (in progress)
+**Phase:** 3 — Open source (in progress).
 
-### Built
-- [x] `pnpm create next-app` baseline with TypeScript strict + Tailwind v4 + App Router
-- [x] ESLint config with custom rules (ban `Project`/`projectId`, ban direct LLM provider imports)
-- [x] Drizzle setup + Neon connection
-- [x] Better Auth + Google OAuth (one flow grants app login + GCal scopes)
-- [x] Drizzle schema for: `users`, `tasks`, `tags`, `taskTags`, `views`, `googleAccounts`, `googleCalendars`, `blackoutDays`, `scheduleWindows`, `jobs`, plus Better Auth tables
-- [ ] Initial migration applied to a fresh DB
-- [x] Smoke-test route handler at `/api/health`
-- [x] Vitest + msw setup with one passing test
-- [x] Tasks CRUD (route handlers + service + tests)
-- [x] Tags CRUD
-- [x] Views CRUD
-- [x] Calendar list/select endpoint
-- [x] Marketing route group scaffolded with placeholder landing page
-- [x] App route group scaffolded with placeholder dashboard behind Better Auth
-- [ ] Vercel preview deploys working from PRs
-- [ ] Production deploy from main working
-- [ ] Phase 1 definition-of-done met
+### Phase 2 complete — what's built
+- [x] Full backend: scheduler pipeline, GCal layer, plugin host, scratchpad, jobs queue
+- [x] Full frontend: all 7 app routes wired to real APIs via TanStack Query
+- [x] Theme system: 2 built-in packs (obsidian-linear + morning-light), server-side `data-theme` injection (no FOUC), Cmd+K palette switcher, Settings→Appearance picker
+- [x] `no-raw-colors` ESLint rule active — 0 errors, 2 pre-existing warnings (RHF/React Compiler, test unused var)
+- [x] `useRunSchedule` hook + "Run schedule" button in schedule page header + command palette entry
+- [x] `compileManifest` snapshot test + 16 theme unit+integration tests
+- [x] All deprecated exports removed (`useToggleCalendar`)
 
 ### Active decisions (pending promotion to ADRs)
-*(none yet)*
+- Default pack defines tokens in Tailwind `@theme {}` block; additional packs override under `[data-theme="<id>"]` CSS selectors — no JS required for switching, pure CSS cascade
+- Theme switch flow: `PATCH /api/me/theme` → page reload → server reads `activeThemeId` → injects `data-theme` on `<html>` before paint
 
-### Known issues
-*(none yet)*
+### Known issues / blockers
+- Lighthouse perf score not yet measured (needs live deploy)
+- `vercel.json` cron still set to daily at midnight UTC (hobby plan; scratchpad commit self-triggers drain for immediacy)
 
-### Blocked on
-*(nothing — first session can start)*
+### Phase 3 progress
+- [x] MIT license
+- [x] `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue + PR templates
+- [x] Vercel one-click deploy button in README
+- [x] Docker self-host: `docker-compose.yml` + `Dockerfile` + `output: 'standalone'`
+- [x] Landing page: hero, features, how-it-works, self-host section, footer (GSAP animations)
+- [ ] Plugin SDK: `@kairos/plugin-sdk` npm package
+- [ ] Docs at `app/(marketing)/docs/` (including theme-pack authoring guide)
+- [ ] Public GitHub repo set to public
+- [ ] `v1.0.0` release tag
 
 ### Next concrete action
-**Session 4** — GCal layer. Build `lib/gcal/` (auth.ts, calendars.ts, freebusy.ts, events.ts, errors.ts), then wire the real `GCalAdapter` into `runner.ts`. Read `references/gcal-integration.md` first (create it if missing).
-
----
-*(old Session 1 next-action, kept for reference)*
-
-**Session 1** — see `references/migration-from-old-build.md` "Order of operations":
-1. `pnpm create next-app kairos --typescript --tailwind --app --src-dir=false --import-alias="@/*"`
-2. Add ESLint custom rules
-3. Install Drizzle + drizzle-kit + `@neondatabase/serverless`
-4. Install Better Auth + Drizzle adapter
-5. Set up Neon project (free tier) and add `DATABASE_URL` to `.env.local`
-6. Set up Google Cloud OAuth credentials with both `email`/`profile` and `https://www.googleapis.com/auth/calendar` scopes
-7. Write Drizzle schema for `users`, `tasks`, `tags`, `taskTags`, plus Better Auth's required tables
-8. Generate + apply the first migration
-9. Add a `/api/health` route handler that confirms DB connectivity
-10. Push to GitHub, hook up Vercel, confirm preview deploys
-
-Session 2 starts with the Tasks CRUD route handlers + service + tests.
+**Phase 3 remaining** — Plugin SDK package + docs site structure. Then tag v1.0.0 once deployed to kairos.app.
 
 ---
 
@@ -88,6 +71,62 @@ Append new entries at the top. Use the template below.
 ---
 
 ## Sessions
+
+## 2026-04-16 — Session 9: Phase 3 open-source foundations — landing page, Docker, license, contribution docs
+
+**Goal for this session:** Phase 3 open-source foundations — proper landing page, Docker self-host, MIT license, CONTRIBUTING.md, PR/issue templates.
+
+**Built:**
+- `app/(marketing)/page.tsx` — full landing page: sticky nav, hero with GSAP entrance animation, 6-feature grid, 3-step how-it-works, self-host callout with CLI snippet, footer; scroll-reveal on features/steps/callout via ScrollTrigger
+- `docker-compose.yml` — self-host stack: Next.js app + Postgres 16 with health check, all env vars from `.env.example`
+- `Dockerfile` — multi-stage (deps → builder → runner), Node 22 Alpine, standalone output
+- `next.config.ts` — `output: 'standalone'` for Docker compatibility (Vercel ignores this)
+- `LICENSE` — MIT, year 2026, Kairos Contributors
+- `README.md` — proper public README: description, Vercel one-click deploy button, Docker setup, env var table, architecture overview
+- `CONTRIBUTING.md` — prerequisites, local setup, Google OAuth setup, dev commands, architecture rules, PR process
+- `CODE_OF_CONDUCT.md` — Contributor Covenant 2.1 adaptation
+- `.github/ISSUE_TEMPLATE/bug_report.md` + `feature_request.md`
+- `.github/pull_request_template.md`
+
+**Decisions made:**
+- MIT license (not Apache-2.0) — simpler, less friction for contributors
+- `output: 'standalone'` always enabled in next.config.ts — Vercel ignores it, Docker uses it
+- GitHub org/repo name assumed: `kairos-app/kairos`
+
+**Files touched:** 10
+
+**Tests added:** 0
+
+**Next action:**
+- Make GitHub repo public (set to public via GitHub settings)
+- Phase 3 remaining: Plugin SDK (`@kairos/plugin-sdk`) + docs under `app/(marketing)/docs/`
+
+---
+
+## 2026-04-16 — Session 8: Phase 2 completion — raw-color fixes, schedule hook, command palette cleanup
+
+**Goal for this session:** Close all remaining Phase 2 gaps: fix raw-color ESLint violations, wire schedule run, fix command-palette lint, clean up deprecated hooks, update tracking docs.
+
+**Built:**
+- Fixed all raw-color violations across component files (`tags/page.tsx`, `settings/page.tsx`, `settings/appearance/page.tsx`, `views/page.tsx`) — all hex literals and raw Tailwind utilities replaced with semantic tokens
+- `lib/hooks/use-schedule.ts` — `useRunSchedule()` mutation for `POST /api/schedule/run`
+- `app/(app)/schedule/page.tsx` — "Run schedule" button in header with `toast.promise`; removed unused `eventsLoading` variable
+- `components/app/command-palette.tsx` — "Run full schedule" command; fixed lint: moved `setActiveIdx(0)` from `useEffect` into `onChange`; ternary expressions → `if` statements
+- `app/(app)/views/page.tsx` — `deleteView.mutate()` → `deleteView.mutateAsync()` with `toast.promise`
+- `lib/hooks/use-calendars.ts` — removed deprecated `useToggleCalendar` (unused; `useUpdateCalendar` covers the same functionality)
+- `TODO.md` + `CHANGELOG.md` — ticked off all completed Phase 2 items; updated Current State to Phase 2 complete
+
+**Decisions made:**
+- No new ADRs; existing ADR-R1–R13 remain valid
+
+**Files touched:** 9
+
+**Tests added:** 0
+
+**Next action:**
+- Phase 3: open-source foundations — license, CONTRIBUTING.md, Vercel one-click deploy, Docker self-host verification, landing page content
+
+---
 
 ## 2026-04-16 — Session 7: Phase 2 frontend — theme system UI
 

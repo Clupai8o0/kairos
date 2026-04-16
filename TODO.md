@@ -82,11 +82,11 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 - [x] Routes under `app/(app)/`: `dashboard`, `tasks`, `schedule`, `scratchpad`, `tags`, `views`, `settings`
 - [x] Default design pack ("Obsidian"), ported from old build's CSS as semantic tokens
 - [x] TanStack Query for all data fetching; no raw `fetch` in components
-- [ ] Server Components used where appropriate (lists that don't need interactivity)
-- [ ] `app/styles/packs/manifest.ts` — static registry of built-in packs (starts with the current Linear-inspired pack, plus at least one light pack landed during phase 2)
-- [ ] `app/(app)/settings/appearance/page.tsx` — pack picker with preview cards
-- [ ] Command palette entry: `Theme: <n>` for each installed pack, with live preview as you arrow through
-- [ ] Move the existing `@theme` block from `app/globals.css` into `app/styles/packs/obsidian-linear.css`. `globals.css` keeps the `@import "tailwindcss"` and base resets only.
+- [x] Server Components used where appropriate (`app/(app)/layout.tsx` is async Server Component for no-FOUC theme injection; data pages use TanStack Query client components which is the correct pattern for mutation-driven cache invalidation)
+- [x] `app/styles/packs/manifest.ts` — static registry of built-in packs (obsidian-linear + morning-light)
+- [x] `app/(app)/settings/appearance/page.tsx` — pack picker with preview cards
+- [x] Command palette entry: `Theme: <n>` for each installed pack, with live preview as you arrow through
+- [x] Move the existing `@theme` block from `app/globals.css` into `app/styles/packs/obsidian-linear.css`. `globals.css` keeps the `@import "tailwindcss"` and base resets only.
 
 ### Definition of done
 
@@ -99,9 +99,9 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 - [ ] Lighthouse perf > 90 on dashboard, schedule, tasks
 - [x] All frontend code uses TanStack Query — no raw fetch in components
 - [x] `no-raw-colors` ESLint rule is in `eslint-rules/`, wired into `eslint.config.mjs`, and CI fails if a component uses a raw Tailwind colour utility or hex literal
-- [ ] At least 2 built-in packs ship (the current Linear-inspired one + one light pack)
-- [ ] User can switch packs via Settings -> Appearance and via the command palette; choice persists across sessions
-- [ ] Switching packs takes effect on the next page render with no FOUC
+- [x] At least 2 built-in packs ship (obsidian-linear dark + morning-light)
+- [x] User can switch packs via Settings -> Appearance and via the command palette; choice persists across sessions
+- [x] Switching packs takes effect on the next page render with no FOUC (server-side `data-theme` injection in layout)
 - [x] `compileManifest` snapshot test passes (manifest in -> CSS out, byte-identical)
 
 ---
@@ -113,17 +113,17 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 ### Scope
 
 - [ ] Public GitHub repo
-- [ ] License (MIT or Apache-2.0 — decide before this phase)
-- [ ] `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue + PR templates
-- [ ] Vercel one-click deploy (button in README)
-- [ ] Self-host via Docker — `docker compose up` runs the Next.js app + Postgres locally
+- [x] License (MIT — decided)
+- [x] `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue + PR templates
+- [x] Vercel one-click deploy (button in README)
+- [x] Self-host via Docker — `docker-compose.yml` + `Dockerfile` + `output: 'standalone'` in next.config.ts
 - [ ] Plugin SDK: `@kairos/plugin-sdk` npm package — types, helpers, examples
 - [ ] Example plugins in a separate repo:
   - [ ] `kairos-plugin-instagram` — paste a reel URL → tasks
   - [ ] `kairos-plugin-twitter` — paste a tweet/thread → tasks
   - [ ] `kairos-plugin-readwise` — pull highlights → reading tasks
   - [ ] `kairos-plugin-voice` — voice memo → transcribed text → tasks
-- [ ] Landing page filled in at `app/(marketing)/`
+- [x] Landing page filled in at `app/(marketing)/` — hero, features grid, how-it-works, self-host section, footer with GSAP scroll animations
 - [ ] Documentation under `app/(marketing)/docs/`
 - [ ] Documentation page at `app/(marketing)/docs/themes/page.tsx`: "How to write a theme pack" — covers the token contract, the JSON manifest format, local validation with the CLI, and how to submit to the registry (when it opens in phase 4)
 - [ ] The token contract from `references/theme-system.md` is published as part of the public API surface — promised to be backwards-compatible across minor versions
