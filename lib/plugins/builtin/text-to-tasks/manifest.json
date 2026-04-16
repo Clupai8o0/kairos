@@ -1,0 +1,8 @@
+{
+  "name": "text-to-tasks",
+  "version": "1.0.0",
+  "displayName": "Text to Tasks",
+  "description": "Extracts actionable tasks from plain text using your configured LLM.",
+  "author": "Kairos",
+  "handlesInputTypes": ["text"]
+}

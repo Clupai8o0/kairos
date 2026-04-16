@@ -6,7 +6,7 @@ export const ScratchpadInputSchema = z.object({
   userId: z.string(),
   inputType: z.enum(['text', 'url', 'share', 'voice', 'file']),
   content: z.string(),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
   createdAt: z.date(),
 });
 
@@ -17,14 +17,14 @@ export const CandidateTaskSchema = z.object({
   deadline: z.date().nullable().optional(),
   priority: z.number().int().min(1).max(4).default(3),
   tags: z.array(z.string()).default([]),
-  sourceMetadata: z.record(z.unknown()).default({}),
+  sourceMetadata: z.record(z.string(), z.unknown()).default({}),
 });
 
 export const ParseResultSchema = z.object({
   pluginName: z.string(),
   pluginVersion: z.string(),
   tasks: z.array(CandidateTaskSchema),
-  rawOutput: z.record(z.unknown()),
+  rawOutput: z.record(z.string(), z.unknown()),
   warnings: z.array(z.string()).default([]),
 });
 
