@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import { headers } from 'next/headers';
 import './globals.css';
 import { Providers } from '@/components/providers';
+import { auth } from '@/lib/auth';
+import { resolveUserTheme } from '@/lib/themes/runtime';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -14,9 +17,21 @@ export const metadata: Metadata = {
   description: 'AI-native scheduling and task management',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Resolve theme server-side so data-theme is in the initial HTML — no FOUC.
+  let themeId = 'obsidian-linear';
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (session?.user?.id) {
+      const resolved = await resolveUserTheme(session.user.id);
+      themeId = resolved.kind === 'builtin' ? resolved.id : 'obsidian-linear';
+    }
+  } catch {
+    // Auth/DB failure — fall back to default theme
+  }
+
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={inter.variable} data-theme={themeId}>
       <body>
         <Providers>{children}</Providers>
       </body>

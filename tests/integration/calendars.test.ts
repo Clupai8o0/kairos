@@ -64,7 +64,7 @@ describe('PATCH /api/calendars/:id', () => {
   it('selects calendar and returns updated', async () => {
     const { PATCH } = await setupItemRoute(
       { userId: MOCK_USER_ID },
-      { listCalendars: vi.fn(), setCalendarSelected: vi.fn().mockResolvedValue({ ...MOCK_CALENDAR, selected: true }) },
+      { listCalendars: vi.fn(), setCalendarSelected: vi.fn(), updateCalendar: vi.fn().mockResolvedValue({ ...MOCK_CALENDAR, selected: true }) },
     );
     const res = await PATCH(
       req('http://localhost/api/calendars/cal-1', { method: 'PATCH', body: { selected: true } }),
@@ -76,7 +76,7 @@ describe('PATCH /api/calendars/:id', () => {
   });
 
   it('returns 400 when selected field is missing', async () => {
-    const { PATCH } = await setupItemRoute({ userId: MOCK_USER_ID }, { listCalendars: vi.fn(), setCalendarSelected: vi.fn() });
+    const { PATCH } = await setupItemRoute({ userId: MOCK_USER_ID }, { listCalendars: vi.fn(), setCalendarSelected: vi.fn(), updateCalendar: vi.fn() });
     const res = await PATCH(
       req('http://localhost/api/calendars/cal-1', { method: 'PATCH', body: {} }),
       { params: Promise.resolve({ id: 'cal-1' }) },
@@ -85,7 +85,7 @@ describe('PATCH /api/calendars/:id', () => {
   });
 
   it('returns 404 when calendar not found', async () => {
-    const { PATCH } = await setupItemRoute({ userId: MOCK_USER_ID }, { listCalendars: vi.fn(), setCalendarSelected: vi.fn().mockResolvedValue(null) });
+    const { PATCH } = await setupItemRoute({ userId: MOCK_USER_ID }, { listCalendars: vi.fn(), setCalendarSelected: vi.fn(), updateCalendar: vi.fn().mockResolvedValue(null) });
     const res = await PATCH(
       req('http://localhost/api/calendars/ghost', { method: 'PATCH', body: { selected: true } }),
       { params: Promise.resolve({ id: 'ghost' }) },

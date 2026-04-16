@@ -89,6 +89,79 @@ Append new entries at the top. Use the template below.
 
 ## Sessions
 
+## 2026-04-16 — Session 7: Phase 2 frontend — theme system UI
+
+**Goal for this session:** Complete the Phase 2 frontend TODOs: CSS pack split, appearance page, command palette, layout data-theme injection.
+
+**Built:**
+- `app/styles/packs/obsidian-linear.css` — @theme block moved here; added missing required tokens (`--color-accent-hover`, `--color-line-subtle`, `--color-warning`, `--color-danger`, `--radius-*`)
+- `app/styles/packs/morning-light.css` — second built-in pack (light theme), scoped under `[data-theme="morning-light"]`
+- `app/styles/packs/manifest.ts` — static `BUILT_IN_PACKS` registry + `DEFAULT_PACK_ID`
+- `app/globals.css` — now: `@import tailwindcss` + pack imports + semantic-var body/scrollbar resets; no raw hex
+- `app/api/me/theme/route.ts` — `PATCH /api/me/theme` (validates against `BUILT_IN_PACKS`, updates `users.activeThemeId`)
+- `lib/hooks/use-theme.ts` — `useSetTheme` mutation; reloads page on success for FOUC-free switch
+- `app/(app)/settings/appearance/page.tsx` — pack picker with mini preview swatches per pack
+- `app/(app)/settings/page.tsx` — Appearance section linking to /settings/appearance
+- `components/app/command-palette.tsx` — Cmd+K palette: nav commands + `Theme: <n>` entries; live CSS-var preview on hover/arrow; reverts on escape
+- `app/(app)/layout.tsx` — `CommandPalette` mounted in app shell
+- `app/layout.tsx` — server-side `resolveUserTheme` → `data-theme` on `<html>` (no FOUC)
+- `components/app/sidebar.tsx` — settings active state covers all `/settings/*`
+- `drizzle/0002_active_theme.sql` (duplicate) — removed; `0002_rich_the_hand.sql` from parallel session is canonical
+- `tests/unit/themes/types.test.ts` — fixed TS error: `VALID` typed as `ThemeManifest` not `Parameters<...>[0]`
+
+**Decisions made:**
+- Default pack (`obsidian-linear`) defines tokens in `@theme {}` (Tailwind-native); additional packs override the same CSS custom properties under `[data-theme="<id>"]` — no JS needed for theme switch, pure CSS cascade
+- On theme switch: `useSetTheme` → `PATCH /api/me/theme` → page reload — `data-theme` is set server-side, zero FOUC
+- Command palette live preview: temporarily sets `document.documentElement.dataset.theme`, stores original in `data-theme-original`, reverts on escape/close
+
+**Files touched:** 13
+
+**Tests:** 157 passing (1 TS error fixed in existing test)
+
+**Phase 2 DoD — theme items now complete:**
+- [x] At least 2 built-in packs
+- [x] Pack switcher via Settings→Appearance and Cmd+K palette
+- [x] Choice persists across sessions (DB)
+- [x] No FOUC on switch (server-side injection)
+- [x] `no-raw-colors` ESLint rule active
+- [x] `compileManifest` snapshot test passing
+
+**Next action:**
+- Run `pnpm db:migrate` to apply `0002_rich_the_hand.sql` to the live DB
+- Verify on Vercel preview deploy
+
+---
+
+## 2026-04-16 — Session 6: Phase 2 backend — theme system
+
+**Goal for this session:** Complete the remaining Phase 2 backend items: theme lib, ESLint rule, migration, route, tests.
+
+**Built:**
+- `lib/themes/types.ts` — `ThemeManifestSchema` + `ThemeManifest` type (Zod v4; required 20-token contract + catchall for optional tokens)
+- `lib/themes/compile.ts` — pure `compileManifest()` (manifest → CSS string, no IO)
+- `lib/themes/runtime.ts` — `resolveUserTheme()` (DB lookup → built-in or marketplace reference; phase 4 adds marketplace path)
+- `lib/db/schema/auth.ts` — `activeThemeId` column added to `user` table (default: `'obsidian-linear'`)
+- `drizzle/0002_rich_the_hand.sql` — migration: `ALTER TABLE "user" ADD COLUMN "active_theme_id" text DEFAULT 'obsidian-linear' NOT NULL`
+- `eslint-rules/no-raw-colors.js` — bans raw Tailwind colour utilities, hex literals, and colour functions in component files; `app/styles/packs/` and `lib/themes/compiled/` are exempt
+- `eslint.config.mjs` — wired `no-raw-colors` rule as `'error'`
+- `tests/unit/themes/compile.test.ts` — 4 tests (snapshot + font imports + no-import path)
+- `tests/unit/themes/types.test.ts` — 8 tests (valid, missing required token, bad color, bad version, bad id, extra optional tokens)
+- `tests/integration/me-theme.test.ts` — 4 tests (known pack, default pack, unknown pack 400, missing themeId 400)
+- Fixed pre-existing `tests/integration/calendars.test.ts` failure: mock was missing `updateCalendar` after service was refactored
+
+**Decisions made:**
+- `lib/themes/runtime.ts` phase-2 only returns `{ kind: 'builtin' }` — phase 4 will add `themeInstalls` lookup
+- Theme pack validation in `PATCH /api/me/theme` is against `BUILT_IN_PACKS` registry (not just regex) to prevent setting unknown pack ids
+
+**Files touched:** 11 created/modified
+
+**Tests added:** 16 (all 157 tests pass)
+
+**Next action:**
+- Phase 2 frontend completion: settings/appearance page, command palette theme switcher, layout injects `data-theme` from `resolveUserTheme`
+
+---
+
 ## 2026-04-16 — Session 4: Phase 2 backend
 
 **Goal for this session:** Build the full Phase 2 backend — GCal layer, LLM abstraction, plugin system, job queue, scratchpad, and related routes.

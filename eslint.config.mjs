@@ -8,6 +8,7 @@ const require = createRequire(import.meta.url);
 
 const noProjectEntity = require('./eslint-rules/no-project-entity.js');
 const noLlmProviderImports = require('./eslint-rules/no-llm-provider-imports.js');
+const noRawColors = require('./eslint-rules/no-raw-colors.js');
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -26,12 +27,14 @@ const eslintConfig = defineConfig([
         rules: {
           'no-project-entity': noProjectEntity,
           'no-llm-provider-imports': noLlmProviderImports,
+          'no-raw-colors': noRawColors,
         },
       },
     },
     rules: {
       'kairos/no-project-entity': 'error',
       'kairos/no-llm-provider-imports': 'error',
+      'kairos/no-raw-colors': 'error',
     },
   },
 ]);

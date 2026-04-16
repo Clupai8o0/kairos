@@ -71,11 +71,11 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 - [x] `app/api/plugins` routes — list installed, configure, enable/disable
 - [x] Schedule-on-write hook in the `tasks` POST/PATCH handlers — enqueues a `schedule:single-task` job
 - [x] `vercel.json` cron config: `/api/cron/drain` daily at midnight UTC (hobby plan limitation — single-task placement is inline, batch placement self-triggers drain)
-- [ ] `lib/themes/types.ts` — Zod schemas for `ThemeManifestSchema` and the required token contract
-- [ ] `lib/themes/compile.ts` — pure function that turns a JSON manifest into a CSS string (snapshot-tested)
-- [ ] `lib/themes/runtime.ts` — server-side helper to resolve a user's `activeThemeId` to either a built-in CSS file or a compiled marketplace pack
-- [ ] `app/api/me/theme/route.ts` — `PATCH` to update `users.activeThemeId`
-- [ ] Drizzle migration: `ALTER TABLE users ADD COLUMN active_theme_id text NOT NULL DEFAULT 'obsidian-linear'`
+- [x] `lib/themes/types.ts` — Zod schemas for `ThemeManifestSchema` and the required token contract
+- [x] `lib/themes/compile.ts` — pure function that turns a JSON manifest into a CSS string (snapshot-tested)
+- [x] `lib/themes/runtime.ts` — server-side helper to resolve a user's `activeThemeId` to either a built-in CSS file or a compiled marketplace pack
+- [x] `app/api/me/theme/route.ts` — `PATCH` to update `users.activeThemeId`
+- [x] Drizzle migration: `ALTER TABLE users ADD COLUMN active_theme_id text NOT NULL DEFAULT 'obsidian-linear'`
 
 ### Frontend
 
@@ -98,11 +98,11 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 - [x] Vitest unit tests cover all scheduler pure-function modules; integration tests cover the route handlers
 - [ ] Lighthouse perf > 90 on dashboard, schedule, tasks
 - [x] All frontend code uses TanStack Query — no raw fetch in components
-- [ ] `no-raw-colors` ESLint rule is in `eslint-rules/`, wired into `eslint.config.mjs`, and CI fails if a component uses a raw Tailwind colour utility or hex literal
+- [x] `no-raw-colors` ESLint rule is in `eslint-rules/`, wired into `eslint.config.mjs`, and CI fails if a component uses a raw Tailwind colour utility or hex literal
 - [ ] At least 2 built-in packs ship (the current Linear-inspired one + one light pack)
 - [ ] User can switch packs via Settings -> Appearance and via the command palette; choice persists across sessions
 - [ ] Switching packs takes effect on the next page render with no FOUC
-- [ ] `compileManifest` snapshot test passes (manifest in -> CSS out, byte-identical)
+- [x] `compileManifest` snapshot test passes (manifest in -> CSS out, byte-identical)
 
 ---
 

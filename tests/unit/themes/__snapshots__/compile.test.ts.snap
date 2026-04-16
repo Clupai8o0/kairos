@@ -1,0 +1,27 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`compileManifest > matches snapshot (byte-identical) 1`] = `
+"@theme {
+  --color-canvas: #08090a;
+  --color-surface: #0f1011;
+  --color-surface-2: #191a1b;
+  --color-surface-3: #28282c;
+  --color-fg: #f7f8f8;
+  --color-fg-2: #d0d6e0;
+  --color-fg-3: #8a8f98;
+  --color-fg-4: #62666d;
+  --color-accent: #7170ff;
+  --color-accent-hover: #8585ff;
+  --color-line: #23252a;
+  --color-line-subtle: #34343a;
+  --color-success: #27a644;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --font-sans: Inter, sans-serif;
+  --font-mono: monospace;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+}
+"
+`;

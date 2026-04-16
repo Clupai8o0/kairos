@@ -13,7 +13,7 @@ import {
 import type { Scratchpad, CandidateTask } from '@/lib/hooks/types';
 
 const PRIORITY_LABEL = ['', 'Urgent', 'High', 'Normal', 'Low'] as const;
-const PRIORITY_COLOR = ['', 'text-red-400', 'text-orange-400', 'text-fg-3', 'text-fg-4'] as const;
+const PRIORITY_COLOR = ['', 'text-danger', 'text-warning', 'text-fg-3', 'text-fg-4'] as const;
 
 type Step = 'input' | 'preview' | 'done';
 
@@ -81,7 +81,7 @@ function PastScratchpad({ pad, onReopen }: { pad: Scratchpad; onReopen: (p: Scra
         )}
         <button
           onClick={() => deletePad.mutate(pad.id)}
-          className="p-1 text-fg-4 hover:text-red-400 transition-colors"
+          className="p-1 text-fg-4 hover:text-danger transition-colors"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="3,6 5,6 21,6" /><path d="M19 6l-1 14H6L5 6" />
@@ -193,7 +193,7 @@ export default function ScratchpadPage() {
                 className="w-full bg-ghost border border-wire rounded-lg px-4 py-3 text-sm text-fg-2 placeholder:text-fg-4 focus:outline-none focus:ring-1 focus:ring-accent/30 resize-none mb-3"
               />
               {error && (
-                <p className="text-red-400 text-sm mb-3">{error}</p>
+                <p className="text-danger text-sm mb-3">{error}</p>
               )}
               <div className="flex items-center justify-between">
                 <p className="text-fg-4 text-xs">{text.length > 0 ? `${text.length} chars` : 'Empty'}</p>
@@ -226,7 +226,7 @@ export default function ScratchpadPage() {
               </div>
 
               {warnings.length > 0 && (
-                <div className="mb-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs space-y-1">
+                <div className="mb-4 px-3 py-2 rounded-lg bg-warning/10 border border-warning/20 text-warning text-xs space-y-1">
                   {warnings.map((w, i) => <p key={i}>{w}</p>)}
                 </div>
               )}
@@ -238,7 +238,7 @@ export default function ScratchpadPage() {
                       <CandidateCard key={i} task={task} index={i} />
                     ))}
                   </div>
-                  {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
+                  {error && <p className="text-danger text-sm mb-3">{error}</p>}
                   <div className="flex gap-2">
                     <button
                       onClick={handleReset}

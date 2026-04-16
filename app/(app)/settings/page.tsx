@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { useCalendars, useUpdateCalendar, useSyncCalendars } from '@/lib/hooks/use-calendars';
 import { usePlugins, useTogglePlugin } from '@/lib/hooks/use-plugins';
@@ -62,6 +63,25 @@ export default function SettingsPage() {
       </header>
 
       <div className="px-6 py-6 max-w-xl">
+        {/* Appearance */}
+        <div className="mb-8">
+          <div className="mb-3">
+            <h2 className="text-fg-3 text-[11px] font-[510] uppercase tracking-wide">Appearance</h2>
+          </div>
+          <Link
+            href="/settings/appearance"
+            className="flex items-center justify-between px-4 py-3 rounded-lg bg-ghost border border-wire-2 hover:border-wire transition-colors group"
+          >
+            <div>
+              <p className="text-fg-2 text-sm font-[510]">Theme</p>
+              <p className="text-fg-4 text-xs mt-0.5">Switch visual pack, including light mode</p>
+            </div>
+            <svg className="text-fg-4 group-hover:text-fg-3 transition-colors" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </Link>
+        </div>
+
         {/* Account */}
         <Section title="Account">
           {session ? (
@@ -128,7 +148,7 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div
                     className="w-2.5 h-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: cal.color ?? '#5e6ad2' }}
+                    style={{ backgroundColor: cal.color ?? 'var(--color-brand)' }}
                   />
                   <div className="min-w-0">
                     <p className="text-fg-2 text-sm font-[510] truncate">{cal.name}</p>

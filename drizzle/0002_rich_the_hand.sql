@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "active_theme_id" text DEFAULT 'obsidian-linear' NOT NULL;

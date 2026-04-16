@@ -15,6 +15,13 @@
       "when": 1776308654056,
       "tag": "0001_eager_inertia",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776312156738,
+      "tag": "0002_rich_the_hand",
+      "breakpoints": true
     }
   ]
 }

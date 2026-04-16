@@ -18,16 +18,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       {children}
       <Toaster
-        theme="dark"
         position="bottom-right"
         gap={6}
         toastOptions={{
           style: {
-            background: '#191a1b',
-            border: '1px solid rgba(255,255,255,0.07)',
-            color: '#d0d6e0',
+            background: 'var(--color-surface-2)',
+            border: '1px solid var(--color-wire)',
+            color: 'var(--color-fg-2)',
             fontSize: '13px',
-            borderRadius: '10px',
+            borderRadius: 'var(--radius-md)',
           },
         }}
       />

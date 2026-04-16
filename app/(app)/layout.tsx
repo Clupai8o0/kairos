@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Sidebar } from '@/components/app/sidebar';
+import { CommandPalette } from '@/components/app/command-palette';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -16,6 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="flex-1 flex flex-col overflow-hidden">
         {children}
       </div>
+      <CommandPalette />
     </div>
   );
 }

@@ -5,11 +5,13 @@ import { toast } from 'sonner';
 import { useTags, useCreateTag, useUpdateTag, useDeleteTag } from '@/lib/hooks/use-tags';
 import type { Tag } from '@/lib/hooks/types';
 
+/* eslint-disable kairos/no-raw-colors -- user-selectable tag palette; these are data values, not styling decisions */
 const TAG_COLORS = [
   '#7170ff', '#5e6ad2', '#10b981', '#27a644',
   '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899',
   '#06b6d4', '#84cc16',
 ];
+/* eslint-enable kairos/no-raw-colors */
 
 function TagForm({
   tag,
@@ -43,7 +45,7 @@ function TagForm({
               className="w-5 h-5 rounded-full border-2 transition-all"
               style={{
                 backgroundColor: c,
-                borderColor: c === color ? '#fff' : 'transparent',
+                borderColor: c === color ? 'var(--color-fg)' : 'transparent',
                 transform: c === color ? 'scale(1.2)' : 'scale(1)',
               }}
             />
@@ -140,7 +142,7 @@ export default function TagsPage() {
               >
                 <span
                   className="w-3 h-3 rounded-full shrink-0"
-                  style={{ backgroundColor: tag.color ?? '#34343a' }}
+                  style={{ backgroundColor: tag.color ?? 'var(--color-surface-3)' }}
                 />
                 <span className="flex-1 text-fg-2 text-sm font-[510]">{tag.name}</span>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -156,7 +158,7 @@ export default function TagsPage() {
                   </button>
                   <button
                     onClick={() => deleteTag.mutate(tag.id)}
-                    className="p-1 text-fg-4 hover:text-red-400 transition-colors"
+                    className="p-1 text-fg-4 hover:text-danger transition-colors"
                     title="Delete"
                   >
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

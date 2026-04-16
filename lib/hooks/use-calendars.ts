@@ -51,16 +51,3 @@ export function useUpdateCalendar() {
   });
 }
 
-/** @deprecated use useUpdateCalendar */
-export function useToggleCalendar() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, selected }: { id: string; selected: boolean }) =>
-      apiFetch<GoogleCalendar>(`/api/calendars/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selected }),
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: CALENDARS_KEY }),
-  });
-}

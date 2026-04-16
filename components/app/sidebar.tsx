@@ -119,7 +119,7 @@ export function Sidebar() {
           href="/settings"
           className={[
             'flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] font-[510] transition-colors',
-            pathname === '/settings'
+            pathname.startsWith('/settings')
               ? 'bg-ghost-3 text-fg'
               : 'text-fg-3 hover:bg-ghost-2 hover:text-fg-2',
           ].join(' ')}

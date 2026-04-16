@@ -27,7 +27,7 @@ type TaskFormValues = z.infer<typeof taskSchema>;
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 const PRIORITY_LABEL = ['', 'Urgent', 'High', 'Normal', 'Low'] as const;
-const PRIORITY_COLOR = ['', 'text-red-400', 'text-orange-400', 'text-fg-3', 'text-fg-4'] as const;
+const PRIORITY_COLOR = ['', 'text-danger', 'text-warning', 'text-fg-3', 'text-fg-4'] as const;
 
 const STATUS_TABS: { value: TaskStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -181,7 +181,7 @@ function TaskModal({
                 className="w-full bg-ghost border border-wire rounded-md px-3 py-2 text-sm text-fg placeholder:text-fg-4 focus:outline-none focus:border-wire focus:ring-1 focus:ring-accent/30"
               />
               {form.formState.errors.title && (
-                <p className="text-red-400 text-xs mt-1">{form.formState.errors.title.message}</p>
+                <p className="text-danger text-xs mt-1">{form.formState.errors.title.message}</p>
               )}
             </div>
 
@@ -354,7 +354,7 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
         )}
 
         {deadline && (
-          <span className={`text-xs ${deadline.overdue ? 'text-red-400' : 'text-fg-4'}`}>
+          <span className={`text-xs ${deadline.overdue ? 'text-danger' : 'text-fg-4'}`}>
             {deadline.label}
           </span>
         )}
@@ -380,7 +380,7 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
               error: 'Failed to delete',
             })
           }
-          className="p-1 text-fg-4 hover:text-red-400 transition-colors"
+          className="p-1 text-fg-4 hover:text-danger transition-colors"
           title="Delete"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -447,7 +447,7 @@ export default function TasksPage() {
 
         {/* Task list */}
         {error ? (
-          <p className="text-red-400 text-sm">Failed to load tasks.</p>
+          <p className="text-danger text-sm">Failed to load tasks.</p>
         ) : isLoading ? (
           <div className="space-y-2">
             {[...Array(5)].map((_, i) => (

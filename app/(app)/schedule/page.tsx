@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import { useTasks } from '@/lib/hooks/use-tasks';
 import { useCalendarEvents } from '@/lib/hooks/use-calendars';
+import { useRunSchedule } from '@/lib/hooks/use-schedule';
 import { CalendarWeek } from '@/components/app/calendar-week';
 
 function getMonday(date: Date): Date {
@@ -26,6 +28,7 @@ function formatWeekRange(monday: Date): string {
 
 export default function SchedulePage() {
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
+  const runSchedule = useRunSchedule();
 
   const weekEnd = useMemo(() => {
     const d = new Date(weekStart);
@@ -34,7 +37,7 @@ export default function SchedulePage() {
   }, [weekStart]);
 
   const { data: tasks = [] } = useTasks({ status: 'scheduled' });
-  const { data: events = [], isLoading: eventsLoading } = useCalendarEvents(weekStart, weekEnd);
+  const { data: events = [] } = useCalendarEvents(weekStart, weekEnd);
 
   function prevWeek() {
     setWeekStart((d) => { const n = new Date(d); n.setDate(n.getDate() - 7); return n; });
@@ -78,6 +81,24 @@ export default function SchedulePage() {
           className="text-xs font-[510] text-fg-3 hover:text-fg border border-wire hover:border-wire-2 px-2.5 py-1 rounded transition-colors"
         >
           Today
+        </button>
+
+        <button
+          onClick={() => {
+            const p = runSchedule.mutateAsync();
+            toast.promise(p, {
+              loading: 'Scheduling tasks…',
+              success: 'Schedule run queued',
+              error: (e) => e?.message ?? 'Failed to run schedule',
+            });
+          }}
+          disabled={runSchedule.isPending}
+          className="flex items-center gap-1.5 text-xs font-[510] text-fg-3 hover:text-fg border border-wire hover:border-wire-2 px-2.5 py-1 rounded transition-colors disabled:opacity-40"
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+          Run schedule
         </button>
 
       </header>

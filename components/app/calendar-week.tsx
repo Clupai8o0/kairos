@@ -144,7 +144,7 @@ export function CalendarWeek({ weekStart, tasks, events }: Props) {
                       key={event.id}
                       top={startMins * (HOUR_PX / 60)}
                       height={durationMins * (HOUR_PX / 60)}
-                      color={event.calendarColor ?? '#4a4f5a'}
+                      color={event.calendarColor ?? 'var(--color-surface-3)'}
                       label={event.summary ?? '(no title)'}
                       sublabel={event.calendarName}
                     />
@@ -161,8 +161,8 @@ export function CalendarWeek({ weekStart, tasks, events }: Props) {
                       key={task.id}
                       top={startMins * (HOUR_PX / 60)}
                       height={durationMins * (HOUR_PX / 60)}
-                      color="#5e6ad2"
-                      border="#7170ff"
+                      color="var(--color-brand)"
+                      border="var(--color-accent)"
                       label={task.title}
                       sublabel={task.durationMins ? `${task.durationMins} min` : undefined}
                     />
@@ -172,8 +172,8 @@ export function CalendarWeek({ weekStart, tasks, events }: Props) {
                 {/* Current time indicator */}
                 {isToday && (
                   <div style={{ position: 'absolute', top: nowTop, left: 0, right: 0, zIndex: 5 }} className="pointer-events-none">
-                    <div className="relative h-px bg-red-500">
-                      <div className="absolute -left-1 -top-[3px] w-2 h-2 rounded-full bg-red-500" />
+                    <div className="relative h-px" style={{ backgroundColor: 'var(--color-danger)' }}>
+                      <div className="absolute -left-1 -top-[3px] w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--color-danger)' }} />
                     </div>
                   </div>
                 )}

@@ -84,8 +84,11 @@ export default function ViewsPage() {
                 {new Date(view.createdAt).toLocaleDateString()}
               </span>
               <button
-                onClick={() => deleteView.mutate(view.id)}
-                className="p-1 text-fg-4 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                onClick={() => {
+                  const p = deleteView.mutateAsync(view.id);
+                  toast.promise(p, { loading: 'Deleting…', success: 'View deleted', error: 'Failed to delete view' });
+                }}
+                className="p-1 text-fg-4 hover:text-danger transition-colors opacity-0 group-hover:opacity-100"
                 title="Delete"
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

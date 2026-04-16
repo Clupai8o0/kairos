@@ -1,0 +1,43 @@
+/* Morning Light — clean light pack */
+
+[data-theme="morning-light"] {
+  /* Surfaces — opaque */
+  --color-canvas: #f0f1f2;
+  --color-surface: #ffffff;
+  --color-surface-2: #f5f5f7;
+  --color-surface-3: #e8e8ed;
+
+  /* Text */
+  --color-fg: #111112;
+  --color-fg-2: #2c2c2e;
+  --color-fg-3: #6c6c70;
+  --color-fg-4: #9a9a9e;
+
+  /* Brand + accent */
+  --color-brand: #5e6ad2;
+  --color-accent: #5b5bd6;
+  --color-accent-hover: #4c4ccb;
+  --color-accent-2: #7070e0;
+
+  /* Status */
+  --color-success: #16a34a;
+  --color-emerald: #059669;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+
+  /* Borders — solid */
+  --color-line: #d8d8de;
+  --color-line-subtle: #c8c8cf;
+  --color-line-2: #c8c8cf;
+
+  /* Surfaces — translucent */
+  --color-ghost: oklch(0% 0 0 / 0.02);
+  --color-ghost-2: oklch(0% 0 0 / 0.04);
+  --color-ghost-3: oklch(0% 0 0 / 0.05);
+  --color-wire: oklch(0% 0 0 / 0.08);
+  --color-wire-2: oklch(0% 0 0 / 0.05);
+}
+
+html[data-theme="morning-light"] {
+  color-scheme: light;
+}
