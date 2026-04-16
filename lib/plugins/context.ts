@@ -4,7 +4,7 @@ import { db } from '@/lib/db/client';
 import { scratchpadPluginConfigs } from '@/lib/db/schema';
 import { newId } from '@/lib/utils/id';
 import { complete as llmComplete, completeStructured as llmCompleteStructured } from '@/lib/llm';
-import type { PluginContext, CompletionOptions } from './types';
+import type { PluginContext } from './types';
 import type { z } from 'zod';
 
 async function getOrCreate(userId: string, pluginName: string) {
@@ -59,7 +59,7 @@ export function createPluginContext(userId: string, pluginName: string): PluginC
       return row.rulesets as Array<Record<string, unknown>>;
     },
 
-    async complete(prompt: string, _options?: CompletionOptions) {
+    async complete(prompt: string) {
       return llmComplete(prompt);
     },
 

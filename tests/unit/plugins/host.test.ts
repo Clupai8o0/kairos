@@ -36,7 +36,7 @@ describe('listPlugins', () => {
 describe('dispatchToPlugin', () => {
   it('routes text input to text-to-tasks plugin', async () => {
     const { createPluginContext } = await import('@/lib/plugins/context');
-    const ctx = (createPluginContext as ReturnType<typeof vi.fn>)();
+    const ctx = vi.mocked(createPluginContext)('u1', 'text-to-tasks');
     ctx.completeStructured = vi.fn().mockResolvedValue({ tasks: [{ title: 'do something', priority: 3, tags: [] }] });
 
     await expect(dispatchToPlugin(textInput, 'u1')).resolves.toMatchObject({ pluginName: 'text-to-tasks' });

@@ -11,7 +11,7 @@ vi.mock('@/lib/db/client', () => ({
 }));
 vi.mock('@/lib/utils/id', () => ({ newId: vi.fn(() => 'job-id-1') }));
 
-import { enqueueJob, markJobDone, markJobFailed } from '@/lib/services/jobs';
+import { enqueueJob, markJobDone } from '@/lib/services/jobs';
 
 describe('enqueueJob', () => {
   beforeEach(() => vi.clearAllMocks());

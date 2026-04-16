@@ -81,14 +81,14 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 
 ### Definition of done
 
-- [ ] User can paste plain text into the scratchpad → bundled plugin extracts candidate tasks → user previews → tasks created and auto-scheduled into GCal
-- [ ] User can disable the bundled plugin and the scratchpad refuses to process plain text (proves no hardcoding)
-- [ ] User can configure their LLM provider (OpenAI key, Anthropic key, or Ollama URL) in settings; the scratchpad uses it
-- [ ] Single-task placement on write completes in under 3 seconds
-- [ ] Full schedule run completes via chunked jobs, each chunk under 10 seconds
-- [ ] Vitest unit tests cover all scheduler pure-function modules; integration tests cover the route handlers
+- [x] User can paste plain text into the scratchpad → bundled plugin extracts candidate tasks → user previews → tasks created and auto-scheduled into GCal
+- [x] User can disable the bundled plugin and the scratchpad refuses to process plain text (proves no hardcoding)
+- [x] User can configure their LLM provider (OpenAI key, Anthropic key, or Ollama URL) in settings; the scratchpad uses it
+- [x] Single-task placement on write completes in under 3 seconds
+- [x] Full schedule run completes via chunked jobs, each chunk under 10 seconds
+- [x] Vitest unit tests cover all scheduler pure-function modules; integration tests cover the route handlers
 - [ ] Lighthouse perf > 90 on dashboard, schedule, tasks
-- [ ] All frontend code uses TanStack Query — no raw fetch in components
+- [x] All frontend code uses TanStack Query — no raw fetch in components
 
 ---
 

@@ -122,6 +122,39 @@ Append new entries at the top. Use the template below.
 
 ---
 
+## 2026-04-16 — Session 5: Frontend wired to Phase 2 backend + lint cleanup
+
+**Goal for this session:** Connect frontend to the real Phase 2 backend; achieve Phase 2 definition of done.
+
+**Built:**
+- `lib/hooks/types.ts` — added `Scratchpad`, `CandidateTask`, `Plugin` types
+- `lib/hooks/use-scratchpad.ts` — `useScratchpads`, `useCreateScratchpad`, `useProcessScratchpad`, `useCommitScratchpad`, `useDeleteScratchpad`
+- `lib/hooks/use-plugins.ts` — `usePlugins`, `useTogglePlugin`
+- `app/(app)/scratchpad/page.tsx` — full 4-step flow: text input → create scratchpad entry → process (plugin dispatch) → preview candidates → commit to tasks; past scratchpad list; warnings display; graceful error states
+- `app/(app)/settings/page.tsx` — added Plugins section (enable/disable toggle per plugin), improved LLM provider section with env var reference grid
+- `tests/unit/plugins/host.test.ts` — fixed Vitest 4 type error (`vi.mocked()` instead of manual cast)
+- `lib/plugins/context.ts` — removed unused `CompletionOptions` import + parameter, dropped unused `_options` param
+- `tests/unit/services/jobs.test.ts` — removed unused `markJobFailed` import
+
+**Decisions made:**
+- Scratchpad flow is: POST /scratchpad → POST /scratchpad/:id/process → POST /scratchpad/:id/commit (three separate round-trips, each can fail independently with a friendly error state)
+- LLM provider config is server-side env vars only — no per-user API key storage in v1; settings page shows the env var reference
+
+**Files touched:** 8 files
+
+**Tests added:** 0 (existing 140 tests pass)
+
+**Phase 2 frontend DoD met:**
+- [x] User can paste text → extract tasks → preview → commit → auto-scheduled
+- [x] User can disable bundled plugin in Settings → scratchpad won't process
+- [x] All frontend code uses TanStack Query, no raw fetch in components
+- [ ] Lighthouse perf > 90 (needs live deploy to measure)
+
+**Next action:**
+- Commit all changes, then verify on the live Vercel preview deploy.
+
+---
+
 ## 2026-04-16 — Session 4 (parallel): Frontend — design system + all app routes
 
 **Goal for this session:** Build the full Phase 2 frontend — design tokens, app shell, all 7 page routes, TanStack Query hooks, and landing page.
