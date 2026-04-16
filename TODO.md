@@ -15,7 +15,7 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 - [x] Drizzle setup + Neon connection
 - [x] Better Auth + Google OAuth (one flow grants app login + GCal scopes)
 - [x] Drizzle schema for: `users`, `tasks`, `tags`, `taskTags`, `views`, `googleAccounts`, `googleCalendars`, `blackoutDays`, `scheduleWindows`, `jobs`, plus Better Auth tables
-- [ ] Initial migration applied to a fresh DB
+- [x] Initial migration applied to a fresh DB
 - [x] Smoke-test route handler at `/api/health`
 - [x] Vitest + msw setup with one passing test
 - [x] Tasks CRUD (route handlers + service + tests)
@@ -24,9 +24,9 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 - [x] Calendar list/select endpoint
 - [x] Marketing route group scaffolded with placeholder landing page
 - [x] App route group scaffolded with placeholder dashboard behind Better Auth
-- [ ] Vercel preview deploys working from PRs
-- [ ] Production deploy from main working
-- [ ] Phase 1 definition-of-done met
+- [x] Vercel preview deploys working from PRs
+- [x] Production deploy from main working
+- [x] Phase 1 definition-of-done met
 
 ### Session 1 — bootstrap
 
@@ -34,23 +34,23 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 2. [x] Add ESLint custom rules
 3. [x] Install Drizzle + drizzle-kit + `@neondatabase/serverless`
 4. [x] Install Better Auth + Drizzle adapter
-5. [ ] Set up Neon project (free tier) and add `DATABASE_URL` to `.env.local`
-6. [ ] Set up Google Cloud OAuth credentials with both `email`/`profile` and `https://www.googleapis.com/auth/calendar` scopes
+5. [x] Set up Neon project (free tier) and add `DATABASE_URL` to `.env.local`
+6. [x] Set up Google Cloud OAuth credentials with both `email`/`profile` and `https://www.googleapis.com/auth/calendar` scopes
 7. [x] Write Drizzle schema for `users`, `tasks`, `tags`, `taskTags`, plus Better Auth's required tables
-8. [ ] Generate + apply the first migration
+8. [x] Generate + apply the first migration
 9. [x] Add a `/api/health` route handler that confirms DB connectivity
-10. [ ] Push to GitHub, hook up Vercel, confirm preview deploys
+10. [x] Push to GitHub, hook up Vercel, confirm preview deploys
 
 ### Definition of done
 
-- [ ] User can sign in with Google (one OAuth flow grants both app login and GCal access)
-- [ ] User can create, list, update, delete tasks via the API and via the UI
-- [ ] User can create tags and assign them to tasks
-- [ ] User can connect a Google Calendar and see it listed
-- [ ] No `projects` table, no `projectId` field, no `Project` type anywhere
-- [ ] No `openai` / `@anthropic-ai/sdk` import anywhere in the repo
-- [ ] CI passes: ESLint, TypeScript, Vitest, Drizzle migrations apply cleanly to a fresh DB
-- [ ] Deploys to Vercel preview on every PR; merges to main deploy to production
+- [x] User can sign in with Google (one OAuth flow grants both app login and GCal access)
+- [x] User can create, list, update, delete tasks via the API and via the UI
+- [x] User can create tags and assign them to tasks
+- [x] User can connect a Google Calendar and see it listed
+- [x] No `projects` table, no `projectId` field, no `Project` type anywhere
+- [x] No `openai` / `@anthropic-ai/sdk` import anywhere in the repo
+- [x] CI passes: ESLint, TypeScript, Vitest, Drizzle migrations apply cleanly to a fresh DB
+- [x] Deploys to Vercel preview on every PR; merges to main deploy to production
 
 ---
 
@@ -67,10 +67,10 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 - [ ] `lib/llm/` — Vercel AI SDK abstraction; `complete()` resolves to user's configured provider
 - [ ] `app/api/schedule/run/route.ts` — manual full schedule run (enqueues chunked jobs)
 - [ ] `app/api/cron/drain/route.ts` — Vercel Cron target, drains the `jobs` table
-- [ ] `app/api/scratchpad` routes — create entry, list, process (routes to plugin), commit (creates tasks)
+- [ ] `app/api/scratchpad` routes — create entry, list, process (routes to plugin), commit (creates tasks + enqueues placement jobs + self-triggers `/api/cron/drain` fire-and-forget)
 - [ ] `app/api/plugins` routes — list installed, configure, enable/disable
 - [ ] Schedule-on-write hook in the `tasks` POST/PATCH handlers — enqueues a `schedule:single-task` job
-- [ ] `vercel.json` cron config: `/api/cron/drain` every minute
+- [x] `vercel.json` cron config: `/api/cron/drain` daily at midnight UTC (hobby plan limitation — single-task placement is inline, batch placement self-triggers drain)
 
 ### Frontend
 
