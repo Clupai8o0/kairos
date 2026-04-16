@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -104,36 +105,39 @@ function TaskModal({
   const selectedTagIds = form.watch('tagIds');
 
   async function onSubmit(values: TaskFormValues) {
-    const deadline = values.deadline
-      ? new Date(values.deadline).toISOString()
-      : undefined;
+    const deadline = values.deadline ? new Date(values.deadline).toISOString() : undefined;
 
-    if (task) {
-      await updateTask.mutateAsync({
-        id: task.id,
-        title: values.title,
-        description: values.description,
-        priority: values.priority,
-        deadline: deadline ?? null,
-        schedulable: values.schedulable,
-        durationMins: values.durationMins,
-        tagIds: values.tagIds,
-      });
-    } else {
-      await createTask.mutateAsync({
-        title: values.title,
-        description: values.description,
-        priority: values.priority,
-        deadline,
-        schedulable: values.schedulable,
-        durationMins: values.durationMins,
-        bufferMins: 15,
-        isSplittable: false,
-        dependsOn: [],
-        tagIds: values.tagIds,
-      });
-    }
-    onClose();
+    const p = task
+      ? updateTask.mutateAsync({
+          id: task.id,
+          title: values.title,
+          description: values.description,
+          priority: values.priority,
+          deadline: deadline ?? null,
+          schedulable: values.schedulable,
+          durationMins: values.durationMins,
+          tagIds: values.tagIds,
+        })
+      : createTask.mutateAsync({
+          title: values.title,
+          description: values.description,
+          priority: values.priority,
+          deadline,
+          schedulable: values.schedulable,
+          durationMins: values.durationMins,
+          bufferMins: 15,
+          isSplittable: false,
+          dependsOn: [],
+          tagIds: values.tagIds,
+        });
+
+    toast.promise(p, {
+      loading: task ? 'Saving task…' : 'Creating task…',
+      success: task ? 'Task saved' : 'Task created',
+      error: (e) => e?.message ?? 'Something went wrong',
+    });
+
+    try { await p; onClose(); } catch { /* toast handles the error display */ }
   }
 
   function toggleTag(id: string) {
@@ -281,7 +285,7 @@ function TaskModal({
                 disabled={isPending}
                 className="px-4 py-1.5 bg-brand hover:bg-accent text-white text-sm font-[510] rounded-md transition-colors disabled:opacity-50"
               >
-                {isPending ? 'Saving…' : task ? 'Save' : 'Create'}
+                {task ? 'Save' : 'Create'}
               </button>
             </div>
           </form>
@@ -369,7 +373,13 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
           </svg>
         </button>
         <button
-          onClick={() => deleteTask.mutate(task.id)}
+          onClick={() =>
+            toast.promise(deleteTask.mutateAsync(task.id), {
+              loading: 'Deleting…',
+              success: 'Task deleted',
+              error: 'Failed to delete',
+            })
+          }
           className="p-1 text-fg-4 hover:text-red-400 transition-colors"
           title="Delete"
         >

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   useCreateScratchpad,
@@ -14,7 +15,7 @@ import type { Scratchpad, CandidateTask } from '@/lib/hooks/types';
 const PRIORITY_LABEL = ['', 'Urgent', 'High', 'Normal', 'Low'] as const;
 const PRIORITY_COLOR = ['', 'text-red-400', 'text-orange-400', 'text-fg-3', 'text-fg-4'] as const;
 
-type Step = 'input' | 'processing' | 'preview' | 'committing' | 'done';
+type Step = 'input' | 'preview' | 'done';
 
 function CandidateCard({ task, index }: { task: CandidateTask; index: number }) {
   return (
@@ -109,30 +110,41 @@ export default function ScratchpadPage() {
 
   async function handleProcess() {
     if (!text.trim()) return;
-    setStep('processing');
     setError(null);
-    try {
+    const p = (async () => {
       const pad = await createPad.mutateAsync({ content: text.trim() });
-      const processed = await processPad.mutateAsync(pad.id);
+      return processPad.mutateAsync(pad.id);
+    })();
+    toast.promise(p, {
+      loading: 'Extracting tasks…',
+      success: (processed) =>
+        `${processed.parseResult?.tasks.length ?? 0} task${processed.parseResult?.tasks.length === 1 ? '' : 's'} found`,
+      error: (e) => e?.message ?? 'Extraction failed',
+    });
+    try {
+      const processed = await p;
       setActivePad(processed);
       setStep('preview');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Processing failed');
-      setStep('input');
     }
   }
 
   async function handleCommit() {
     if (!activePad) return;
-    setStep('committing');
     setError(null);
+    const p = commitPad.mutateAsync(activePad.id);
+    toast.promise(p, {
+      loading: 'Creating tasks…',
+      success: (r) => `${r.taskIds.length} task${r.taskIds.length === 1 ? '' : 's'} created`,
+      error: (e) => e?.message ?? 'Commit failed',
+    });
     try {
-      const result = await commitPad.mutateAsync(activePad.id);
+      const result = await p;
       setCommittedCount(result.taskIds.length);
       setStep('done');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Commit failed');
-      setStep('preview');
     }
   }
 
@@ -187,7 +199,7 @@ export default function ScratchpadPage() {
                 <p className="text-fg-4 text-xs">{text.length > 0 ? `${text.length} chars` : 'Empty'}</p>
                 <button
                   onClick={handleProcess}
-                  disabled={!text.trim()}
+                  disabled={!text.trim() || createPad.isPending || processPad.isPending}
                   className="flex items-center gap-2 bg-brand hover:bg-accent text-white text-sm font-[510] px-4 py-2 rounded-md transition-colors disabled:opacity-40"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -196,16 +208,6 @@ export default function ScratchpadPage() {
                   Extract tasks
                 </button>
               </div>
-            </motion.div>
-          )}
-
-          {/* ── Step: Processing ────────────────────────────────── */}
-          {step === 'processing' && (
-            <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center py-20">
-              <svg className="animate-spin mx-auto mb-4 text-accent" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-              </svg>
-              <p className="text-fg-3 text-sm">Extracting tasks…</p>
             </motion.div>
           )}
 
@@ -246,7 +248,8 @@ export default function ScratchpadPage() {
                     </button>
                     <button
                       onClick={handleCommit}
-                      className="flex-1 flex items-center justify-center gap-2 bg-brand hover:bg-accent text-white text-sm font-[510] px-4 py-2 rounded-md transition-colors"
+                      disabled={commitPad.isPending}
+                      className="flex-1 flex items-center justify-center gap-2 bg-brand hover:bg-accent text-white text-sm font-[510] px-4 py-2 rounded-md transition-colors disabled:opacity-50"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12" />
@@ -265,16 +268,6 @@ export default function ScratchpadPage() {
                   </button>
                 </div>
               )}
-            </motion.div>
-          )}
-
-          {/* ── Step: Committing ────────────────────────────────── */}
-          {step === 'committing' && (
-            <motion.div key="committing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center py-20">
-              <svg className="animate-spin mx-auto mb-4 text-accent" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-              </svg>
-              <p className="text-fg-3 text-sm">Creating tasks…</p>
             </motion.div>
           )}
 

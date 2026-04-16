@@ -80,9 +80,6 @@ export default function SchedulePage() {
           Today
         </button>
 
-        {eventsLoading && (
-          <div className="w-3.5 h-3.5 border-2 border-wire border-t-accent rounded-full animate-spin" />
-        )}
       </header>
 
       <CalendarWeek weekStart={weekStart} tasks={tasks} events={events} />

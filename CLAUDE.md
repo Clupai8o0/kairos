@@ -228,6 +228,21 @@ If any of these happen, stop, say so, and reset before continuing.
 ### Design system
 `DESIGN.md` (Linear-inspired) is the design reference. Read it before writing any UI component. Use semantic tokens from it—never hardcode colors.
 
+### Loading & async feedback — Sonner
+Any operation that takes time (mutations, background work) must use **Sonner** toasts, not inline spinners:
+
+```ts
+const p = someAsyncMutation.mutateAsync(data);
+toast.promise(p, { loading: 'Doing thing…', success: 'Done', error: (e) => e?.message ?? 'Failed' });
+try { await p; /* side effects on success */ } catch { /* toast handles display */ }
+```
+
+Rules:
+- Never show `animate-spin` spinners on buttons or in page headers for async work—Sonner shows that feedback.
+- Initial data loads (first paint) keep skeleton `animate-pulse` placeholders—those are layout, not feedback.
+- Toggle switches (instant) and quick status changes are silent—no toast needed.
+- `<Toaster>` is mounted once in `components/providers.tsx` with the dark theme config. Never add a second `<Toaster>`.
+
 ### Animation strategy
 - **Landing page (`app/(marketing)/`):** GSAP for scroll-driven, orchestrated animations. Skills: `gsap-core`, `gsap-scrolltrigger`, `gsap-timeline`, `gsap-react`.
 - **Dashboard (`app/(app)/`):** Framer Motion for micro-interactions (hover, mount/unmount, layout shifts). Lighter weight, React-native integration.

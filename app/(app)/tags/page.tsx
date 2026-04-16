@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { useTags, useCreateTag, useUpdateTag, useDeleteTag } from '@/lib/hooks/use-tags';
 import type { Tag } from '@/lib/hooks/types';
 
@@ -83,13 +84,15 @@ export default function TagsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   async function handleCreate(name: string, color: string | null) {
-    await createTag.mutateAsync({ name, ...(color ? { color } : {}) });
-    setShowCreate(false);
+    const p = createTag.mutateAsync({ name, ...(color ? { color } : {}) });
+    toast.promise(p, { loading: 'Creating tag…', success: 'Tag created', error: 'Failed to create tag' });
+    try { await p; setShowCreate(false); } catch { /* toast */ }
   }
 
   async function handleUpdate(id: string, name: string, color: string | null) {
-    await updateTag.mutateAsync({ id, name, color });
-    setEditingId(null);
+    const p = updateTag.mutateAsync({ id, name, color });
+    toast.promise(p, { loading: 'Saving…', success: 'Tag saved', error: 'Failed to save tag' });
+    try { await p; setEditingId(null); } catch { /* toast */ }
   }
 
   return (

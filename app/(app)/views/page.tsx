@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { useViews, useCreateView, useDeleteView } from '@/lib/hooks/use-views';
 
 export default function ViewsPage() {
@@ -13,9 +14,9 @@ export default function ViewsPage() {
 
   async function handleCreate() {
     if (!name.trim()) return;
-    await createView.mutateAsync({ name: name.trim() });
-    setName('');
-    setShowCreate(false);
+    const p = createView.mutateAsync({ name: name.trim() });
+    toast.promise(p, { loading: 'Creating view…', success: 'View created', error: 'Failed to create view' });
+    try { await p; setName(''); setShowCreate(false); } catch { /* toast */ }
   }
 
   return (

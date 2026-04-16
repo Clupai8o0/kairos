@@ -1,5 +1,6 @@
 'use client';
 
+import { toast } from 'sonner';
 import { useCalendars, useUpdateCalendar, useSyncCalendars } from '@/lib/hooks/use-calendars';
 import { usePlugins, useTogglePlugin } from '@/lib/hooks/use-plugins';
 import { authClient } from '@/lib/auth/client';
@@ -32,8 +33,8 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
     >
       <span
         className={[
-          'absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform',
-          checked ? 'translate-x-4' : 'translate-x-0.5',
+          'absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform',
+          checked ? 'translate-x-4' : 'translate-x-0',
         ].join(' ')}
       />
     </button>
@@ -95,17 +96,19 @@ export default function SettingsPage() {
         >
           <div className="flex justify-end mb-1">
             <button
-              onClick={() => syncCalendars.mutate()}
+              onClick={() =>
+                toast.promise(syncCalendars.mutateAsync(), {
+                  loading: 'Syncing calendars…',
+                  success: (cals) => `${cals.length} calendar${cals.length === 1 ? '' : 's'} synced`,
+                  error: 'Sync failed — check your Google connection',
+                })
+              }
               disabled={syncCalendars.isPending}
               className="flex items-center gap-1.5 text-xs font-[510] text-fg-3 hover:text-fg border border-wire hover:border-wire-2 px-2.5 py-1.5 rounded transition-colors disabled:opacity-50"
             >
-              {syncCalendars.isPending ? (
-                <span className="w-3 h-3 border-2 border-wire border-t-accent rounded-full animate-spin" />
-              ) : (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9m-9 9a9 9 0 019-9" />
-                </svg>
-              )}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9m-9 9a9 9 0 019-9" />
+              </svg>
               Sync from Google
             </button>
           </div>
@@ -137,7 +140,16 @@ export default function SettingsPage() {
                     <span className="text-[11px] text-fg-4">Show</span>
                     <Toggle
                       checked={cal.selected}
-                      onChange={(v) => updateCalendar.mutate({ id: cal.id, selected: v })}
+                      onChange={(v) =>
+                        toast.promise(
+                          updateCalendar.mutateAsync({ id: cal.id, selected: v }),
+                          {
+                            loading: v ? 'Enabling calendar…' : 'Disabling calendar…',
+                            success: v ? `${cal.name} enabled` : `${cal.name} disabled`,
+                            error: 'Failed to update calendar',
+                          },
+                        )
+                      }
                       disabled={updateCalendar.isPending}
                     />
                   </label>
@@ -145,7 +157,16 @@ export default function SettingsPage() {
                     <span className="text-[11px] text-fg-4">Busy</span>
                     <Toggle
                       checked={cal.showAsBusy}
-                      onChange={(v) => updateCalendar.mutate({ id: cal.id, showAsBusy: v })}
+                      onChange={(v) =>
+                        toast.promise(
+                          updateCalendar.mutateAsync({ id: cal.id, showAsBusy: v }),
+                          {
+                            loading: 'Updating…',
+                            success: v ? 'Marked as busy' : 'Marked as free',
+                            error: 'Failed to update calendar',
+                          },
+                        )
+                      }
                       disabled={updateCalendar.isPending || !cal.selected}
                     />
                   </label>
@@ -156,11 +177,17 @@ export default function SettingsPage() {
             <div className="px-4 py-5 rounded-lg bg-ghost border border-wire-2 text-center">
               <p className="text-fg-4 text-sm mb-2">No calendars found.</p>
               <button
-                onClick={() => syncCalendars.mutate()}
+                onClick={() =>
+                  toast.promise(syncCalendars.mutateAsync(), {
+                    loading: 'Syncing calendars…',
+                    success: (cals) => `${cals.length} calendar${cals.length === 1 ? '' : 's'} synced`,
+                    error: 'Sync failed',
+                  })
+                }
                 disabled={syncCalendars.isPending}
                 className="text-xs font-[510] text-accent hover:text-accent-2 transition-colors"
               >
-                {syncCalendars.isPending ? 'Syncing…' : 'Sync from Google →'}
+                Sync from Google →
               </button>
             </div>
           )}
