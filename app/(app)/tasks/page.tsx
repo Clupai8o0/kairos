@@ -164,7 +164,7 @@ function TaskModal({
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.97, opacity: 0, y: 4 }}
           transition={{ duration: 0.15 }}
-          className="bg-surface-2 border border-wire rounded-xl p-5 w-full max-w-lg shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+          className="bg-surface-2 border border-wire rounded-xl p-5 w-full max-w-lg shadow-xl"
           onClick={(e) => e.stopPropagation()}
         >
           <h2 className="text-fg text-sm font-[510] mb-4">

@@ -30,6 +30,22 @@
   --color-line-subtle: #c8c8cf;
   --color-line-2: #c8c8cf;
 
+  /* Radius */
+  --radius-xl: 1rem;
+
+  /* Shadows — lighter for light theme */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+  --shadow-xl: 0 16px 48px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08);
+
+  /* Motion */
+  --default-transition-duration: 150ms;
+  --duration-fast: 100ms;
+  --duration-normal: 200ms;
+  --duration-slow: 400ms;
+  --ease-default: cubic-bezier(0.16, 1, 0.3, 1);
+
   /* Surfaces — translucent */
   --color-ghost: oklch(0% 0 0 / 0.02);
   --color-ghost-2: oklch(0% 0 0 / 0.04);

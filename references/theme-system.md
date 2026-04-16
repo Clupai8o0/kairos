@@ -60,7 +60,26 @@ These are the load-bearing semantic tokens. Components can assume they exist.
 
 ### Optional tokens
 
-Packs may extend the system with additional tokens. Components that use optional tokens must check for presence and have a fallback. Examples currently in use by the Linear-inspired pack: `--color-brand`, `--color-ghost`, `--color-ghost-2`, `--color-wire`, `--color-emerald`. These are valid but not required of every pack.
+Packs may extend the system with additional tokens. Components that use optional tokens must check for presence and have a fallback.
+
+| Token | Role | Default fallback |
+|---|---|---|
+| `--radius-xl` | Extra-large radius (modals, large cards) | `1rem` |
+| `--shadow-sm` | Subtle elevation | Tailwind default |
+| `--shadow-md` | Card-level elevation | Tailwind default |
+| `--shadow-lg` | Popover/drawer elevation | Tailwind default |
+| `--shadow-xl` | Modal/overlay elevation | Tailwind default |
+| `--default-transition-duration` | Base duration for all `transition-*` utilities | `150ms` |
+| `--duration-fast` | `duration-fast` utility (snap interactions) | `100ms` |
+| `--duration-normal` | `duration-normal` utility (standard animations) | `200ms` |
+| `--duration-slow` | `duration-slow` utility (entrances, reveals) | `400ms` |
+| `--ease-default` | `ease-default` utility | `cubic-bezier(0.16, 1, 0.3, 1)` |
+| `--color-brand` | Secondary brand accent | — |
+| `--color-ghost` / `--color-ghost-2/3` | Translucent surface tints | — |
+| `--color-wire` / `--color-wire-2` | Hairline borders | — |
+| `--color-emerald` | Alternate success tint | — |
+
+Both built-in packs define all optional tokens above. Community packs that omit them fall back to Tailwind's built-in defaults.
 
 ### Banned in components
 

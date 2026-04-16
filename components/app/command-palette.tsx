@@ -176,7 +176,7 @@ export function CommandPalette() {
             transition={{ duration: 0.15, ease: 'easeOut' }}
             className="fixed top-1/4 left-1/2 -translate-x-1/2 z-50 w-full max-w-md"
           >
-            <div className="rounded-xl border border-line bg-surface-2 shadow-2xl overflow-hidden">
+            <div className="rounded-xl border border-line bg-surface-2 shadow-xl overflow-hidden">
               {/* Search input */}
               <div className="flex items-center gap-2 px-4 py-3 border-b border-line">
                 <svg className="text-fg-4 shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
