@@ -71,6 +71,11 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 - [x] `app/api/plugins` routes — list installed, configure, enable/disable
 - [x] Schedule-on-write hook in the `tasks` POST/PATCH handlers — enqueues a `schedule:single-task` job
 - [x] `vercel.json` cron config: `/api/cron/drain` daily at midnight UTC (hobby plan limitation — single-task placement is inline, batch placement self-triggers drain)
+- [ ] `lib/themes/types.ts` — Zod schemas for `ThemeManifestSchema` and the required token contract
+- [ ] `lib/themes/compile.ts` — pure function that turns a JSON manifest into a CSS string (snapshot-tested)
+- [ ] `lib/themes/runtime.ts` — server-side helper to resolve a user's `activeThemeId` to either a built-in CSS file or a compiled marketplace pack
+- [ ] `app/api/me/theme/route.ts` — `PATCH` to update `users.activeThemeId`
+- [ ] Drizzle migration: `ALTER TABLE users ADD COLUMN active_theme_id text NOT NULL DEFAULT 'obsidian-linear'`
 
 ### Frontend
 
@@ -78,6 +83,10 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 - [x] Default design pack ("Obsidian"), ported from old build's CSS as semantic tokens
 - [x] TanStack Query for all data fetching; no raw `fetch` in components
 - [ ] Server Components used where appropriate (lists that don't need interactivity)
+- [ ] `app/styles/packs/manifest.ts` — static registry of built-in packs (starts with the current Linear-inspired pack, plus at least one light pack landed during phase 2)
+- [ ] `app/(app)/settings/appearance/page.tsx` — pack picker with preview cards
+- [ ] Command palette entry: `Theme: <n>` for each installed pack, with live preview as you arrow through
+- [ ] Move the existing `@theme` block from `app/globals.css` into `app/styles/packs/obsidian-linear.css`. `globals.css` keeps the `@import "tailwindcss"` and base resets only.
 
 ### Definition of done
 
@@ -89,6 +98,11 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 - [x] Vitest unit tests cover all scheduler pure-function modules; integration tests cover the route handlers
 - [ ] Lighthouse perf > 90 on dashboard, schedule, tasks
 - [x] All frontend code uses TanStack Query — no raw fetch in components
+- [ ] `no-raw-colors` ESLint rule is in `eslint-rules/`, wired into `eslint.config.mjs`, and CI fails if a component uses a raw Tailwind colour utility or hex literal
+- [ ] At least 2 built-in packs ship (the current Linear-inspired one + one light pack)
+- [ ] User can switch packs via Settings -> Appearance and via the command palette; choice persists across sessions
+- [ ] Switching packs takes effect on the next page render with no FOUC
+- [ ] `compileManifest` snapshot test passes (manifest in -> CSS out, byte-identical)
 
 ---
 
@@ -111,6 +125,8 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
   - [ ] `kairos-plugin-voice` — voice memo → transcribed text → tasks
 - [ ] Landing page filled in at `app/(marketing)/`
 - [ ] Documentation under `app/(marketing)/docs/`
+- [ ] Documentation page at `app/(marketing)/docs/themes/page.tsx`: "How to write a theme pack" — covers the token contract, the JSON manifest format, local validation with the CLI, and how to submit to the registry (when it opens in phase 4)
+- [ ] The token contract from `references/theme-system.md` is published as part of the public API surface — promised to be backwards-compatible across minor versions
 
 ### Definition of done
 
@@ -120,6 +136,8 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 - [ ] Landing page is live with: hero, what-it-does, how-it's-different, plugin showcase, GitHub link, self-host instructions
 - [ ] First public release tagged `v1.0.0`
 - [ ] Hosted instance live at `kairos.app`
+- [ ] A new contributor can write a theme pack from scratch following the docs in <30 minutes
+- [ ] At least 3 community-style theme packs exist as JSON manifests in the repo (could be the v1 built-ins re-expressed as JSON, plus 1-2 community-contributed ones), serving as marketplace seed data for phase 4
 
 ---
 
@@ -135,12 +153,27 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 - [ ] Plugin signing and basic safety review (manual at first)
 - [ ] Version management: update notifications, changelogs, rollback
 - [ ] Decide: Option 1 (npm + redeploy), Option 2 (HTTP plugins), or Option 3 (hybrid)
+- [ ] **Theme marketplace** — see `references/theme-marketplace.md` for the full spec
+- [ ] `kairos-themes-registry` GitHub repo with `index.json` and `manifests/` directory
+- [ ] `themeInstalls` Drizzle schema + migration
+- [ ] `lib/themes/install.ts` — fetch + validate + compile + insert flow
+- [ ] `lib/themes/safety.ts` — manifest safety checks (size, CSS injection, font allowlist)
+- [ ] `app/api/themes/install/route.ts` — install endpoint
+- [ ] `app/api/themes/[installId]/css/route.ts` — serves compiled CSS with cache headers
+- [ ] `@kairos/theme-validator` CLI for local validation before submission
+- [ ] In-app marketplace browser at `app/(app)/settings/marketplace/page.tsx` — Plugins and Themes tabs sharing the same UI shell
+- [ ] Custom theme upload at `app/(app)/settings/appearance/custom/page.tsx` (paste a manifest, validate, install with `source = 'custom-upload'`)
 
 ### Definition of done
 
 - [ ] User installs a plugin from inside the app without leaving it
 - [ ] Plugin authors can submit via PR to the registry
 - [ ] At least 10 plugins in the registry
+- [ ] User installs a theme from the in-app marketplace without leaving the app
+- [ ] User uploads a custom manifest and it installs as a usable theme
+- [ ] Plugin authors can ship a theme as part of their plugin manifest, and it appears in the user's pack picker after plugin install
+- [ ] At least 5 themes in the registry on launch (the v1 built-ins + a few community contributions)
+- [ ] CI in the registry repo validates submitted manifests automatically
 
 ---
 

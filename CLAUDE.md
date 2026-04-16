@@ -20,6 +20,9 @@ You are working on **Kairos** — an AI-native scheduling and task management ap
 | Google Calendar              | `references/gcal-integration.md`             |
 | API route handlers           | `references/api-contract.md`                 |
 | Plugin host / scratchpad     | `references/plugin-system.md`                |
+| Design system / theme arch   | `references/design-system.md`                |
+| Theme tokens / packs         | `references/theme-system.md`                 |
+| Theme marketplace            | `references/theme-marketplace.md`            |
 | Tests                        | `references/testing.md`                      |
 | Project layout               | `references/project-structure.md`            |
 | Migration / porting context  | `references/migration-from-old-build.md`     |
@@ -176,6 +179,7 @@ Route handlers call services. Services call pipelines, plugins, and `lib/db`. Pi
 - [ ] No service file over 250 lines — split first if approaching
 - [ ] No direct LLM provider imports outside `lib/llm/` and bundled plugins
 - [ ] No `Project` / `projectId` reappearing
+- [ ] No raw colour literals in components — use semantic tokens only (`no-raw-colors` ESLint rule)
 - [ ] No long-running operation in a route handler — use the `jobs` table
 - [ ] ESLint clean
 - [ ] **Commit after every completed feature** — each self-contained addition (route handler, service, schema change, test suite) gets its own commit before moving to the next
@@ -197,7 +201,7 @@ Route handlers call services. Services call pipelines, plugins, and `lib/db`. Pi
 - A long-running operation directly in a route handler instead of via the `jobs` table
 - A new feature being added to v1 that isn't in `references/architecture-decisions.md`'s phase 1 or 2 scope
 - A frontend component referencing chat or voice routes
-- A hardcoded design token (`bg-zinc-900`) instead of a semantic one (`bg-surface`)
+- A hardcoded design token (`bg-zinc-900`) instead of a semantic one (`bg-surface`) — enforced by `eslint-rules/no-raw-colors.js`
 - A `chatSessions` table or chat route reappearing
 - Reading `kairos-api/*.py` files and porting them line-by-line into TypeScript
 

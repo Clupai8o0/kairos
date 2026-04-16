@@ -92,9 +92,18 @@ No file over ~250 lines. Route handlers and services never import directly from 
 - `PluginContext.getRulesets()` for user-defined rules
 - Rulesets evaluated by the plugin during `parse()`, after the LLM call but before returning
 
-### ADR-R5: Design system is a swappable token pack
-**Decision:** Multiple design "packs" (full visual identities) shipped as token files, switchable at runtime.
-**Status:** Mechanism locked, visual design deferred. Components reference semantic tokens only — never raw Tailwind colours, never hex values.
+### ADR-R5: Design system is a swappable token pack with hybrid packaging
+**Decision:** Multiple design "packs" (full visual identities) shipped with two packaging formats — built-ins as CSS files in the repo, marketplace packs as JSON manifests compiled to CSS at install. Both satisfy the same token contract.
+**Context:** The original ADR-R5 left packaging open. With the marketplace landing in phase 4 (ADR-R14), the format needs to be locked. CSS-only loses install-without-redeploy for community packs. JSON-only loses build-time type safety for first-party packs. Hybrid keeps both wins.
+**Consequences:**
+- Built-in packs live at `app/styles/packs/<id>.css` and are statically registered in `app/styles/packs/manifest.ts`
+- Marketplace packs are JSON manifests validated by `ThemeManifestSchema` (Zod), compiled to CSS at install time, stored in `themeInstalls.compiledCss`, and served from `app/api/themes/[id]/css/route.ts`
+- The token contract is identical for both formats — see `references/theme-system.md` for the required token list
+- Components reference semantic tokens only (`bg-surface`, `fg-default`, etc.) — never raw Tailwind colours, never hex values. Enforced via the `no-raw-colors` ESLint rule shipped in phase 2.
+- Active theme persisted as `users.activeThemeId` (text, default `obsidian-linear`). No new tables in phase 2; `themeInstalls` table arrives in phase 4 with the marketplace.
+- Plugins may declare a theme dependency in their manifest. Installing the plugin makes the pack available; the user still chooses whether to activate it.
+
+Full spec: `references/theme-system.md`. Marketplace: `references/theme-marketplace.md`.
 
 ### ADR-R6: Frontend scope shrinks for v1
 **Decision:** v1 routes: dashboard, tasks, schedule, scratchpad, tags, views, settings. **No chat, no voice in v1.**
@@ -123,6 +132,7 @@ No file over ~250 lines. Route handlers and services never import directly from 
 **Consequences:**
 - Root `package.json` lists `ai` (the abstraction) but no provider-specific packages — those are runtime-installed based on user config, or shipped only by plugins that need them
 - ESLint custom rule fails the build on disallowed provider imports
+- **Raw colour literals outside theme pack files** — banned in components, JSX, and CSS Module files. Allowed paths: `app/styles/packs/`, `lib/themes/compiled/`. Rule: `eslint-rules/no-raw-colors.js`. See `references/theme-system.md` for the rule definition.
 
 ### ADR-R11: Auth via Better Auth, not Clerk
 **Decision:** Better Auth (TypeScript-native, self-hostable, stores users in your own Postgres) replaces Clerk.
@@ -148,6 +158,19 @@ No file over ~250 lines. Route handlers and services never import directly from 
 - Marketing routes are statically rendered (Next.js detects automatically); app routes are dynamic
 - Splitting into two repos later is a one-day job if the constraint ever appears
 
+### ADR-R14: Theme marketplace ships in phase 4, sharing infrastructure with the plugin marketplace
+**Decision:** Community themes distribute via the same registry-and-PR model as plugins, with one in-app browser UI that has a Plugins tab and a Themes tab. The registry is a public GitHub repo (`kairos-themes-registry`) with a flat `manifests/` directory and an `index.json` index file.
+**Context:** Originally the design system roadmap was vague about whether community themes were even in scope. The marketplace decision in phase 4 needs an explicit design — and the obvious lever is reusing the plugin marketplace's submission, validation, and discovery infrastructure rather than building a parallel system.
+**Consequences:**
+- One marketplace UI, two tabs. Same install endpoint pattern, same submission flow.
+- `themeInstalls` table added in phase 4 (not phase 2). Phase 2 only needs `users.activeThemeId` to support built-in pack switching.
+- Self-hosted and hosted instances both support marketplace browsing and install. Only difference: hosted instance reports anonymous install counts; self-hosted does not.
+- Registry repo is decoupled from the main Kairos repo — community contributors don't need write access to Kairos itself to ship a theme.
+- No payments, no premium themes, no revenue split. Same OSS posture as plugins.
+- If the flat-file registry hits scale issues (hundreds of themes), the migration path is to a database-backed registry service. Defer until that's a real problem.
+
+Full spec: `references/theme-marketplace.md`.
+
 ---
 
 ## Phase scope reference
@@ -159,7 +182,7 @@ These are not ADRs — they're the v1 boundary. Anything outside this list is no
 - Scratchpad as a plugin host with one bundled plugin (`text-to-tasks`)
 - Frontend routes: dashboard, tasks, schedule, scratchpad, tags, views, settings
 - Marketing route group with placeholder landing page
-- Multiple swappable design packs (mechanism in place; full visual design deferred)
+- Multiple swappable design packs with hybrid packaging (CSS for built-ins, JSON manifests for marketplace); token contract codified, ESLint `no-raw-colors` rule enforced
 - Background jobs via Vercel Cron + Postgres `jobs` table
 - Better Auth with Google OAuth
 
@@ -171,5 +194,5 @@ These are not ADRs — they're the v1 boundary. Anything outside this list is no
 - Stripe / paid tier (post-v1)
 - Direct LLM provider SDKs anywhere outside `lib/llm/` and bundled plugins
 
-**Phase 3:** open source — public repo, license, landing page filled in, plugin SDK, three example plugins.
-**Phase 4:** in-app plugin marketplace.
+**Phase 3:** open source — public repo, license, landing page filled in, plugin SDK, three example plugins, theme token contract documented for contributors.
+**Phase 4:** in-app plugin + theme marketplace (shared UI, shared registry model). See ADR-R14.
