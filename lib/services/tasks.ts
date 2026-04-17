@@ -16,7 +16,11 @@ export type CreateTaskInput = {
   durationMins?: number;
   deadline?: string; // ISO 8601 string
   priority: number;
+  status?: 'pending' | 'scheduled' | 'in_progress' | 'done' | 'cancelled';
   schedulable: boolean;
+  timeLocked?: boolean;
+  scheduledAt?: string; // ISO — set when creating with a locked time
+  scheduledEnd?: string; // ISO
   bufferMins: number;
   minChunkMins?: number;
   isSplittable: boolean;
@@ -33,6 +37,7 @@ export type UpdateTaskInput = {
   priority?: number;
   status?: 'pending' | 'scheduled' | 'in_progress' | 'done' | 'cancelled';
   schedulable?: boolean;
+  timeLocked?: boolean;
   bufferMins?: number;
   minChunkMins?: number | null;
   isSplittable?: boolean;
@@ -124,7 +129,7 @@ export async function createTask(
   userId: string,
   input: CreateTaskInput,
 ): Promise<TaskWithTags> {
-  const { tagIds, deadline, recurrenceRule, ...rest } = input;
+  const { tagIds, deadline, recurrenceRule, scheduledAt, scheduledEnd, ...rest } = input;
   const id = newId();
   await db.insert(tasks).values({
     id,
@@ -132,6 +137,8 @@ export async function createTask(
     ...rest,
     deadline: deadline ? new Date(deadline) : undefined,
     recurrenceRule: recurrenceRule ?? undefined,
+    scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
+    scheduledEnd: scheduledEnd ? new Date(scheduledEnd) : undefined,
     updatedAt: new Date(),
   });
   if (tagIds.length > 0) {

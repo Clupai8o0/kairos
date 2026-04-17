@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "kairos-plugin-github",
+  "name": "GitHub Issues",
+  "description": "Import GitHub issues and pull requests as tasks. Syncs labels to tags.",
+  "author": "Kairos Team",
+  "version": "0.1.0",
+  "distribution": "http",
+  "endpoint": "https://plugins.kairos.app/github",
+  "handlesInputTypes": ["url", "text"],
+  "capabilities": ["http-fetch"],
+  "homepage": "https://github.com/kairosapp/kairos-plugin-github",
+  "repository": "https://github.com/kairosapp/kairos-plugin-github"
+}

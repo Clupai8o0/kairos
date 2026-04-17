@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "voice",
+  "name": "Voice Memo",
+  "description": "Transcribe voice memos and extract tasks from the spoken content.",
+  "author": "kairos-app",
+  "version": "1.0.0",
+  "distribution": "http",
+  "endpoint": "https://kairos-plugin-voice.vercel.app",
+  "handlesInputTypes": ["voice"],
+  "capabilities": ["llm"],
+  "homepage": "https://github.com/kairos-app/kairos",
+  "repository": "https://github.com/kairos-app/kairos"
+}

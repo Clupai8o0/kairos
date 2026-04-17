@@ -8,9 +8,9 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 
 ## Current State
 
-**Phase:** 4 complete. Phase 4b planned. Pending: public repo + v1.0.0 tag.
+**Phase:** 4b complete. Pending: public repo + v1.0.0 tag.
 
-### What's built (phases 1–4)
+### What's built (phases 1–4b)
 - [x] Full backend: scheduler pipeline, GCal layer, plugin host, scratchpad, jobs queue
 - [x] Full frontend: all 7 app routes wired to real APIs via TanStack Query
 - [x] Theme system: 2 built-in packs, server-side `data-theme` injection (no FOUC), Cmd+K palette switcher, Settings→Appearance picker
@@ -30,6 +30,24 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 - [x] Phase 4: `app/(app)/settings/marketplace/page.tsx` — tabbed Plugins | Themes marketplace UI
 - [x] Phase 4: `app/(app)/settings/appearance/custom/page.tsx` — custom manifest upload
 - [x] Phase 4: appearance page shows installed marketplace themes + links
+- [x] Phase 4b: `packages/plugin-sdk/src/manifest.ts` — `PluginManifestSchema` Zod schema + type
+- [x] Phase 4b: `lib/plugins/manifest-types.ts` — in-lib re-export of manifest schema
+- [x] Phase 4b: `lib/plugins/safety.ts` — plugin safety checks (size, ID, HTTPS, DNS rebinding)
+- [x] Phase 4b: `lib/plugins/install.ts` — install/uninstall/rollback/list for plugins
+- [x] Phase 4b: `lib/plugins/http-adapter.ts` — HTTP adapter with circuit breaker + HMAC signing
+- [x] Phase 4b: `lib/plugins/updates.ts` — check installed plugins against registry for updates
+- [x] Phase 4b: updated `lib/plugins/host.ts` — loads HTTP plugins alongside bundled
+- [x] Phase 4b: `app/api/plugins/install/route.ts` — POST install (URL or raw manifest)
+- [x] Phase 4b: `app/api/plugins/[name]/uninstall/route.ts` — DELETE uninstall
+- [x] Phase 4b: `drizzle/0004_plugin_install_fields.sql` — extended `pluginInstalls` schema
+- [x] Phase 4b: `public/plugin-registry/` — 10 plugin manifests + registry index
+- [x] Phase 4b: `packages/validator-core/` — shared validation core (types, fs, output)
+- [x] Phase 4b: `packages/plugin-validator/` — CLI for plugin manifest validation
+- [x] Phase 4b: `packages/theme-validator/` — CLI for theme manifest validation
+- [x] Phase 4b: `.github/workflows/validate-registry.yml` — CI for manifest validation
+- [x] Phase 4b: updated marketplace UI — full plugin browse/install/uninstall/toggle
+- [x] Phase 4b: updated `lib/hooks/use-plugins.ts` — registry, install, uninstall, updates hooks
+- [x] Phase 4b: updated `CONTRIBUTING.md` — plugin development guide
 
 ### Active decisions (promoted to ADRs)
 - Default pack tokens in `@theme {}` (Tailwind-native); marketplace/custom packs compiled under `[data-theme="id"] {}` (selector scope)
@@ -44,16 +62,57 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 - `v1.0.0` tag not yet applied (pending deploy verification)
 
 ### Next concrete action
-1. `pnpm db:migrate` on production to apply `0003_theme_installs.sql`
-2. Set GitHub repo to public
-3. `git tag v1.0.0 && git push origin v1.0.0`
-4. Begin Phase 4b, Session 11: ADR-R15 registry scaffolding (see `docs/superpowers/plans/12-phase-4b-completion.md`)
+1. `pnpm db:migrate` on production to apply `0003_theme_installs.sql` + `0004_plugin_install_fields.sql`
+2. `pnpm install` to wire workspace packages
+3. Set GitHub repo to public
+4. `git tag v1.0.0 && git push origin v1.0.0`
 
 ---
 
 ## Session log
 
 Append new entries at the top. Use the template below.
+
+---
+
+## 2025-07-25 — Session 11: Phase 4b completion
+
+**Goal for this session:** Complete all Phase 4b checklist items — plugin marketplace infrastructure.
+
+**Built:**
+- `packages/plugin-sdk/src/manifest.ts` — `PluginManifestSchema` Zod schema with distribution refinements
+- `lib/plugins/manifest-types.ts` — in-lib re-export for use without SDK dependency
+- `lib/plugins/safety.ts` — safety checks: size limit, ID collisions, HTTPS enforcement, DNS rebinding protection, format validation
+- `lib/plugins/install.ts` — `installPluginManifest()`, `installPluginFromUrl()`, `uninstallPlugin()`, `listInstalledPlugins()`, `rollbackPlugin()`
+- `lib/plugins/http-adapter.ts` — wraps remote HTTP plugins as `ScratchpadPlugin` with circuit breaker (3 failures/1min → 5min open), HMAC request signing, 5s timeout
+- `lib/plugins/updates.ts` — `checkForUpdates()` compares installed versions against registry
+- Updated `lib/plugins/host.ts` — `loadHttpPlugins()`, `listAllPlugins()`, dispatch tries bundled then HTTP
+- `app/api/plugins/install/route.ts` — POST (discriminated union: URL or raw manifest)
+- `app/api/plugins/[name]/uninstall/route.ts` — DELETE
+- `drizzle/0004_plugin_install_fields.sql` — adds manifestJson, previousVersion, previousManifestJson, endpoint, endpointSecret, lastHealthyAt to pluginInstalls
+- `public/plugin-registry/` — 10 plugins: instagram, twitter, readwise, voice, github, notion, linear, email, slack, todoist
+- `packages/validator-core/` — shared validation primitives (types, fs, output formatters)
+- `packages/plugin-validator/` — CLI for validating plugin manifests
+- `packages/theme-validator/` — CLI for validating theme manifests
+- `.github/workflows/validate-registry.yml` — CI validates all manifests on PR/push
+- Updated marketplace UI — plugins tab now has full browse/search/install/uninstall/toggle UX
+- Updated `lib/hooks/use-plugins.ts` — `usePluginRegistry()`, `useInstallPlugin()`, `useUninstallPlugin()`, `usePluginUpdates()`
+- Updated `CONTRIBUTING.md` — plugin development section (create, validate, submit)
+
+**Decisions made:**
+- ADR-R15 fully implemented — hybrid distribution locked
+- Plugin registry is flat-file JSON in `public/` (same pattern as theme registry)
+- HTTP adapter uses HMAC signing with per-install secret + circuit breaker
+- Validator CLIs share `@kairos/validator-core` for output formatting and file I/O
+
+**Files touched:** ~35 new/modified
+
+**Tests added:** 0 (existing tests unaffected)
+
+**Next action:**
+1. `pnpm install` + `pnpm db:migrate` on production
+2. Set GitHub repo to public
+3. `git tag v1.0.0 && git push origin v1.0.0`
 
 ---
 

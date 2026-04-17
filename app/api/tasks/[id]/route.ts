@@ -13,6 +13,7 @@ const UpdateTaskSchema = z.object({
   priority: z.number().int().min(1).max(4).optional(),
   status: z.enum(['pending', 'scheduled', 'in_progress', 'done', 'cancelled']).optional(),
   schedulable: z.boolean().optional(),
+  timeLocked: z.boolean().optional(),
   bufferMins: z.number().int().min(0).optional(),
   minChunkMins: z.number().int().positive().nullable().optional(),
   isSplittable: z.boolean().optional(),

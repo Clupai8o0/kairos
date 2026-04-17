@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "kairos-plugin-linear",
+  "name": "Linear Sync",
+  "description": "Import Linear issues as tasks and keep their status in sync bidirectionally.",
+  "author": "Kairos Team",
+  "version": "0.1.0",
+  "distribution": "http",
+  "endpoint": "https://plugins.kairos.app/linear",
+  "handlesInputTypes": ["url", "text"],
+  "capabilities": ["http-fetch"],
+  "homepage": "https://github.com/kairosapp/kairos-plugin-linear",
+  "repository": "https://github.com/kairosapp/kairos-plugin-linear"
+}

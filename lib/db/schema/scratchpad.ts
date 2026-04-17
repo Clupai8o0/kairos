@@ -61,10 +61,16 @@ export const pluginInstalls = pgTable(
     pluginName: text('plugin_name').notNull(),
     pluginVersion: text('plugin_version').notNull(),
     source: text('source')
-      .$type<'builtin' | 'npm' | 'http' | 'git'>()
+      .$type<'builtin' | 'marketplace' | 'custom-upload' | 'npm' | 'http' | 'git'>()
       .notNull(),
     sourceUrl: text('source_url'),
     enabled: boolean('enabled').notNull().default(true),
+    manifestJson: jsonb('manifest_json'),
+    previousVersion: text('previous_version'),
+    previousManifestJson: jsonb('previous_manifest_json'),
+    endpoint: text('endpoint'),
+    endpointSecret: text('endpoint_secret'),
+    lastHealthyAt: timestamp('last_healthy_at'),
     installedAt: timestamp('installed_at').notNull().defaultNow(),
   },
   (t) => [

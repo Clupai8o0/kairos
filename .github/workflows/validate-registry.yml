@@ -1,0 +1,79 @@
+name: Validate Registry Manifests
+
+on:
+  pull_request:
+    paths:
+      - 'public/plugin-registry/**'
+      - 'public/theme-registry/**'
+  push:
+    branches: [main]
+    paths:
+      - 'public/plugin-registry/**'
+      - 'public/theme-registry/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build validator packages
+        run: |
+          pnpm --filter @kairos/validator-core build
+          pnpm --filter @kairos/plugin-validator build
+          pnpm --filter @kairos/theme-validator build
+
+      - name: Validate plugin manifests
+        run: |
+          for f in public/plugin-registry/manifests/*.json; do
+            echo "Validating $f..."
+            node packages/plugin-validator/dist/cli.js "$f"
+          done
+
+      - name: Validate theme manifests
+        run: |
+          for f in public/theme-registry/manifests/*.json; do
+            echo "Validating $f..."
+            node packages/theme-validator/dist/cli.js "$f"
+          done
+
+      - name: Validate registry index (plugins)
+        run: |
+          node -e "
+            const idx = require('./public/plugin-registry/index.json');
+            const fs = require('fs');
+            for (const p of idx.plugins) {
+              const path = 'public' + p.manifestUrl;
+              if (!fs.existsSync(path)) {
+                console.error('Missing manifest: ' + path);
+                process.exit(1);
+              }
+            }
+            console.log('Plugin registry index OK — ' + idx.plugins.length + ' entries');
+          "
+
+      - name: Validate registry index (themes)
+        run: |
+          node -e "
+            const idx = require('./public/theme-registry/index.json');
+            const fs = require('fs');
+            for (const t of idx.themes) {
+              const path = 'public' + t.downloadUrl;
+              if (!fs.existsSync(path)) {
+                console.error('Missing manifest: ' + path);
+                process.exit(1);
+              }
+            }
+            console.log('Theme registry index OK — ' + idx.themes.length + ' entries');
+          "

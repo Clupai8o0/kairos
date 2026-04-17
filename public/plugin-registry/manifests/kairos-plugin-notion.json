@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "kairos-plugin-notion",
+  "name": "Notion Import",
+  "description": "Import tasks and to-dos from Notion databases and pages into Kairos.",
+  "author": "Kairos Team",
+  "version": "0.1.0",
+  "distribution": "http",
+  "endpoint": "https://plugins.kairos.app/notion",
+  "handlesInputTypes": ["url", "text"],
+  "capabilities": ["http-fetch"],
+  "homepage": "https://github.com/kairosapp/kairos-plugin-notion",
+  "repository": "https://github.com/kairosapp/kairos-plugin-notion"
+}

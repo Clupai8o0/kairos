@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "twitter",
+  "name": "Twitter",
+  "description": "Paste a tweet or thread URL and extract actionable tasks from the content.",
+  "author": "kairos-app",
+  "version": "1.0.0",
+  "distribution": "http",
+  "endpoint": "https://kairos-plugin-twitter.vercel.app",
+  "handlesInputTypes": ["url"],
+  "capabilities": ["llm", "http-fetch"],
+  "homepage": "https://github.com/kairos-app/kairos",
+  "repository": "https://github.com/kairos-app/kairos"
+}

@@ -23,6 +23,7 @@ export interface Task {
   scheduledAt: string | null;
   gcalEventId: string | null;
   schedulable: boolean;
+  timeLocked: boolean;
   bufferMins: number;
   minChunkMins: number | null;
   isSplittable: boolean;

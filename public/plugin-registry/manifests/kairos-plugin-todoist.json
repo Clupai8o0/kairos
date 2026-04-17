@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "kairos-plugin-todoist",
+  "name": "Todoist Import",
+  "description": "Import tasks from Todoist with priorities, labels, and due dates preserved.",
+  "author": "Kairos Team",
+  "version": "0.1.0",
+  "distribution": "http",
+  "endpoint": "https://plugins.kairos.app/todoist",
+  "handlesInputTypes": ["url", "text"],
+  "capabilities": ["http-fetch"],
+  "homepage": "https://github.com/kairosapp/kairos-plugin-todoist",
+  "repository": "https://github.com/kairosapp/kairos-plugin-todoist"
+}

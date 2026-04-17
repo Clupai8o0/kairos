@@ -2,7 +2,7 @@
 // Orchestrator — the ONLY scheduler file that reads from the DB or calls GCal.
 // Business logic lives in the pure modules; this file only wires them together.
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { tasks, scheduleWindows, blackoutDays, scheduleLogs } from '@/lib/db/schema';
 import { newId } from '@/lib/utils/id';
@@ -73,6 +73,7 @@ export async function scheduleSingleTask(
   const target = userTasks.find((t) => t.id === taskId);
 
   if (!target || !target.schedulable) return null;
+  if (target.timeLocked) return null; // don't move a user-locked task
   if (target.status === 'done' || target.status === 'cancelled') return null;
 
   // Check dependency satisfaction
@@ -80,9 +81,15 @@ export async function scheduleSingleTask(
   if (target.dependsOn.some((depId) => !doneSet.has(depId))) return null;
 
   // Fetch busy intervals (or empty if GCal not available)
-  const busy: BusyInterval[] = gcal
-    ? await gcal.getFreeBusy([], from, to) // TODO: pass real calendarIds
-    : [];
+  // Also treat other users' locked tasks as busy so we don't schedule into their time
+  const lockedBusy: BusyInterval[] = userTasks
+    .filter((t) => t.timeLocked && t.scheduledAt && t.scheduledEnd && t.id !== taskId)
+    .map((t) => ({ start: t.scheduledAt!, end: t.scheduledEnd! }));
+
+  const busy: BusyInterval[] = [
+    ...(gcal ? await gcal.getFreeBusy([], from, to) : []),
+    ...lockedBusy,
+  ];
 
   const scored = { ...target, urgency: 0 }; // urgency is irrelevant for single placement
   const freeSlots = computeFreeSlots(
@@ -155,13 +162,39 @@ export async function scheduleFullRunChunk(
   const now = new Date();
   const { from, to } = lookaheadRange(now);
 
-  const { userTasks, windows, blackouts } = await loadContext(userId);
+  const { userTasks: rawTasks, windows, blackouts } = await loadContext(userId);
+
+  // Unlock tasks whose locked time has passed so the auto-scheduler can reclaim them
+  const pastLockedIds = rawTasks
+    .filter((t) => t.timeLocked && t.scheduledAt && t.scheduledAt < now)
+    .map((t) => t.id);
+
+  if (pastLockedIds.length > 0) {
+    await db
+      .update(tasks)
+      .set({ timeLocked: false, scheduledAt: null, scheduledEnd: null, status: 'pending', updatedAt: now })
+      .where(inArray(tasks.id, pastLockedIds));
+  }
+
+  // Reflect unlocks in the working copy so candidates picks them up
+  const userTasks = rawTasks.map((t) =>
+    pastLockedIds.includes(t.id)
+      ? { ...t, timeLocked: false, scheduledAt: null, scheduledEnd: null, status: 'pending' as const }
+      : t,
+  );
+
   const doneSet = buildDoneSet(userTasks);
   const candidates = selectCandidates(userTasks, doneSet, now).slice(0, CHUNK_SIZE);
 
-  const busy: BusyInterval[] = gcal
-    ? await gcal.getFreeBusy([], from, to)
-    : [];
+  // Treat still-locked tasks as busy so free-slot computation respects them
+  const lockedBusy: BusyInterval[] = userTasks
+    .filter((t) => t.timeLocked && t.scheduledAt && t.scheduledEnd)
+    .map((t) => ({ start: t.scheduledAt!, end: t.scheduledEnd! }));
+
+  const busy: BusyInterval[] = [
+    ...(gcal ? await gcal.getFreeBusy([], from, to) : []),
+    ...lockedBusy,
+  ];
 
   let freeSlots = computeFreeSlots(
     windows.map((w) => ({

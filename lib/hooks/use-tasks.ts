@@ -28,6 +28,9 @@ export interface CreateTaskInput {
   priority: number;
   deadline?: string;
   schedulable: boolean;
+  timeLocked?: boolean;
+  scheduledAt?: string;
+  scheduledEnd?: string;
   durationMins?: number;
   bufferMins: number;
   isSplittable: boolean;
@@ -43,6 +46,7 @@ export interface UpdateTaskInput {
   status?: TaskStatus;
   deadline?: string | null;
   schedulable?: boolean;
+  timeLocked?: boolean;
   durationMins?: number;
   scheduledAt?: string | null;
   scheduledEnd?: string | null;

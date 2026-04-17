@@ -20,6 +20,7 @@ export function selectCandidates(
   return tasks
     .filter((t) => {
       if (!t.schedulable) return false;
+      if (t.timeLocked) return false; // time is user-locked; skip until past (runner unlocks it)
       if (t.status !== 'pending' && t.status !== 'scheduled') return false;
       if (t.dependsOn.length > 0) {
         if (!t.dependsOn.every((depId) => doneTaskIds.has(depId))) return false;

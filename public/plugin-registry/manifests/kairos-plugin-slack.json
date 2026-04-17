@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "kairos-plugin-slack",
+  "name": "Slack Messages",
+  "description": "Parse shared Slack messages and threads into actionable tasks with context.",
+  "author": "Kairos Team",
+  "version": "0.1.0",
+  "distribution": "http",
+  "endpoint": "https://plugins.kairos.app/slack",
+  "handlesInputTypes": ["url", "text", "share"],
+  "capabilities": ["http-fetch", "llm"],
+  "homepage": "https://github.com/kairosapp/kairos-plugin-slack",
+  "repository": "https://github.com/kairosapp/kairos-plugin-slack"
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@kairos/plugin-validator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CLI validator for Kairos plugin manifests",
+  "type": "module",
+  "bin": {
+    "kairos-validate-plugin": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@kairos/validator-core": "workspace:*",
+    "zod": "^3.24.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

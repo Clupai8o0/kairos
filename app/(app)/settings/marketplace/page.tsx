@@ -4,9 +4,10 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { useThemeRegistry, useInstalledThemes, useInstallTheme, useUninstallTheme } from '@/lib/hooks/use-themes';
-import { usePlugins, useTogglePlugin } from '@/lib/hooks/use-plugins';
+import { usePlugins, useTogglePlugin, usePluginRegistry, useInstallPlugin, useUninstallPlugin } from '@/lib/hooks/use-plugins';
 import { useSetTheme } from '@/lib/hooks/use-theme';
 import type { RegistryTheme } from '@/lib/hooks/use-themes';
+import type { RegistryPlugin } from '@/lib/hooks/use-plugins';
 
 type Tab = 'plugins' | 'themes';
 
@@ -229,57 +230,163 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
   );
 }
 
+function PluginCard({ plugin, installed, onInstall, onUninstall, onToggle, isInstalling, isUninstalling }: {
+  plugin: RegistryPlugin;
+  installed: { name: string; enabled: boolean } | null;
+  onInstall: () => void;
+  onUninstall: () => void;
+  onToggle: (enabled: boolean) => void;
+  isInstalling: boolean;
+  isUninstalling: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-wire-2 bg-ghost overflow-hidden flex flex-col">
+      <div className="h-12 flex items-center gap-2 px-3 bg-surface-2 shrink-0">
+        <div className="w-8 h-8 rounded-md bg-brand/20 flex items-center justify-center text-brand text-sm font-[600]">
+          {plugin.name.charAt(0).toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-fg-2 text-sm font-[510] truncate">{plugin.name}</p>
+        </div>
+        <span className="text-fg-4 text-[10px] border border-wire px-1.5 rounded-full shrink-0">
+          v{plugin.version}
+        </span>
+      </div>
+
+      <div className="px-3 py-2.5 flex-1 flex flex-col gap-2">
+        <div>
+          <p className="text-fg-4 text-xs line-clamp-2">{plugin.description}</p>
+          <p className="text-fg-4 text-[11px] mt-1">by {plugin.author}</p>
+          {plugin.tags.length > 0 && (
+            <div className="flex gap-1 mt-1.5 flex-wrap">
+              {plugin.tags.map((tag) => (
+                <span key={tag} className="text-[10px] text-fg-4 bg-surface-3 px-1.5 py-0.5 rounded-full">{tag}</span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2 mt-auto">
+          {installed ? (
+            <>
+              <Toggle
+                checked={installed.enabled}
+                onChange={onToggle}
+              />
+              <button
+                onClick={onUninstall}
+                disabled={isUninstalling}
+                className="px-2.5 py-1 text-xs font-[510] rounded-md border border-wire text-fg-4 hover:text-danger hover:border-danger transition-colors disabled:opacity-40"
+              >
+                Remove
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={onInstall}
+              disabled={isInstalling}
+              className="flex-1 py-1 text-xs font-[510] rounded-md border border-wire text-fg-3 hover:text-fg-2 hover:border-wire-2 transition-colors disabled:opacity-40"
+            >
+              {isInstalling ? 'Installing…' : 'Install'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PluginsTab() {
   const { data: plugins, isLoading } = usePlugins();
+  const { data: registry, isLoading: regLoading } = usePluginRegistry();
   const togglePlugin = useTogglePlugin();
+  const installPlugin = useInstallPlugin();
+  const uninstallPlugin = useUninstallPlugin();
+  const [search, setSearch] = useState('');
+  const [installingId, setInstallingId] = useState<string | null>(null);
+  const [uninstallingId, setUninstallingId] = useState<string | null>(null);
+
+  const installedMap = new Map((plugins ?? []).map((p) => [p.name, p]));
+
+  const registryPlugins = (registry?.plugins ?? []).filter((p) => {
+    if (search && !p.name.toLowerCase().includes(search.toLowerCase()) && !p.description.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  function handleInstall(plugin: RegistryPlugin) {
+    setInstallingId(plugin.id);
+    const p = installPlugin.mutateAsync(plugin.manifestUrl);
+    toast.promise(p, {
+      loading: `Installing ${plugin.name}…`,
+      success: `${plugin.name} installed`,
+      error: (e) => e?.message ?? 'Install failed',
+    });
+    p.finally(() => setInstallingId(null));
+  }
+
+  function handleUninstall(plugin: RegistryPlugin) {
+    setUninstallingId(plugin.id);
+    const p = uninstallPlugin.mutateAsync(plugin.id);
+    toast.promise(p, {
+      loading: `Removing ${plugin.name}…`,
+      success: `${plugin.name} removed`,
+      error: (e) => e?.message ?? 'Remove failed',
+    });
+    p.finally(() => setUninstallingId(null));
+  }
+
+  function handleToggle(name: string, enabled: boolean) {
+    togglePlugin.mutate({ name, enabled });
+  }
 
   return (
-    <div className="space-y-3">
-      <p className="text-fg-4 text-xs">
-        Installed plugins appear here. Enable or disable them to control what processes scratchpad entries.
-      </p>
+    <div className="space-y-4">
+      <div className="flex gap-3">
+        <input
+          type="text"
+          placeholder="Search plugins…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 bg-surface-2 border border-wire-2 rounded-lg px-3 py-2 text-sm text-fg-2 placeholder:text-fg-4 focus:outline-none focus:border-brand"
+        />
+      </div>
 
-      {isLoading ? (
-        <div className="space-y-2">
-          <div className="h-16 bg-ghost rounded-lg animate-pulse" />
+      {regLoading || isLoading ? (
+        <div className="grid grid-cols-2 gap-3">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-40 bg-ghost rounded-lg animate-pulse" />
+          ))}
         </div>
-      ) : plugins && plugins.length > 0 ? (
-        plugins.map((plugin) => (
-          <div
-            key={plugin.name}
-            className="flex items-center justify-between px-4 py-3.5 rounded-lg bg-ghost border border-wire-2"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-fg-2 text-sm font-[510]">{plugin.displayName}</p>
-                <span className="text-fg-4 text-[11px] border border-wire px-1.5 py-0.5 rounded-full">
-                  v{plugin.version}
-                </span>
-                {!plugin.enabled && (
-                  <span className="text-fg-4 text-[11px] bg-surface-3 px-1.5 py-0.5 rounded-full">disabled</span>
-                )}
-              </div>
-              <p className="text-fg-4 text-xs mt-0.5 truncate">{plugin.description}</p>
-            </div>
-            <Toggle
-              checked={plugin.enabled}
-              onChange={(v) => togglePlugin.mutate({ name: plugin.name, enabled: v })}
-              disabled={togglePlugin.isPending}
-            />
-          </div>
-        ))
+      ) : registryPlugins.length === 0 ? (
+        <div className="py-12 text-center text-fg-4 text-sm">No plugins match your search.</div>
       ) : (
-        <div className="px-4 py-8 rounded-lg bg-ghost border border-wire-2 text-center">
-          <p className="text-fg-4 text-sm mb-1">No plugins installed.</p>
-          <p className="text-fg-4 text-xs">
-            See the{' '}
-            <a href="/docs/plugins" className="text-accent hover:text-accent-hover transition-colors" target="_blank">
-              plugin SDK docs
-            </a>{' '}
-            to build your own.
-          </p>
+        <div className="grid grid-cols-2 gap-3">
+          {registryPlugins.map((plugin) => {
+            const inst = installedMap.get(plugin.id) ?? null;
+            return (
+              <PluginCard
+                key={plugin.id}
+                plugin={plugin}
+                installed={inst ? { name: inst.name, enabled: inst.enabled } : null}
+                onInstall={() => handleInstall(plugin)}
+                onUninstall={() => handleUninstall(plugin)}
+                onToggle={(v) => handleToggle(plugin.id, v)}
+                isInstalling={installingId === plugin.id}
+                isUninstalling={uninstallingId === plugin.id}
+              />
+            );
+          })}
         </div>
       )}
+
+      <div className="pt-2 border-t border-wire-2">
+        <Link
+          href="/docs/plugins"
+          className="text-xs text-accent hover:text-accent-hover transition-colors"
+        >
+          Build your own plugin →
+        </Link>
+      </div>
     </div>
   );
 }

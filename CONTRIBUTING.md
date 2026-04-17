@@ -98,6 +98,44 @@ These rules come from the locked ADRs. Breaking them will fail CI.
 - Chat / voice features (deferred post-v1)
 - New database tables that aren't in the approved schema
 - Anything that requires a new required environment variable without a self-hosted fallback
+
+---
+
+## Plugin development
+
+### Creating a plugin
+
+1. Copy `examples/plugins/kairos-plugin-instagram/` as a starting template
+2. Implement the `ScratchpadPlugin` interface from `@kairos/plugin-sdk`
+3. Define your manifest with `definePlugin()` and export it as default
+
+### Validating your manifest
+
+```bash
+# From repo root
+pnpm --filter @kairos/plugin-validator dev public/plugin-registry/manifests/your-plugin.json
+
+# Or pipe from stdin
+cat manifest.json | pnpm --filter @kairos/plugin-validator dev --json
+```
+
+### Submitting to the registry
+
+1. Add your manifest JSON to `public/plugin-registry/manifests/`
+2. Add an entry to `public/plugin-registry/index.json`
+3. Run the validators to ensure your manifest passes all checks
+4. Open a PR — the CI workflow will validate automatically
+
+### Plugin requirements
+
+- `schemaVersion` must be `1`
+- `id` must match `/^[a-z0-9][a-z0-9-]*$/`
+- `version` must be valid semver (`1.0.0`)
+- HTTP plugins must use HTTPS endpoints
+- Manifest size must be under 64KB
+- Must handle at least one input type
+
+See `references/plugin-system.md` for the full specification.
 - Framework migrations or major dependency upgrades without a prior discussion
 
 ---

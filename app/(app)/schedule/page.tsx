@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useTasks, useUpdateTask } from '@/lib/hooks/use-tasks';
 import { useCalendars, useCalendarEvents, useUpdateCalendarEvent } from '@/lib/hooks/use-calendars';
@@ -37,6 +37,7 @@ export default function SchedulePage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [createDraft, setCreateDraft] = useState<{ start: string; end: string } | null>(null);
+  const [lockPending, setLockPending] = useState<{ taskId: string; start: string; end: string } | null>(null);
   const runSchedule = useRunSchedule();
   const updateTask = useUpdateTask();
   const updateEvent = useUpdateCalendarEvent();
@@ -71,19 +72,8 @@ export default function SchedulePage() {
 
   const handleTaskMove = useCallback((taskId: string, result: DragResult) => {
     const { start, end } = dragToTimes(result);
-    const p = updateTask.mutateAsync({
-      id: taskId,
-      scheduledAt: start,
-      scheduledEnd: end,
-      schedulable: false,
-      status: 'scheduled',
-    });
-    toast.promise(p, {
-      loading: 'Moving task…',
-      success: 'Task pinned to new time',
-      error: (e) => (e as Error)?.message ?? 'Failed to move task',
-    });
-  }, [dragToTimes, updateTask]);
+    setLockPending({ taskId, start, end });
+  }, [dragToTimes]);
 
   const handleEventMove = useCallback((eventId: string, result: DragResult) => {
     const event = events.find((e) => e.id === eventId);
@@ -123,6 +113,24 @@ export default function SchedulePage() {
     const { start, end } = dragToTimes(result);
     setCreateDraft({ start, end });
   }, [dragToTimes]);
+
+  function confirmLock() {
+    if (!lockPending) return;
+    const p = updateTask.mutateAsync({
+      id: lockPending.taskId,
+      scheduledAt: lockPending.start,
+      scheduledEnd: lockPending.end,
+      timeLocked: true,
+      schedulable: true,
+      status: 'scheduled',
+    });
+    toast.promise(p, {
+      loading: 'Locking task…',
+      success: 'Task locked to this time',
+      error: (e) => (e as Error)?.message ?? 'Failed to lock task',
+    });
+    setLockPending(null);
+  }
 
   function prevWeek() {
     setWeekStart((d) => { const n = new Date(d); n.setDate(n.getDate() - 7); return n; });
@@ -254,6 +262,67 @@ export default function SchedulePage() {
             end={createDraft.end}
             onClose={() => setCreateDraft(null)}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {lockPending && (
+          <motion.div
+            key="lock-confirm"
+            className="fixed inset-0 z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            <div
+              className="absolute inset-0 bg-canvas/80 backdrop-blur-sm"
+              onClick={() => setLockPending(null)}
+            />
+            <div className="absolute inset-0 flex items-center justify-center p-4">
+              <motion.div
+                className="bg-surface-2 border border-wire rounded-lg shadow-xl w-full max-w-sm p-5"
+                initial={{ scale: 0.97, y: 6 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.97, y: 6 }}
+                transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-full bg-warning/15 flex items-center justify-center shrink-0 mt-0.5">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-warning">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-[510] text-fg mb-1">Lock task to this time?</p>
+                    <p className="text-xs text-fg-3">
+                      {new Date(lockPending.start).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      {' · '}
+                      {new Date(lockPending.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                      {' – '}
+                      {new Date(lockPending.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                    </p>
+                    <p className="text-[11px] text-fg-4 mt-1.5">The auto-scheduler won't move this task. If the time passes without completion, it will be unlocked and rescheduled automatically.</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={() => setLockPending(null)}
+                    className="text-xs font-[510] text-fg-3 hover:text-fg border border-wire hover:border-wire-2 px-3 py-1.5 rounded transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmLock}
+                    className="text-xs font-[510] bg-accent hover:bg-accent/90 text-canvas px-3 py-1.5 rounded transition-colors"
+                  >
+                    Lock time
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

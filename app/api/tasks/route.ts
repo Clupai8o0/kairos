@@ -12,6 +12,9 @@ const CreateTaskSchema = z.object({
   deadline: z.string().datetime({ offset: true }).optional(),
   priority: z.number().int().min(1).max(4).default(3),
   schedulable: z.boolean().default(true),
+  timeLocked: z.boolean().default(false),
+  scheduledAt: z.string().datetime({ offset: true }).optional(),
+  scheduledEnd: z.string().datetime({ offset: true }).optional(),
   bufferMins: z.number().int().min(0).default(15),
   minChunkMins: z.number().int().positive().optional(),
   isSplittable: z.boolean().default(false),
@@ -47,10 +50,25 @@ export async function POST(req: NextRequest) {
   const parsed = CreateTaskSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const task = await createTask(userId, parsed.data);
+  const isLocked = parsed.data.timeLocked && !!parsed.data.scheduledAt;
+  const task = await createTask(userId, {
+    ...parsed.data,
+    // If creating with a locked time, mark as scheduled immediately
+    status: isLocked ? 'scheduled' : 'pending',
+  });
 
-  // Enqueue placement if task is schedulable, then self-trigger drain (fire-and-forget)
-  if (parsed.data.schedulable !== false) {
+  if (isLocked) {
+    // Task is locked to a specific time — reschedule others around it
+    await enqueueJob('schedule:full-run', {
+      userId,
+      payload: {},
+      idempotencyKey: `schedule:full-run:${userId}:${Date.now()}`,
+    });
+    fetch(
+      new URL('/api/cron/drain', process.env.BETTER_AUTH_URL ?? 'http://localhost:3000').toString(),
+      { method: 'POST' },
+    ).catch(() => {/* fire-and-forget */});
+  } else if (parsed.data.schedulable !== false) {
     await enqueueJob('schedule:single-task', {
       userId,
       payload: { taskId: task.id },

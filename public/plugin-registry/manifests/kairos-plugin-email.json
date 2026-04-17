@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "kairos-plugin-email",
+  "name": "Email to Tasks",
+  "description": "Forward emails to your scratchpad and extract actionable tasks automatically.",
+  "author": "Kairos Team",
+  "version": "0.1.0",
+  "distribution": "http",
+  "endpoint": "https://plugins.kairos.app/email",
+  "handlesInputTypes": ["text"],
+  "capabilities": ["llm"],
+  "homepage": "https://github.com/kairosapp/kairos-plugin-email",
+  "repository": "https://github.com/kairosapp/kairos-plugin-email"
+}

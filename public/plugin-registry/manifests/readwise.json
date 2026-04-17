@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "readwise",
+  "name": "Readwise",
+  "description": "Pull highlights from Readwise exports and convert them into reading and review tasks.",
+  "author": "kairos-app",
+  "version": "1.0.0",
+  "distribution": "http",
+  "endpoint": "https://kairos-plugin-readwise.vercel.app",
+  "handlesInputTypes": ["text"],
+  "capabilities": ["llm"],
+  "homepage": "https://github.com/kairos-app/kairos",
+  "repository": "https://github.com/kairos-app/kairos"
+}

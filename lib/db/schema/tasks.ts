@@ -39,6 +39,9 @@ export const tasks = pgTable(
     scheduledAt: timestamp('scheduled_at'),
     scheduledEnd: timestamp('scheduled_end'),
 
+    // Lock: user-pinned time — scheduler won't move until scheduledAt is in the past
+    timeLocked: boolean('time_locked').notNull().default(false),
+
     // Flexibility
     bufferMins: integer('buffer_mins').notNull().default(15),
     minChunkMins: integer('min_chunk_mins'),

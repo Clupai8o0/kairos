@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2025-01-15T00:00:00Z",
+  "plugins": [
+    {
+      "id": "kairos-plugin-instagram",
+      "name": "Instagram Saver",
+      "description": "Save Instagram posts and reels to your scratchpad for task extraction.",
+      "author": "Kairos Team",
+      "version": "0.1.0",
+      "distribution": "http",
+      "manifestUrl": "/plugin-registry/manifests/kairos-plugin-instagram.json",
+      "tags": ["social", "media"]
+    },
+    {
+      "id": "kairos-plugin-twitter",
+      "name": "Twitter/X Bookmarks",
+      "description": "Import bookmarked tweets and threads as scratchpad entries for processing.",
+      "author": "Kairos Team",
+      "version": "0.1.0",
+      "distribution": "http",
+      "manifestUrl": "/plugin-registry/manifests/kairos-plugin-twitter.json",
+      "tags": ["social", "media"]
+    },
+    {
+      "id": "kairos-plugin-readwise",
+      "name": "Readwise Highlights",
+      "description": "Sync Readwise highlights into your scratchpad. Extract tasks from your reading notes.",
+      "author": "Kairos Team",
+      "version": "0.1.0",
+      "distribution": "http",
+      "manifestUrl": "/plugin-registry/manifests/kairos-plugin-readwise.json",
+      "tags": ["reading", "knowledge"]
+    },
+    {
+      "id": "kairos-plugin-voice",
+      "name": "Voice Notes",
+      "description": "Transcribe voice memos and extract tasks using your configured LLM provider.",
+      "author": "Kairos Team",
+      "version": "0.1.0",
+      "distribution": "http",
+      "manifestUrl": "/plugin-registry/manifests/kairos-plugin-voice.json",
+      "tags": ["voice", "transcription"]
+    },
+    {
+      "id": "kairos-plugin-github",
+      "name": "GitHub Issues",
+      "description": "Import GitHub issues and pull requests as tasks. Syncs labels to tags.",
+      "author": "Kairos Team",
+      "version": "0.1.0",
+      "distribution": "http",
+      "manifestUrl": "/plugin-registry/manifests/kairos-plugin-github.json",
+      "tags": ["development", "productivity"]
+    },
+    {
+      "id": "kairos-plugin-notion",
+      "name": "Notion Import",
+      "description": "Import tasks and to-dos from Notion databases and pages into Kairos.",
+      "author": "Kairos Team",
+      "version": "0.1.0",
+      "distribution": "http",
+      "manifestUrl": "/plugin-registry/manifests/kairos-plugin-notion.json",
+      "tags": ["productivity", "knowledge"]
+    },
+    {
+      "id": "kairos-plugin-linear",
+      "name": "Linear Sync",
+      "description": "Import Linear issues as tasks and keep their status in sync bidirectionally.",
+      "author": "Kairos Team",
+      "version": "0.1.0",
+      "distribution": "http",
+      "manifestUrl": "/plugin-registry/manifests/kairos-plugin-linear.json",
+      "tags": ["development", "productivity"]
+    },
+    {
+      "id": "kairos-plugin-email",
+      "name": "Email to Tasks",
+      "description": "Forward emails to your scratchpad and extract actionable tasks automatically.",
+      "author": "Kairos Team",
+      "version": "0.1.0",
+      "distribution": "http",
+      "manifestUrl": "/plugin-registry/manifests/kairos-plugin-email.json",
+      "tags": ["communication", "productivity"]
+    },
+    {
+      "id": "kairos-plugin-slack",
+      "name": "Slack Messages",
+      "description": "Parse shared Slack messages and threads into actionable tasks with context.",
+      "author": "Kairos Team",
+      "version": "0.1.0",
+      "distribution": "http",
+      "manifestUrl": "/plugin-registry/manifests/kairos-plugin-slack.json",
+      "tags": ["communication", "productivity"]
+    },
+    {
+      "id": "kairos-plugin-todoist",
+      "name": "Todoist Import",
+      "description": "Import tasks from Todoist with priorities, labels, and due dates preserved.",
+      "author": "Kairos Team",
+      "version": "0.1.0",
+      "distribution": "http",
+      "manifestUrl": "/plugin-registry/manifests/kairos-plugin-todoist.json",
+      "tags": ["productivity", "migration"]
+    }
+  ]
+}

@@ -22,6 +22,20 @@
       "when": 1776312156738,
       "tag": "0002_rich_the_hand",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776320000000,
+      "tag": "0004_plugin_install_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776400000000,
+      "tag": "0005_time_locked",
+      "breakpoints": true
     }
   ]
 }

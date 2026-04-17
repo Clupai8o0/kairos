@@ -98,7 +98,10 @@ export function QuickCreateModal({ start, end, onClose }: Props) {
         title: title.trim() || 'New task',
         description: description.trim() || undefined,
         priority: Number(priority),
-        schedulable: false,
+        schedulable: true,    // keep auto-schedulable so it can be unlocked later
+        timeLocked: true,     // lock to the user-dragged time slot
+        scheduledAt: startIso,
+        scheduledEnd: endIso,
         durationMins: Math.max(15, durationMins),
         bufferMins: 0,
         isSplittable: false,
