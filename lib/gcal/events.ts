@@ -76,6 +76,43 @@ export async function upsertEvent(
   }
 }
 
+export interface GCalEventPatch {
+  summary?: string;
+  description?: string;
+  start?: string; // ISO datetime
+  end?: string;
+}
+
+export async function patchEvent(
+  userId: string,
+  calendarId: string,
+  eventId: string,
+  patch: GCalEventPatch,
+): Promise<GCalEvent> {
+  const auth = await getAuthClient(userId);
+  const calendar = google.calendar({ version: 'v3', auth });
+  const body: Record<string, unknown> = {};
+  if (patch.summary !== undefined) body.summary = patch.summary;
+  if (patch.description !== undefined) body.description = patch.description;
+  if (patch.start !== undefined) body.start = { dateTime: patch.start };
+  if (patch.end !== undefined) body.end = { dateTime: patch.end };
+  try {
+    const res = await calendar.events.patch({ calendarId, eventId, requestBody: body });
+    const e = res.data;
+    return {
+      id: e.id!,
+      summary: e.summary ?? null,
+      description: e.description ?? null,
+      start: e.start?.dateTime ?? e.start?.date ?? '',
+      end: e.end?.dateTime ?? e.end?.date ?? '',
+      calendarId,
+      isAllDay: !e.start?.dateTime,
+    };
+  } catch (err) {
+    throw mapGoogleError(err);
+  }
+}
+
 export async function deleteEvent(
   userId: string,
   calendarId: string,

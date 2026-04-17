@@ -39,6 +39,28 @@ export function useSyncCalendars() {
   });
 }
 
+export interface UpdateCalendarEventInput {
+  id: string;
+  calendarId: string;
+  summary?: string;
+  description?: string;
+  start?: string;
+  end?: string;
+}
+
+export function useUpdateCalendarEvent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: UpdateCalendarEventInput) =>
+      apiFetch<CalendarEvent>(`/api/calendars/events/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['calendar-events'] }),
+  });
+}
+
 export function useUpdateCalendar() {
   const qc = useQueryClient();
   return useMutation({

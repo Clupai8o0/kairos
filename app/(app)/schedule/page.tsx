@@ -1,11 +1,15 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useTasks } from '@/lib/hooks/use-tasks';
 import { useCalendarEvents } from '@/lib/hooks/use-calendars';
 import { useRunSchedule } from '@/lib/hooks/use-schedule';
 import { CalendarWeek } from '@/components/app/calendar-week';
+import { TaskEditModal } from '@/components/app/task-edit-modal';
+import { EventEditModal } from '@/components/app/event-edit-modal';
+import type { Task, CalendarEvent } from '@/lib/hooks/types';
 
 function getMonday(date: Date): Date {
   const d = new Date(date);
@@ -28,6 +32,8 @@ function formatWeekRange(monday: Date): string {
 
 export default function SchedulePage() {
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const runSchedule = useRunSchedule();
 
   const weekEnd = useMemo(() => {
@@ -133,7 +139,34 @@ export default function SchedulePage() {
 
       </header>
 
-      <CalendarWeek weekStart={weekStart} tasks={tasks} events={events} isLoading={eventsLoading} />
+      <CalendarWeek
+        weekStart={weekStart}
+        tasks={tasks}
+        events={events}
+        isLoading={eventsLoading}
+        onTaskClick={setSelectedTask}
+        onEventClick={setSelectedEvent}
+      />
+
+      <AnimatePresence>
+        {selectedTask && (
+          <TaskEditModal
+            key="task-modal"
+            task={selectedTask}
+            onClose={() => setSelectedTask(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {selectedEvent && (
+          <EventEditModal
+            key="event-modal"
+            event={selectedEvent}
+            onClose={() => setSelectedEvent(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -54,10 +54,15 @@ export function useInstallTheme() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (downloadUrl: string) => {
+      // Resolve relative paths (e.g. /theme-registry/manifests/nord-dark.json)
+      // to absolute URLs so the server-side fetch and Zod url() validation pass.
+      const absoluteUrl = downloadUrl.startsWith('/')
+        ? `${window.location.origin}${downloadUrl}`
+        : downloadUrl;
       const res = await fetch('/api/themes/install', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'registry', downloadUrl }),
+        body: JSON.stringify({ mode: 'registry', downloadUrl: absoluteUrl }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

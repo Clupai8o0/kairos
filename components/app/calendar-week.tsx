@@ -30,9 +30,10 @@ interface EventBlockProps {
   color?: string;
   // Task event — renders with left-border accent style
   isTask?: boolean;
+  onClick?: () => void;
 }
 
-function EventBlock({ top, height, label, sublabel, color, isTask }: EventBlockProps) {
+function EventBlock({ top, height, label, sublabel, color, isTask, onClick }: EventBlockProps) {
   const style: React.CSSProperties = isTask
     ? {
         position: 'absolute',
@@ -55,7 +56,11 @@ function EventBlock({ top, height, label, sublabel, color, isTask }: EventBlockP
       };
 
   return (
-    <div style={style} className="rounded px-1.5 py-0.5 overflow-hidden cursor-default">
+    <div
+      style={style}
+      className={`rounded px-1.5 py-0.5 overflow-hidden ${onClick ? 'cursor-pointer hover:brightness-110' : 'cursor-default'}`}
+      onClick={onClick}
+    >
       <p className={`text-[10px] font-[510] leading-tight truncate ${isTask ? 'text-fg' : 'text-white'}`}>{label}</p>
       {sublabel && height > 26 && (
         <p className={`text-[9px] truncate ${isTask ? 'text-fg-3' : 'text-white/70'}`}>{sublabel}</p>
@@ -81,9 +86,11 @@ interface Props {
   tasks: Task[];
   events: CalendarEvent[];
   isLoading?: boolean;
+  onTaskClick?: (task: Task) => void;
+  onEventClick?: (event: CalendarEvent) => void;
 }
 
-export function CalendarWeek({ weekStart, tasks, events, isLoading = false }: Props) {
+export function CalendarWeek({ weekStart, tasks, events, isLoading = false, onTaskClick, onEventClick }: Props) {
   const [now, setNow] = useState(() => new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -205,6 +212,7 @@ export function CalendarWeek({ weekStart, tasks, events, isLoading = false }: Pr
                       color={event.calendarColor ?? 'var(--color-surface-3)'}
                       label={event.summary ?? '(no title)'}
                       sublabel={event.calendarName}
+                      onClick={onEventClick ? () => onEventClick(event) : undefined}
                     />
                   );
                 })}
@@ -222,6 +230,7 @@ export function CalendarWeek({ weekStart, tasks, events, isLoading = false }: Pr
                       isTask
                       label={task.title}
                       sublabel={task.durationMins ? `${task.durationMins} min` : undefined}
+                      onClick={onTaskClick ? () => onTaskClick(task) : undefined}
                     />
                   );
                 })}
