@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "solarized-light",
+  "name": "Solarized Light",
+  "description": "The classic solarized light palette. Easy on the eyes.",
+  "author": "altercation",
+  "version": "1.0.0",
+  "colorScheme": "light",
+  "preview": {
+    "canvas": "#fdf6e3",
+    "surface": "#eee8d5",
+    "fg": "#657b83",
+    "accent": "#268bd2"
+  },
+  "tokens": {
+    "--color-canvas": "#fdf6e3",
+    "--color-surface": "#eee8d5",
+    "--color-surface-2": "#e8e0ca",
+    "--color-surface-3": "#ddd6c0",
+    "--color-fg": "#657b83",
+    "--color-fg-2": "#586e75",
+    "--color-fg-3": "#93a1a1",
+    "--color-fg-4": "#b5bdb5",
+    "--color-accent": "#268bd2",
+    "--color-accent-hover": "#1d7ab8",
+    "--color-line": "#e8e0ca",
+    "--color-line-subtle": "#ddd6c0",
+    "--color-success": "#859900",
+    "--color-warning": "#b58900",
+    "--color-danger": "#dc322f",
+    "--font-sans": "system-ui, -apple-system, sans-serif",
+    "--font-mono": "ui-monospace, 'Source Code Pro', monospace",
+    "--radius-sm": "0.25rem",
+    "--radius-md": "0.375rem",
+    "--radius-lg": "0.5rem",
+    "--color-brand": "#2aa198",
+    "--color-accent-2": "#2aa198",
+    "--color-emerald": "#859900"
+  }
+}

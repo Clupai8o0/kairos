@@ -1,0 +1,38 @@
+{
+  "name": "@kairos/plugin-sdk",
+  "version": "1.0.0",
+  "description": "SDK for building Kairos scratchpad plugins",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./src/index.ts",
+      "require": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./src/testing.ts"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "zod": ">=4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "zod": "^4.3.6",
+    "vitest": "^4.0.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kairos-app/kairos",
+    "directory": "packages/plugin-sdk"
+  },
+  "keywords": ["kairos", "plugin", "sdk", "tasks", "ai"]
+}

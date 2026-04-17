@@ -7,3 +7,4 @@ export * from './schedule';
 export * from './gcal';
 export * from './jobs';
 export * from './scratchpad';
+export * from './themes';

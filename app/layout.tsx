@@ -20,11 +20,17 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Resolve theme server-side so data-theme is in the initial HTML — no FOUC.
   let themeId = 'obsidian-linear';
+  let marketplaceCssUrl: string | null = null;
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     if (session?.user?.id) {
       const resolved = await resolveUserTheme(session.user.id);
-      themeId = resolved.kind === 'builtin' ? resolved.id : 'obsidian-linear';
+      if (resolved.kind === 'builtin') {
+        themeId = resolved.id;
+      } else {
+        themeId = resolved.id;
+        marketplaceCssUrl = resolved.cssUrl;
+      }
     }
   } catch {
     // Auth/DB failure — fall back to default theme
@@ -32,6 +38,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en" className={inter.variable} data-theme={themeId}>
+      <head>
+        {marketplaceCssUrl && (
+          <link rel="stylesheet" href={marketplaceCssUrl} />
+        )}
+      </head>
       <body>
         <Providers>{children}</Providers>
       </body>

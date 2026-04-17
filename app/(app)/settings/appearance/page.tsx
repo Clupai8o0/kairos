@@ -1,8 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { BUILT_IN_PACKS } from '@/app/styles/packs/manifest';
 import { useSetTheme } from '@/lib/hooks/use-theme';
+import { useInstalledThemes } from '@/lib/hooks/use-themes';
 
 interface PreviewSwatchProps {
   canvas: string;
@@ -42,6 +44,7 @@ function PreviewSwatch({ canvas, surface, fg, accent }: PreviewSwatchProps) {
 
 export default function AppearancePage() {
   const setTheme = useSetTheme();
+  const { data: installedThemes } = useInstalledThemes();
 
   // Read current active theme from the html data-theme attribute
   const currentThemeId =
@@ -102,6 +105,53 @@ export default function AppearancePage() {
               </button>
             );
           })}
+          {(installedThemes ?? []).map((theme) => {
+            const active = theme.themeId === currentThemeId;
+            return (
+              <button
+                key={theme.id}
+                onClick={() => handleSelect(theme.themeId)}
+                disabled={setTheme.isPending}
+                className={[
+                  'text-left rounded-lg p-3 border transition-all',
+                  active
+                    ? 'border-accent bg-ghost-2'
+                    : 'border-wire hover:border-wire-2 bg-ghost',
+                  setTheme.isPending ? 'opacity-50 cursor-not-allowed' : '',
+                ].join(' ')}
+              >
+                <div className="h-14 rounded-md bg-surface-2 flex items-center justify-center">
+                  <span className="text-fg-4 text-xs">Custom pack</span>
+                </div>
+                <div className="mt-2.5 flex items-center justify-between">
+                  <div>
+                    <p className="text-fg-2 text-xs font-[510]">{theme.themeId}</p>
+                    <p className="text-fg-4 text-[10px] mt-0.5">v{theme.version} · {theme.source}</p>
+                  </div>
+                  {active && (
+                    <span className="text-[10px] font-[510] text-accent bg-accent/10 px-1.5 py-0.5 rounded-full">
+                      Active
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex gap-4">
+          <Link
+            href="/settings/marketplace"
+            className="text-xs text-accent hover:text-accent-hover transition-colors"
+          >
+            Browse marketplace →
+          </Link>
+          <Link
+            href="/settings/appearance/custom"
+            className="text-xs text-accent hover:text-accent-hover transition-colors"
+          >
+            Upload custom theme →
+          </Link>
         </div>
       </div>
     </div>

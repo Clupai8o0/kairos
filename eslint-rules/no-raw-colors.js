@@ -12,6 +12,9 @@ const ALLOWED_PATHS = [
   // Test files may contain literal color values as data (e.g. manifest fixtures)
   /[/\\]tests[/\\]/,
   /\.test\.[jt]sx?$/,
+  // Docs pages and theme upload — legitimately show color values as code examples
+  /app[/\\]\(marketing\)[/\\]docs[/\\]/,
+  /settings[/\\]appearance[/\\]custom[/\\]/,
 ];
 
 module.exports = {

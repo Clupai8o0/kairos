@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-04-18T00:00:00Z",
+  "themes": [
+    {
+      "id": "nord-dark",
+      "name": "Nord Dark",
+      "description": "Arctic, north-pole-inspired palette. Cool blues and muted grays.",
+      "author": "arcticicestudio",
+      "version": "1.0.0",
+      "colorScheme": "dark",
+      "preview": {
+        "canvas": "#2e3440",
+        "surface": "#3b4252",
+        "fg": "#eceff4",
+        "accent": "#88c0d0"
+      },
+      "downloadUrl": "/theme-registry/manifests/nord-dark.json"
+    },
+    {
+      "id": "dracula",
+      "name": "Dracula",
+      "description": "Dark theme with vibrant purple and pink accents.",
+      "author": "zenorocha",
+      "version": "1.0.0",
+      "colorScheme": "dark",
+      "preview": {
+        "canvas": "#282a36",
+        "surface": "#44475a",
+        "fg": "#f8f8f2",
+        "accent": "#bd93f9"
+      },
+      "downloadUrl": "/theme-registry/manifests/dracula.json"
+    },
+    {
+      "id": "catppuccin-mocha",
+      "name": "Catppuccin Mocha",
+      "description": "Soothing pastel dark theme. Warm and cozy.",
+      "author": "catppuccin",
+      "version": "1.0.0",
+      "colorScheme": "dark",
+      "preview": {
+        "canvas": "#1e1e2e",
+        "surface": "#313244",
+        "fg": "#cdd6f4",
+        "accent": "#cba6f7"
+      },
+      "downloadUrl": "/theme-registry/manifests/catppuccin-mocha.json"
+    },
+    {
+      "id": "solarized-light",
+      "name": "Solarized Light",
+      "description": "The classic solarized light palette. Easy on the eyes.",
+      "author": "altercation",
+      "version": "1.0.0",
+      "colorScheme": "light",
+      "preview": {
+        "canvas": "#fdf6e3",
+        "surface": "#eee8d5",
+        "fg": "#657b83",
+        "accent": "#268bd2"
+      },
+      "downloadUrl": "/theme-registry/manifests/solarized-light.json"
+    },
+    {
+      "id": "tokyo-night",
+      "name": "Tokyo Night",
+      "description": "Inspired by the neon-lit streets of Tokyo at night.",
+      "author": "enkia",
+      "version": "1.0.0",
+      "colorScheme": "dark",
+      "preview": {
+        "canvas": "#1a1b26",
+        "surface": "#24283b",
+        "fg": "#c0caf5",
+        "accent": "#7aa2f7"
+      },
+      "downloadUrl": "/theme-registry/manifests/tokyo-night.json"
+    }
+  ]
+}

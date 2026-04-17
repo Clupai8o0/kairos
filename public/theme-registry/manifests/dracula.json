@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "dracula",
+  "name": "Dracula",
+  "description": "Dark theme with vibrant purple and pink accents.",
+  "author": "zenorocha",
+  "version": "1.0.0",
+  "colorScheme": "dark",
+  "preview": {
+    "canvas": "#282a36",
+    "surface": "#44475a",
+    "fg": "#f8f8f2",
+    "accent": "#bd93f9"
+  },
+  "tokens": {
+    "--color-canvas": "#282a36",
+    "--color-surface": "#313442",
+    "--color-surface-2": "#44475a",
+    "--color-surface-3": "#6272a4",
+    "--color-fg": "#f8f8f2",
+    "--color-fg-2": "#f8f8f2",
+    "--color-fg-3": "#f8f8f2",
+    "--color-fg-4": "#6272a4",
+    "--color-accent": "#bd93f9",
+    "--color-accent-hover": "#caa2fa",
+    "--color-line": "#44475a",
+    "--color-line-subtle": "#3d4057",
+    "--color-success": "#50fa7b",
+    "--color-warning": "#ffb86c",
+    "--color-danger": "#ff5555",
+    "--font-sans": "system-ui, -apple-system, sans-serif",
+    "--font-mono": "ui-monospace, 'Fira Code', monospace",
+    "--radius-sm": "0.25rem",
+    "--radius-md": "0.375rem",
+    "--radius-lg": "0.5rem",
+    "--color-brand": "#ff79c6",
+    "--color-accent-2": "#ff79c6",
+    "--color-emerald": "#50fa7b"
+  }
+}

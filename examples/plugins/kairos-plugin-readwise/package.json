@@ -1,0 +1,22 @@
+{
+  "name": "kairos-plugin-readwise",
+  "version": "1.0.0",
+  "description": "Kairos plugin: convert Readwise highlight exports into reading tasks",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@kairos/plugin-sdk": "^1.0.0",
+    "zod": ">=4.0.0"
+  },
+  "devDependencies": {
+    "@kairos/plugin-sdk": "^1.0.0",
+    "typescript": "^5.0.0",
+    "zod": "^4.3.6",
+    "vitest": "^4.0.0"
+  },
+  "license": "MIT"
+}

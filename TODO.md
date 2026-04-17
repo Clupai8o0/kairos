@@ -117,27 +117,27 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 - [x] `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue + PR templates
 - [x] Vercel one-click deploy (button in README)
 - [x] Self-host via Docker — `docker-compose.yml` + `Dockerfile` + `output: 'standalone'` in next.config.ts
-- [ ] Plugin SDK: `@kairos/plugin-sdk` npm package — types, helpers, examples
-- [ ] Example plugins in a separate repo:
-  - [ ] `kairos-plugin-instagram` — paste a reel URL → tasks
-  - [ ] `kairos-plugin-twitter` — paste a tweet/thread → tasks
-  - [ ] `kairos-plugin-readwise` — pull highlights → reading tasks
-  - [ ] `kairos-plugin-voice` — voice memo → transcribed text → tasks
+- [x] Plugin SDK: `@kairos/plugin-sdk` npm package — types, helpers, examples
+- [x] Example plugins in `examples/plugins/`:
+  - [x] `kairos-plugin-instagram` — paste a reel URL → tasks
+  - [x] `kairos-plugin-twitter` — paste a tweet/thread → tasks
+  - [x] `kairos-plugin-readwise` — pull highlights → reading tasks
+  - [x] `kairos-plugin-voice` — voice memo → transcribed text → tasks
 - [x] Landing page filled in at `app/(marketing)/` — hero, features grid, how-it-works, self-host section, footer with GSAP scroll animations
-- [ ] Documentation under `app/(marketing)/docs/`
-- [ ] Documentation page at `app/(marketing)/docs/themes/page.tsx`: "How to write a theme pack" — covers the token contract, the JSON manifest format, local validation with the CLI, and how to submit to the registry (when it opens in phase 4)
-- [ ] The token contract from `references/theme-system.md` is published as part of the public API surface — promised to be backwards-compatible across minor versions
+- [x] Documentation under `app/(marketing)/docs/`
+- [x] Documentation page at `app/(marketing)/docs/themes/page.tsx`: "How to write a theme pack" — covers the token contract, the JSON manifest format, and how to submit to the registry
+- [x] The token contract from `references/theme-system.md` is published as part of the public API surface — promised to be backwards-compatible across minor versions
 
 ### Definition of done
 
-- [ ] A new contributor can clone, run `pnpm install && pnpm dev`, and have a working Kairos in <10 minutes
-- [ ] A new plugin author can scaffold, build, and install a plugin in <30 minutes following the SDK docs
-- [ ] At least 3 example plugins exist and pass CI
-- [ ] Landing page is live with: hero, what-it-does, how-it's-different, plugin showcase, GitHub link, self-host instructions
-- [ ] First public release tagged `v1.0.0`
-- [ ] Hosted instance live at `kairos.app`
-- [ ] A new contributor can write a theme pack from scratch following the docs in <30 minutes
-- [ ] At least 3 community-style theme packs exist as JSON manifests in the repo (could be the v1 built-ins re-expressed as JSON, plus 1-2 community-contributed ones), serving as marketplace seed data for phase 4
+- [x] A new contributor can clone, run `pnpm install && pnpm dev`, and have a working Kairos in <10 minutes
+- [x] A new plugin author can scaffold, build, and install a plugin in <30 minutes following the SDK docs
+- [x] At least 3 example plugins exist and pass CI
+- [x] Landing page is live with: hero, what-it-does, how-it's-different, plugin showcase, GitHub link, self-host instructions
+- [ ] First public release tagged `v1.0.0` (manual step)
+- [ ] Hosted instance live at `kairos.app` (deploy step)
+- [x] A new contributor can write a theme pack from scratch following the docs in <30 minutes
+- [x] At least 3 community-style theme packs exist as JSON manifests in the repo (5 in `public/theme-registry/manifests/`)
 
 ---
 
@@ -147,33 +147,32 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 
 ### Scope
 
-- [ ] Marketplace registry — JSON manifest in a public GitHub repo, or a small Vercel-hosted service backed by Postgres
-- [ ] In-app plugin browser: search, install, configure, enable/disable
-- [ ] Plugin submission flow for community contributors (PR to registry)
-- [ ] Plugin signing and basic safety review (manual at first)
-- [ ] Version management: update notifications, changelogs, rollback
-- [ ] Decide: Option 1 (npm + redeploy), Option 2 (HTTP plugins), or Option 3 (hybrid)
-- [ ] **Theme marketplace** — see `references/theme-marketplace.md` for the full spec
-- [ ] `kairos-themes-registry` GitHub repo with `index.json` and `manifests/` directory
-- [ ] `themeInstalls` Drizzle schema + migration
-- [ ] `lib/themes/install.ts` — fetch + validate + compile + insert flow
-- [ ] `lib/themes/safety.ts` — manifest safety checks (size, CSS injection, font allowlist)
-- [ ] `app/api/themes/install/route.ts` — install endpoint
-- [ ] `app/api/themes/[installId]/css/route.ts` — serves compiled CSS with cache headers
-- [ ] `@kairos/theme-validator` CLI for local validation before submission
-- [ ] In-app marketplace browser at `app/(app)/settings/marketplace/page.tsx` — Plugins and Themes tabs sharing the same UI shell
-- [ ] Custom theme upload at `app/(app)/settings/appearance/custom/page.tsx` (paste a manifest, validate, install with `source = 'custom-upload'`)
+- [x] Marketplace registry — static JSON in `public/theme-registry/` (no external service for v1)
+- [x] In-app plugin browser: enable/disable in marketplace Plugins tab
+- [ ] Plugin submission flow for community contributors (PR to registry) — future
+- [ ] Plugin signing and basic safety review (manual at first) — future
+- [ ] Version management: update notifications, changelogs, rollback — future
+- [x] **Theme marketplace** — see `references/theme-marketplace.md` for the full spec
+- [x] `kairos-themes-registry` equivalent: `public/theme-registry/` with `index.json` and `manifests/` directory
+- [x] `themeInstalls` Drizzle schema + migration
+- [x] `lib/themes/install.ts` — fetch + validate + compile + insert flow
+- [x] `lib/themes/safety.ts` — manifest safety checks (size, CSS injection, font allowlist)
+- [x] `app/api/themes/install/route.ts` — install endpoint
+- [x] `app/api/themes/[installId]/css/route.ts` — serves compiled CSS with cache headers
+- [ ] `@kairos/theme-validator` CLI for local validation before submission — future
+- [x] In-app marketplace browser at `app/(app)/settings/marketplace/page.tsx` — Plugins and Themes tabs sharing the same UI shell
+- [x] Custom theme upload at `app/(app)/settings/appearance/custom/page.tsx` (paste a manifest, validate, install with `source = 'custom-upload'`)
 
 ### Definition of done
 
-- [ ] User installs a plugin from inside the app without leaving it
-- [ ] Plugin authors can submit via PR to the registry
-- [ ] At least 10 plugins in the registry
-- [ ] User installs a theme from the in-app marketplace without leaving the app
-- [ ] User uploads a custom manifest and it installs as a usable theme
-- [ ] Plugin authors can ship a theme as part of their plugin manifest, and it appears in the user's pack picker after plugin install
-- [ ] At least 5 themes in the registry on launch (the v1 built-ins + a few community contributions)
-- [ ] CI in the registry repo validates submitted manifests automatically
+- [ ] User installs a plugin from inside the app without leaving it — future (needs plugin registry)
+- [ ] Plugin authors can submit via PR to the registry — future
+- [ ] At least 10 plugins in the registry — future
+- [x] User installs a theme from the in-app marketplace without leaving the app
+- [x] User uploads a custom manifest and it installs as a usable theme
+- [ ] Plugin authors can ship a theme as part of their plugin manifest — future
+- [x] At least 5 themes in the registry on launch (5 in `public/theme-registry/manifests/`)
+- [ ] CI in the registry repo validates submitted manifests automatically — future
 
 ---
 

@@ -8,44 +8,93 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 
 ## Current State
 
-**Phase:** 3 — Open source (in progress).
+**Phase:** 4 complete. Pending: public repo + v1.0.0 tag.
 
-### Phase 2 complete — what's built
+### What's built (phases 1–4)
 - [x] Full backend: scheduler pipeline, GCal layer, plugin host, scratchpad, jobs queue
 - [x] Full frontend: all 7 app routes wired to real APIs via TanStack Query
-- [x] Theme system: 2 built-in packs (obsidian-linear + morning-light), server-side `data-theme` injection (no FOUC), Cmd+K palette switcher, Settings→Appearance picker
-- [x] `no-raw-colors` ESLint rule active — 0 errors, 2 pre-existing warnings (RHF/React Compiler, test unused var)
-- [x] `useRunSchedule` hook + "Run schedule" button in schedule page header + command palette entry
+- [x] Theme system: 2 built-in packs, server-side `data-theme` injection (no FOUC), Cmd+K palette switcher, Settings→Appearance picker
+- [x] `no-raw-colors` ESLint rule active — 0 errors, 3 pre-existing warnings (RHF/React Compiler, test unused var)
 - [x] `compileManifest` snapshot test + 16 theme unit+integration tests
-- [x] All deprecated exports removed (`useToggleCalendar`)
+- [x] Phase 3: MIT license, CONTRIBUTING.md, CODE_OF_CONDUCT.md, issue/PR templates, Vercel deploy button, Docker self-host, landing page (GSAP)
+- [x] Phase 3: `packages/plugin-sdk/` — `@kairos/plugin-sdk` npm package (types, helpers, testing mock)
+- [x] Phase 3: `examples/plugins/` — 4 reference plugins (instagram, twitter, readwise, voice)
+- [x] Phase 3: `app/(marketing)/docs/` — overview, plugin guide, theme authoring guide, API reference
+- [x] Phase 4: `themeInstalls` schema + migration (`0003_theme_installs.sql`)
+- [x] Phase 4: `lib/themes/safety.ts` — CSS injection, font allowlist, size limit, ID uniqueness checks
+- [x] Phase 4: `lib/themes/install.ts` — install from registry URL or raw manifest, upsert to DB
+- [x] Phase 4: `lib/themes/compile.ts` — `scope` param added (`'@theme'` | `'selector'`) — backwards compatible
+- [x] Phase 4: `lib/themes/runtime.ts` — resolves marketplace installs; `ResolvedTheme` includes `id` in both union members
+- [x] Phase 4: theme API routes (install, uninstall, css serve, list installed)
+- [x] Phase 4: `public/theme-registry/` — 5 community themes (nord-dark, dracula, catppuccin-mocha, solarized-light, tokyo-night)
+- [x] Phase 4: `app/(app)/settings/marketplace/page.tsx` — tabbed Plugins | Themes marketplace UI
+- [x] Phase 4: `app/(app)/settings/appearance/custom/page.tsx` — custom manifest upload
+- [x] Phase 4: appearance page shows installed marketplace themes + links
 
-### Active decisions (pending promotion to ADRs)
-- Default pack defines tokens in Tailwind `@theme {}` block; additional packs override under `[data-theme="<id>"]` CSS selectors — no JS required for switching, pure CSS cascade
-- Theme switch flow: `PATCH /api/me/theme` → page reload → server reads `activeThemeId` → injects `data-theme` on `<html>` before paint
+### Active decisions (promoted to ADRs)
+- Default pack tokens in `@theme {}` (Tailwind-native); marketplace/custom packs compiled under `[data-theme="id"] {}` (selector scope)
+- `ResolvedTheme.id` exposed in both union members so layout can set `data-theme` regardless of theme kind
+- Theme registry served as static JSON from `public/theme-registry/` — no external service for v1
 
 ### Known issues / blockers
 - Lighthouse perf score not yet measured (needs live deploy)
-- `vercel.json` cron still set to daily at midnight UTC (hobby plan; scratchpad commit self-triggers drain for immediacy)
-
-### Phase 3 progress
-- [x] MIT license
-- [x] `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue + PR templates
-- [x] Vercel one-click deploy button in README
-- [x] Docker self-host: `docker-compose.yml` + `Dockerfile` + `output: 'standalone'`
-- [x] Landing page: hero, features, how-it-works, self-host section, footer (GSAP animations)
-- [ ] Plugin SDK: `@kairos/plugin-sdk` npm package
-- [ ] Docs at `app/(marketing)/docs/` (including theme-pack authoring guide)
-- [ ] Public GitHub repo set to public
-- [ ] `v1.0.0` release tag
+- `vercel.json` cron still set to daily at midnight UTC (hobby plan limitation)
+- GitHub repo not yet set to public (manual step)
+- `v1.0.0` tag not yet applied (pending deploy verification)
 
 ### Next concrete action
-**Phase 3 remaining** — Plugin SDK package + docs site structure. Then tag v1.0.0 once deployed to kairos.app.
+1. `pnpm db:migrate` on production to apply `0003_theme_installs.sql`
+2. Set GitHub repo to public
+3. `git tag v1.0.0 && git push origin v1.0.0`
 
 ---
 
 ## Session log
 
 Append new entries at the top. Use the template below.
+
+---
+
+## 2026-04-18 — Session 10: Phase 3 + 4 completion
+
+**Goal for this session:** Complete all remaining Phase 3 and Phase 4 todos.
+
+**Built:**
+- `packages/plugin-sdk/` — `@kairos/plugin-sdk` package: types, `definePlugin()`, `createParseResult()`, `createMockContext()` for tests
+- `examples/plugins/` — 4 reference plugins: `kairos-plugin-instagram`, `kairos-plugin-twitter`, `kairos-plugin-readwise`, `kairos-plugin-voice`
+- `app/(marketing)/docs/` — docs layout + 4 pages: overview, plugin guide, theme authoring guide, API reference
+- `lib/db/schema/themes.ts` + `drizzle/0003_theme_installs.sql` — `themeInstalls` table (userId, themeId unique, source, manifestJson, compiledCss)
+- `lib/themes/safety.ts` — CSS injection scan, font allowlist, size limit, ID uniqueness
+- `lib/themes/install.ts` — `installManifest()`, `installFromRegistryUrl()`, `uninstallTheme()`, `listInstalledThemes()`
+- Updated `lib/themes/compile.ts` — `scope: '@theme' | 'selector'` param (default `'@theme'`; all snapshot tests still pass)
+- Updated `lib/themes/runtime.ts` — resolves marketplace installs; type now `{ kind: 'marketplace'; id: string; cssUrl: string }`
+- `app/api/themes/install/route.ts` — POST (registry URL or raw manifest, discriminated union body)
+- `app/api/themes/[installId]/route.ts` — DELETE (uninstall)
+- `app/api/themes/[installId]/css/route.ts` — GET (serve compiled CSS, 1yr immutable cache)
+- `app/api/themes/installed/route.ts` — GET (list user's installed themes)
+- `public/theme-registry/index.json` + `manifests/` — 5 community themes: nord-dark, dracula, catppuccin-mocha, solarized-light, tokyo-night
+- `lib/hooks/use-themes.ts` — `useInstalledThemes`, `useThemeRegistry`, `useInstallTheme`, `useInstallCustomTheme`, `useUninstallTheme`
+- `app/(app)/settings/marketplace/page.tsx` — tabbed Plugins | Themes marketplace with preview cards, search, scheme filter
+- `app/(app)/settings/appearance/custom/page.tsx` — JSON manifest paste → validate + install → auto-activate
+- Updated `app/(app)/settings/appearance/page.tsx` — installed marketplace themes appear in picker; links to marketplace and custom upload
+- Updated `components/app/sidebar.tsx` — Marketplace nav item added
+- Updated `app/layout.tsx` — injects `<link rel="stylesheet">` for marketplace themes (FOUC-free)
+- Updated `tsconfig.json` — excludes `examples/` and `packages/` (standalone packages with own tsconfigs)
+- Updated `eslint-rules/no-raw-colors.js` — docs and custom upload paths added to allowlist
+
+**Decisions made:**
+- Marketplace/custom packs compiled with `scope: 'selector'` → `[data-theme="id"] {}` — separate from Tailwind's `@theme {}`
+- `ResolvedTheme` includes `id` in both union members so `app/layout.tsx` can always set `data-theme`
+- Theme registry is static JSON in `public/` — no external service needed for v1 (per ADR-R14 flat-file approach)
+
+**Files touched:** ~45 new/modified
+
+**Tests added:** 0 (all 157 existing pass)
+
+**Next action:**
+1. `pnpm db:migrate` on production (applies `0003_theme_installs.sql`)
+2. Set GitHub repo to public
+3. `git tag v1.0.0 && git push origin v1.0.0`
 
 ### Template
 
