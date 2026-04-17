@@ -113,6 +113,47 @@ export async function patchEvent(
   }
 }
 
+export interface CreateEventInput {
+  summary: string;
+  description?: string;
+  start: string; // ISO datetime
+  end: string;   // ISO datetime
+  colorId?: string; // GCal event color "1"–"11"
+}
+
+export async function createEvent(
+  userId: string,
+  calendarId: string,
+  input: CreateEventInput,
+): Promise<GCalEvent> {
+  const auth = await getAuthClient(userId);
+  const calendar = google.calendar({ version: 'v3', auth });
+  try {
+    const res = await calendar.events.insert({
+      calendarId,
+      requestBody: {
+        summary: input.summary,
+        description: input.description,
+        start: { dateTime: input.start },
+        end: { dateTime: input.end },
+        ...(input.colorId ? { colorId: input.colorId } : {}),
+      },
+    });
+    const e = res.data;
+    return {
+      id: e.id!,
+      summary: e.summary ?? null,
+      description: e.description ?? null,
+      start: e.start?.dateTime ?? e.start?.date ?? '',
+      end: e.end?.dateTime ?? e.end?.date ?? '',
+      calendarId,
+      isAllDay: !e.start?.dateTime,
+    };
+  } catch (err) {
+    throw mapGoogleError(err);
+  }
+}
+
 export async function deleteEvent(
   userId: string,
   calendarId: string,

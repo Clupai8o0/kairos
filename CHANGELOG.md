@@ -8,7 +8,7 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 
 ## Current State
 
-**Phase:** 4 complete. Pending: public repo + v1.0.0 tag.
+**Phase:** 4 complete. Phase 4b planned. Pending: public repo + v1.0.0 tag.
 
 ### What's built (phases 1–4)
 - [x] Full backend: scheduler pipeline, GCal layer, plugin host, scratchpad, jobs queue
@@ -35,6 +35,7 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 - Default pack tokens in `@theme {}` (Tailwind-native); marketplace/custom packs compiled under `[data-theme="id"] {}` (selector scope)
 - `ResolvedTheme.id` exposed in both union members so layout can set `data-theme` regardless of theme kind
 - Theme registry served as static JSON from `public/theme-registry/` — no external service for v1
+- **ADR-R15:** Hybrid plugin distribution — built-in plugins bundled, community plugins over HTTP, self-hosters can optionally bundle at build time
 
 ### Known issues / blockers
 - Lighthouse perf score not yet measured (needs live deploy)
@@ -46,6 +47,7 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 1. `pnpm db:migrate` on production to apply `0003_theme_installs.sql`
 2. Set GitHub repo to public
 3. `git tag v1.0.0 && git push origin v1.0.0`
+4. Begin Phase 4b, Session 11: ADR-R15 registry scaffolding (see `docs/superpowers/plans/12-phase-4b-completion.md`)
 
 ---
 

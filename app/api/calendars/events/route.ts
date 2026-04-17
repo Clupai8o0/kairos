@@ -1,8 +1,9 @@
 // app/api/calendars/events/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { requireAuth } from '@/lib/auth/helpers';
 import { listCalendars } from '@/lib/services/calendars';
-import { listEvents, type GCalEvent } from '@/lib/gcal/events';
+import { listEvents, createEvent, type GCalEvent } from '@/lib/gcal/events';
 
 interface CalendarEventResponse extends GCalEvent {
   calendarColor: string | null;
@@ -36,4 +37,29 @@ export async function GET(req: NextRequest) {
     .flatMap((r) => r.value);
 
   return NextResponse.json(events);
+}
+
+const CreateEventSchema = z.object({
+  calendarId: z.string().min(1),
+  summary: z.string().min(1).max(500),
+  description: z.string().optional(),
+  start: z.string().datetime({ offset: true }),
+  end: z.string().datetime({ offset: true }),
+  colorId: z.string().regex(/^(1[01]?|[1-9])$/).optional(),
+});
+
+export async function POST(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof Response) return authResult;
+  const { userId } = authResult;
+
+  const body = await req.json().catch(() => null);
+  const parsed = CreateEventSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const { calendarId, ...input } = parsed.data;
+  const event = await createEvent(userId, calendarId, input);
+  return NextResponse.json(event, { status: 201 });
 }

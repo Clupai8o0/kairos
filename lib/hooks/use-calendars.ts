@@ -74,3 +74,51 @@ export function useUpdateCalendar() {
   });
 }
 
+export interface CreateCalendarEventInput {
+  calendarId: string;
+  summary: string;
+  description?: string;
+  start: string;
+  end: string;
+  colorId?: string;
+}
+
+export function useCreateCalendarEvent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateCalendarEventInput) =>
+      apiFetch<CalendarEvent>('/api/calendars/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['calendar-events'] }),
+  });
+}
+
+export function useDeleteCalendarEvent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, calendarId }: { id: string; calendarId: string }) =>
+      apiFetch<void>(`/api/calendars/events/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ calendarId }),
+      }),
+    onMutate: async ({ id }) => {
+      await qc.cancelQueries({ queryKey: ['calendar-events'] });
+      const queries = qc.getQueriesData<CalendarEvent[]>({ queryKey: ['calendar-events'] });
+      for (const [key, data] of queries) {
+        if (data) qc.setQueryData(key, data.filter((e) => e.id !== id));
+      }
+      return { queries };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.queries) {
+        for (const [key, data] of ctx.queries) qc.setQueryData(key, data);
+      }
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['calendar-events'] }),
+  });
+}
+

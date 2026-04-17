@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { useUpdateCalendarEvent } from '@/lib/hooks/use-calendars';
+import { useUpdateCalendarEvent, useDeleteCalendarEvent } from '@/lib/hooks/use-calendars';
 import type { CalendarEvent } from '@/lib/hooks/types';
 
 function toLocal(iso: string) {
@@ -22,8 +22,16 @@ export function EventEditModal({ event, onClose }: Props) {
   const [description, setDescription] = useState(event.description ?? '');
   const [start, setStart] = useState(event.start ? toLocal(event.start) : '');
   const [end, setEnd] = useState(event.end ? toLocal(event.end) : '');
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const updateEvent = useUpdateCalendarEvent();
+  const deleteEvent = useDeleteCalendarEvent();
+
+  function handleDelete() {
+    const p = deleteEvent.mutateAsync({ id: event.id, calendarId: event.calendarId });
+    toast.promise(p, { loading: 'Deleting…', success: 'Event deleted', error: (e) => e?.message ?? 'Failed' });
+    p.then(onClose).catch(() => {});
+  }
 
   function handleSave() {
     const p = updateEvent.mutateAsync({
@@ -118,20 +126,46 @@ export function EventEditModal({ event, onClose }: Props) {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-wire">
-            <button
-              onClick={onClose}
-              className="text-xs font-[510] text-fg-3 hover:text-fg border border-wire hover:border-wire-2 px-3 py-1.5 rounded transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={updateEvent.isPending}
-              className="text-xs font-[510] text-fg bg-accent hover:bg-accent-hover disabled:opacity-40 px-3 py-1.5 rounded transition-colors"
-            >
-              Save
-            </button>
+          <div className="flex items-center justify-between px-4 py-3 border-t border-wire">
+            {confirmDelete ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-danger">Delete this event?</span>
+                <button
+                  onClick={handleDelete}
+                  className="text-xs font-[510] text-danger border border-danger/40 hover:border-danger px-2 py-0.5 rounded transition-colors"
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="text-xs text-fg-3 hover:text-fg transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="text-xs text-fg-4 hover:text-danger transition-colors"
+              >
+                Delete
+              </button>
+            )}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onClose}
+                className="text-xs font-[510] text-fg-3 hover:text-fg border border-wire hover:border-wire-2 px-3 py-1.5 rounded transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={updateEvent.isPending}
+                className="text-xs font-[510] text-fg bg-accent hover:bg-accent-hover disabled:opacity-40 px-3 py-1.5 rounded transition-colors"
+              >
+                Save
+              </button>
+            </div>
           </div>
         </motion.div>
       </div>

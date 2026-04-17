@@ -196,3 +196,22 @@ These are not ADRs — they're the v1 boundary. Anything outside this list is no
 
 **Phase 3:** open source — public repo, license, landing page filled in, plugin SDK, three example plugins, theme token contract documented for contributors.
 **Phase 4:** in-app plugin + theme marketplace (shared UI, shared registry model). See ADR-R14.
+**Phase 4b:** plugin marketplace completion — registry, install flow, HTTP runtime, signing, versioning, validator CLIs. See ADR-R15.
+
+---
+
+### ADR-R15: Hybrid plugin distribution (bundled + HTTP)
+**Decision:** Built-in plugins (`text-to-tasks`) ship bundled at build time. Community plugins default to HTTP — plugin authors deploy their own serverless functions, Kairos calls them over a standardised contract (`GET /manifest`, `POST /parse`). Self-hosters can optionally bundle community plugins at build time via config for zero-latency parsing.
+**Context:** ADR-R3 left the distribution model open ("npm/HTTP — phase 4 decision"). Three options were evaluated:
+1. **npm-installed + redeploy** — type-safe but incompatible with hosted multi-tenant (every user install requires a redeploy).
+2. **HTTP-only** — install without redeploy, but +200-500ms latency per parse and cold-start issues.
+3. **Hybrid** — HTTP-first for hosted/marketplace, bundled path available for self-hosters who want zero latency.
+**Consequences:**
+- `lib/plugins/http-adapter.ts` wraps a remote plugin URL as a `ScratchpadPlugin` (implements `canHandle` + `parse` by calling the remote endpoint)
+- HTTP plugin contract: `POST /parse` with `ScratchpadInput` body, returns `ParseResult`; `GET /manifest` returns `PluginManifest`
+- Request signing: HMAC with per-(user, plugin) secret; 5s timeout; circuit breaker after 3 failures in 1 minute
+- Bundled path is what already exists for `text-to-tasks` — no new code, just documentation
+- Plugin registry at `public/plugin-registry/` (flat-file, mirroring theme registry) with CI validation
+- `pluginInstalls` schema extended with `manifestJson`, `previousVersion`, `previousManifestJson`, `endpoint`, `lastHealthyAt` for HTTP health tracking and single-step rollback
+- Signing optional in v1 (Sigstore provenance via npm `--provenance`), may become required in v2
+- Full spec: `docs/superpowers/plans/13-plugin-marketplace.md`

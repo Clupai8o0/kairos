@@ -39,6 +39,8 @@ export type UpdateTaskInput = {
   dependsOn?: string[];
   recurrenceRule?: Record<string, unknown> | null;
   tagIds?: string[];
+  scheduledAt?: string | null;
+  scheduledEnd?: string | null;
 };
 
 export type ListTasksFilters = {
@@ -143,7 +145,7 @@ export async function updateTask(
   id: string,
   input: UpdateTaskInput,
 ): Promise<TaskWithTags | null> {
-  const { tagIds, deadline, recurrenceRule, ...rest } = input;
+  const { tagIds, deadline, recurrenceRule, scheduledAt, scheduledEnd, ...rest } = input;
 
   const patch: Partial<typeof tasks.$inferInsert> = { ...rest, updatedAt: new Date() };
   if (deadline !== undefined) {
@@ -151,6 +153,12 @@ export async function updateTask(
   }
   if (recurrenceRule !== undefined) {
     patch.recurrenceRule = recurrenceRule ?? null;
+  }
+  if (scheduledAt !== undefined) {
+    patch.scheduledAt = scheduledAt ? new Date(scheduledAt) : null;
+  }
+  if (scheduledEnd !== undefined) {
+    patch.scheduledEnd = scheduledEnd ? new Date(scheduledEnd) : null;
   }
 
   const [updated] = await db

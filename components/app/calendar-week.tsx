@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import type { Task, CalendarEvent } from '@/lib/hooks/types';
+import { useCalendarDrag, HOUR_PX } from '@/lib/hooks/use-calendar-drag';
+import type { DragResult } from '@/lib/hooks/use-calendar-drag';
 
-const HOUR_PX = 64;
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const PX_PER_MIN = HOUR_PX / 60;
 
 function toMins(date: Date) {
   return date.getHours() * 60 + date.getMinutes();
@@ -17,6 +19,14 @@ function hourLabel(h: number) {
   return h < 12 ? `${h} AM` : `${h - 12} PM`;
 }
 
+function formatMins(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return m === 0 ? `${h12} ${suffix}` : `${h12}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+
 function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
@@ -26,51 +36,42 @@ interface EventBlockProps {
   height: number;
   label: string;
   sublabel?: string;
-  // GCal event
   color?: string;
-  // Task event — renders with left-border accent style
   isTask?: boolean;
+  isDragging?: boolean;
   onClick?: () => void;
+  onPointerDown?: (e: React.PointerEvent) => void;
 }
 
-function EventBlock({ top, height, label, sublabel, color, isTask, onClick }: EventBlockProps) {
-  const style: React.CSSProperties = isTask
-    ? {
-        position: 'absolute',
-        top,
-        height: Math.max(18, height),
-        left: 2,
-        right: 2,
-        backgroundColor: 'var(--color-task-event-bg)',
-        borderLeft: '3px solid var(--color-accent)',
-        zIndex: 3,
-      }
-    : {
-        position: 'absolute',
-        top,
-        height: Math.max(18, height),
-        left: 2,
-        right: 2,
-        backgroundColor: color,
-        zIndex: 2,
-      };
+function EventBlock({ top, height, label, sublabel, color, isTask, isDragging, onClick, onPointerDown }: EventBlockProps) {
+  const h = Math.max(18, height);
+  const style: React.CSSProperties = {
+    position: 'absolute', top, height: h, left: 2, right: 2,
+    opacity: isDragging ? 0.5 : 1,
+    backgroundColor: isTask ? 'var(--color-task-event-bg)' : color,
+    borderLeft: isTask ? `3px ${isDragging ? 'dashed' : 'solid'} var(--color-accent)` : undefined,
+    zIndex: isTask ? 3 : 2,
+  };
 
   return (
     <div
       style={style}
-      className={`rounded px-1.5 py-0.5 overflow-hidden ${onClick ? 'cursor-pointer hover:brightness-110' : 'cursor-default'}`}
-      onClick={onClick}
+      className={`rounded px-1.5 py-0.5 overflow-hidden select-none ${!isDragging && onClick ? 'cursor-pointer hover:brightness-110' : 'cursor-default'}`}
+      onClick={isDragging ? undefined : onClick}
+      onPointerDown={onPointerDown}
     >
       <p className={`text-[10px] font-[510] leading-tight truncate ${isTask ? 'text-fg' : 'text-white'}`}>{label}</p>
-      {sublabel && height > 26 && (
+      {sublabel && h > 26 && (
         <p className={`text-[9px] truncate ${isTask ? 'text-fg-3' : 'text-white/70'}`}>{sublabel}</p>
+      )}
+      {onPointerDown && h > 24 && (
+        <div className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize" />
       )}
     </div>
   );
 }
 
 // Skeleton event slots per day column (index 0 = Mon … 6 = Sun).
-// Positions are in fractional hours so weekends are intentionally sparse.
 const SKELETON_SLOTS = [
   [{ hour: 9, h: 1 }, { hour: 14, h: 0.75 }],
   [{ hour: 10, h: 0.5 }, { hour: 15, h: 1 }],
@@ -88,21 +89,40 @@ interface Props {
   isLoading?: boolean;
   onTaskClick?: (task: Task) => void;
   onEventClick?: (event: CalendarEvent) => void;
+  onTaskMove?: (taskId: string, result: DragResult) => void;
+  onEventMove?: (eventId: string, result: DragResult) => void;
+  onEventResize?: (eventId: string, result: DragResult) => void;
+  onCreateEvent?: (result: DragResult) => void;
 }
 
-export function CalendarWeek({ weekStart, tasks, events, isLoading = false, onTaskClick, onEventClick }: Props) {
+export function CalendarWeek({
+  weekStart, tasks, events, isLoading = false,
+  onTaskClick, onEventClick,
+  onTaskMove, onEventMove, onEventResize, onCreateEvent,
+}: Props) {
   const [now, setNow] = useState(() => new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const { dragState, handleBlockPointerDown, handleGridPointerDown } = useCalendarDrag({
+    gridRef: scrollRef,
+    onMoveEnd: (id, type, result) => {
+      if (type === 'task') onTaskMove?.(id, result);
+      else onEventMove?.(id, result);
+    },
+    onResizeEnd: (id, type, result) => {
+      if (type === 'event') onEventResize?.(id, result);
+    },
+    onCreateEnd: (result) => onCreateEvent?.(result),
+  });
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
 
-  // Scroll to current time on mount (show 1 hour before now)
   useEffect(() => {
     if (scrollRef.current) {
-      const scrollTo = Math.max(0, (toMins(now) - 60) * (HOUR_PX / 60));
+      const scrollTo = Math.max(0, (toMins(now) - 60) * PX_PER_MIN);
       scrollRef.current.scrollTop = scrollTo;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -114,7 +134,6 @@ export function CalendarWeek({ weekStart, tasks, events, isLoading = false, onTa
     return d;
   });
 
-  // GCal event IDs that belong to Kairos tasks — filter them out of the raw events list
   const taskGcalIds = useMemo(
     () => new Set(tasks.map((t) => t.gcalEventId).filter(Boolean) as string[]),
     [tasks],
@@ -122,9 +141,8 @@ export function CalendarWeek({ weekStart, tasks, events, isLoading = false, onTa
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
   const nowMins = toMins(now);
-  const nowTop = nowMins * (HOUR_PX / 60);
+  const nowTop = nowMins * PX_PER_MIN;
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
@@ -147,7 +165,7 @@ export function CalendarWeek({ weekStart, tasks, events, isLoading = false, onTa
       {/* Scrollable time grid */}
       <div ref={scrollRef} className="overflow-y-auto flex-1">
         <div className="relative grid" style={{ gridTemplateColumns: '52px repeat(7, 1fr)', height: HOUR_PX * 24 }}>
-          {/* Time labels column */}
+          {/* Time labels */}
           <div className="relative border-r border-wire">
             {HOURS.map((h) => (
               <div key={h} style={{ height: HOUR_PX }} className="relative border-b border-wire-2 flex items-start justify-end pr-2">
@@ -170,72 +188,92 @@ export function CalendarWeek({ weekStart, tasks, events, isLoading = false, onTa
 
             const dayEvents = events.filter((e) => {
               if (e.isAllDay) return false;
-              if (taskGcalIds.has(e.id)) return false; // rendered as task block instead
+              if (taskGcalIds.has(e.id)) return false;
               const s = new Date(e.start);
               return s >= dayStart && s <= dayEnd;
             });
 
+            const showGhost = dragState
+              && (dragState.mode === 'move' || dragState.mode === 'create')
+              && dragState.dayIndex === dayIdx;
+
             return (
-              <div key={dayIdx} className={`relative border-r border-wire last:border-r-0 ${isToday ? 'bg-ghost' : ''}`}>
-                {/* Hour grid lines */}
+              <div
+                key={dayIdx}
+                className={`relative border-r border-wire last:border-r-0 ${isToday ? 'bg-ghost' : ''}`}
+                onPointerDown={handleGridPointerDown}
+              >
                 {HOURS.map((h) => (
                   <div key={h} style={{ height: HOUR_PX }} className="border-b border-wire-2" />
                 ))}
 
-                {/* Loading skeleton */}
                 {isLoading && SKELETON_SLOTS[dayIdx].map((slot, si) => (
-                  <div
-                    key={si}
-                    style={{
-                      position: 'absolute',
-                      top: slot.hour * HOUR_PX,
-                      height: slot.h * HOUR_PX,
-                      left: 2,
-                      right: 2,
-                      zIndex: 2,
-                    }}
-                    className="rounded bg-surface-3 animate-pulse"
-                  />
+                  <div key={si} style={{ position: 'absolute', top: slot.hour * HOUR_PX, height: slot.h * HOUR_PX, left: 2, right: 2, zIndex: 2 }} className="rounded bg-surface-3 animate-pulse" />
                 ))}
 
-                {/* GCal events (task-owned events are excluded via taskGcalIds filter above) */}
                 {!isLoading && dayEvents.map((event) => {
                   const s = new Date(event.start);
                   const e = new Date(event.end);
                   const startMins = toMins(s);
                   const durationMins = Math.max(15, Math.round((e.getTime() - s.getTime()) / 60000));
+                  const isSource = dragState?.sourceId === event.id;
+                  const effectiveEnd = isSource && dragState?.mode === 'resize'
+                    ? dragState.endMins : startMins + durationMins;
                   return (
                     <EventBlock
                       key={event.id}
-                      top={startMins * (HOUR_PX / 60)}
-                      height={durationMins * (HOUR_PX / 60)}
+                      top={startMins * PX_PER_MIN}
+                      height={(effectiveEnd - startMins) * PX_PER_MIN}
                       color={event.calendarColor ?? 'var(--color-surface-3)'}
                       label={event.summary ?? '(no title)'}
                       sublabel={event.calendarName}
+                      isDragging={isSource && dragState?.mode === 'move'}
                       onClick={onEventClick ? () => onEventClick(event) : undefined}
+                      onPointerDown={(ev) => handleBlockPointerDown(ev, event.id, 'event', dayIdx, startMins, startMins + durationMins)}
                     />
                   );
                 })}
 
-                {/* Kairos tasks — distinct left-border style */}
                 {dayTasks.map((task) => {
                   const s = new Date(task.scheduledAt!);
                   const startMins = toMins(s);
                   const durationMins = task.durationMins ?? 30;
+                  const isSource = dragState?.sourceId === task.id;
+                  const effectiveEnd = isSource && dragState?.mode === 'resize'
+                    ? dragState.endMins : startMins + durationMins;
                   return (
                     <EventBlock
                       key={task.id}
-                      top={startMins * (HOUR_PX / 60)}
-                      height={durationMins * (HOUR_PX / 60)}
+                      top={startMins * PX_PER_MIN}
+                      height={(effectiveEnd - startMins) * PX_PER_MIN}
                       isTask
                       label={task.title}
                       sublabel={task.durationMins ? `${task.durationMins} min` : undefined}
+                      isDragging={isSource && dragState?.mode === 'move'}
                       onClick={onTaskClick ? () => onTaskClick(task) : undefined}
+                      onPointerDown={(ev) => handleBlockPointerDown(ev, task.id, 'task', dayIdx, startMins, startMins + durationMins)}
                     />
                   );
                 })}
 
-                {/* Current time indicator */}
+                {showGhost && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: dragState.startMins * PX_PER_MIN,
+                      height: (dragState.endMins - dragState.startMins) * PX_PER_MIN,
+                      left: 2, right: 2,
+                      backgroundColor: 'var(--color-accent)',
+                      opacity: 0.3, zIndex: 10,
+                    }}
+                    className="rounded pointer-events-none"
+                  >
+                    <p className="text-[9px] font-[510] text-fg px-1 pt-0.5 truncate">
+                      {formatMins(dragState.startMins)} – {formatMins(dragState.endMins)}
+                    </p>
+                  </div>
+                )}
+
                 {isToday && (
                   <div style={{ position: 'absolute', top: nowTop, left: 0, right: 0, zIndex: 5 }} className="pointer-events-none">
                     <div className="relative h-px" style={{ backgroundColor: 'var(--color-danger)' }}>

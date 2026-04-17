@@ -1,15 +1,17 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { useTasks } from '@/lib/hooks/use-tasks';
-import { useCalendarEvents } from '@/lib/hooks/use-calendars';
+import { useTasks, useUpdateTask } from '@/lib/hooks/use-tasks';
+import { useCalendars, useCalendarEvents, useUpdateCalendarEvent } from '@/lib/hooks/use-calendars';
 import { useRunSchedule } from '@/lib/hooks/use-schedule';
 import { CalendarWeek } from '@/components/app/calendar-week';
 import { TaskEditModal } from '@/components/app/task-edit-modal';
 import { EventEditModal } from '@/components/app/event-edit-modal';
+import { QuickCreateModal } from '@/components/app/quick-create-modal';
 import type { Task, CalendarEvent } from '@/lib/hooks/types';
+import type { DragResult } from '@/lib/hooks/use-calendar-drag';
 
 function getMonday(date: Date): Date {
   const d = new Date(date);
@@ -34,7 +36,11 @@ export default function SchedulePage() {
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [createDraft, setCreateDraft] = useState<{ start: string; end: string } | null>(null);
   const runSchedule = useRunSchedule();
+  const updateTask = useUpdateTask();
+  const updateEvent = useUpdateCalendarEvent();
+  const { data: calendars = [] } = useCalendars();
 
   const weekEnd = useMemo(() => {
     const d = new Date(weekStart);
@@ -49,6 +55,74 @@ export default function SchedulePage() {
     isFetching: eventsFetching,
     refetch: refetchEvents,
   } = useCalendarEvents(weekStart, weekEnd);
+
+  // Convert DragResult (dayIndex + minutes) to ISO datetime strings
+  const dragToTimes = useCallback((result: DragResult) => {
+    const start = new Date(weekStart);
+    start.setDate(start.getDate() + result.dayIndex);
+    start.setHours(0, 0, 0, 0);
+    start.setMinutes(result.startMins);
+    const end = new Date(weekStart);
+    end.setDate(end.getDate() + result.dayIndex);
+    end.setHours(0, 0, 0, 0);
+    end.setMinutes(result.endMins);
+    return { start: start.toISOString(), end: end.toISOString() };
+  }, [weekStart]);
+
+  const handleTaskMove = useCallback((taskId: string, result: DragResult) => {
+    const { start, end } = dragToTimes(result);
+    const p = updateTask.mutateAsync({
+      id: taskId,
+      scheduledAt: start,
+      scheduledEnd: end,
+      schedulable: false,
+      status: 'scheduled',
+    });
+    toast.promise(p, {
+      loading: 'Moving task…',
+      success: 'Task pinned to new time',
+      error: (e) => (e as Error)?.message ?? 'Failed to move task',
+    });
+  }, [dragToTimes, updateTask]);
+
+  const handleEventMove = useCallback((eventId: string, result: DragResult) => {
+    const event = events.find((e) => e.id === eventId);
+    if (!event) return;
+    const { start, end } = dragToTimes(result);
+    const p = updateEvent.mutateAsync({
+      id: eventId,
+      calendarId: event.calendarId,
+      start,
+      end,
+    });
+    toast.promise(p, {
+      loading: 'Moving event…',
+      success: 'Event moved',
+      error: (e) => (e as Error)?.message ?? 'Failed to move event',
+    });
+  }, [dragToTimes, updateEvent, events]);
+
+  const handleEventResize = useCallback((eventId: string, result: DragResult) => {
+    const event = events.find((e) => e.id === eventId);
+    if (!event) return;
+    const { start, end } = dragToTimes(result);
+    const p = updateEvent.mutateAsync({
+      id: eventId,
+      calendarId: event.calendarId,
+      start,
+      end,
+    });
+    toast.promise(p, {
+      loading: 'Resizing event…',
+      success: 'Event updated',
+      error: (e) => (e as Error)?.message ?? 'Failed to resize event',
+    });
+  }, [dragToTimes, updateEvent, events]);
+
+  const handleCreateEvent = useCallback((result: DragResult) => {
+    const { start, end } = dragToTimes(result);
+    setCreateDraft({ start, end });
+  }, [dragToTimes]);
 
   function prevWeek() {
     setWeekStart((d) => { const n = new Date(d); n.setDate(n.getDate() - 7); return n; });
@@ -146,6 +220,10 @@ export default function SchedulePage() {
         isLoading={eventsLoading}
         onTaskClick={setSelectedTask}
         onEventClick={setSelectedEvent}
+        onTaskMove={handleTaskMove}
+        onEventMove={handleEventMove}
+        onEventResize={handleEventResize}
+        onCreateEvent={handleCreateEvent}
       />
 
       <AnimatePresence>
@@ -164,6 +242,17 @@ export default function SchedulePage() {
             key="event-modal"
             event={selectedEvent}
             onClose={() => setSelectedEvent(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {createDraft && (
+          <QuickCreateModal
+            key="create-modal"
+            start={createDraft.start}
+            end={createDraft.end}
+            onClose={() => setCreateDraft(null)}
           />
         )}
       </AnimatePresence>

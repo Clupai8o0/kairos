@@ -149,9 +149,9 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 
 - [x] Marketplace registry — static JSON in `public/theme-registry/` (no external service for v1)
 - [x] In-app plugin browser: enable/disable in marketplace Plugins tab
-- [ ] Plugin submission flow for community contributors (PR to registry) — future
-- [ ] Plugin signing and basic safety review (manual at first) — future
-- [ ] Version management: update notifications, changelogs, rollback — future
+- [ ] Plugin submission flow for community contributors (PR to registry) — Phase 4b
+- [ ] Plugin signing and basic safety review (manual at first) — Phase 4b
+- [ ] Version management: update notifications, changelogs, rollback — Phase 4b
 - [x] **Theme marketplace** — see `references/theme-marketplace.md` for the full spec
 - [x] `kairos-themes-registry` equivalent: `public/theme-registry/` with `index.json` and `manifests/` directory
 - [x] `themeInstalls` Drizzle schema + migration
@@ -159,20 +159,97 @@ Master checklist. Tracks what's built, what's next, and what's blocked across al
 - [x] `lib/themes/safety.ts` — manifest safety checks (size, CSS injection, font allowlist)
 - [x] `app/api/themes/install/route.ts` — install endpoint
 - [x] `app/api/themes/[installId]/css/route.ts` — serves compiled CSS with cache headers
-- [ ] `@kairos/theme-validator` CLI for local validation before submission — future
+- [ ] `@kairos/theme-validator` CLI for local validation before submission — Phase 4b
 - [x] In-app marketplace browser at `app/(app)/settings/marketplace/page.tsx` — Plugins and Themes tabs sharing the same UI shell
 - [x] Custom theme upload at `app/(app)/settings/appearance/custom/page.tsx` (paste a manifest, validate, install with `source = 'custom-upload'`)
 
 ### Definition of done
 
-- [ ] User installs a plugin from inside the app without leaving it — future (needs plugin registry)
-- [ ] Plugin authors can submit via PR to the registry — future
-- [ ] At least 10 plugins in the registry — future
+- [ ] User installs a plugin from inside the app without leaving it — Phase 4b
+- [ ] Plugin authors can submit via PR to the registry — Phase 4b
+- [ ] At least 10 plugins in the registry — Phase 4b
 - [x] User installs a theme from the in-app marketplace without leaving the app
 - [x] User uploads a custom manifest and it installs as a usable theme
-- [ ] Plugin authors can ship a theme as part of their plugin manifest — future
+- [ ] Plugin authors can ship a theme as part of their plugin manifest — Phase 4b
 - [x] At least 5 themes in the registry on launch (5 in `public/theme-registry/manifests/`)
-- [ ] CI in the registry repo validates submitted manifests automatically — future
+- [ ] CI in the registry validates submitted manifests automatically — Phase 4b
+
+---
+
+## Phase 4b — Plugin marketplace completion
+
+**Goal:** Close the gap between the theme marketplace (fully shipped) and the plugin marketplace (stub only). Finish what Phase 4 promised. Does not add features — finishes existing scope.
+
+**Distribution model:** ADR-R15 (hybrid). Built-in plugins bundled; community plugins over HTTP; self-hosters can optionally bundle at build time.
+
+Full specs: `docs/superpowers/plans/12-phase-4b-completion.md`, `13-plugin-marketplace.md`, `14-plugin-validator-cli.md`.
+
+### Registry
+- [ ] `public/plugin-registry/index.json` + `manifests/` (mirror theme registry structure)
+- [ ] Plugin manifest schema (`PluginManifestSchema` in Zod, in `packages/plugin-sdk/src/manifest.ts`)
+- [ ] Submission docs in `CONTRIBUTING.md`
+- [ ] CI workflow in `.github/workflows/validate-plugin-registry.yml`
+
+### Install flow
+- [ ] `lib/plugins/install.ts` — `installFromRegistryUrl()`, `uninstallPlugin()`, `listInstalledPlugins()`
+- [ ] `lib/plugins/safety.ts` — manifest safety checks (size, URL allowlist, signature verification)
+- [ ] `app/api/plugins/install/route.ts` — POST
+- [ ] `app/api/plugins/[installId]/route.ts` — DELETE (uninstall)
+- [ ] `app/api/plugins/registry/route.ts` — GET (proxy for registry index with TTL caching)
+- [ ] `lib/hooks/use-plugins.ts` — add `useInstallPlugin`, `useUninstallPlugin`, `usePluginRegistry`
+
+### HTTP plugin runtime
+- [ ] `lib/plugins/http-adapter.ts` — wraps remote plugin URL as `ScratchpadPlugin`
+- [ ] HTTP contract: `POST /parse`, `GET /manifest`
+- [ ] HMAC request signing (per-user, per-plugin secret)
+- [ ] Timeout (5s), circuit breaker (3 failures / 1 min)
+
+### Marketplace UI
+- [ ] Extend Plugins tab with registry-backed cards (Install / Uninstall / Configure)
+- [ ] Install count + "Update available" badge
+- [ ] Configure button for installed plugins (generic settings from `configSchema`)
+
+### Signing
+- [ ] Opt-in `provenance` field in `PluginManifest` (Sigstore bundle)
+- [ ] `lib/plugins/safety.ts` verifies bundle if present; absence = warning, not block
+- [ ] At least one plugin ships with provenance
+
+### Version management
+- [ ] `lib/plugins/updates.ts` — compare installed vs registry version
+- [ ] `GET /api/plugins/updates` route
+- [ ] Update button in UI — preserves config + memory + rulesets
+- [ ] Changelog display from manifest
+- [ ] Rollback — swap `version` ↔ `previousVersion`
+
+### Validator CLIs
+- [ ] `packages/validator-core/` — shared I/O, formatting, exit codes (private package)
+- [ ] `packages/plugin-validator/` — `@kairos/plugin-validator` (npx-callable)
+- [ ] `packages/theme-validator/` — `@kairos/theme-validator` (npx-callable)
+- [ ] Invoked in registry CI on every PR
+
+### Plugin-shipped themes
+- [ ] `PluginManifest.theme?: ThemeManifest` optional field
+- [ ] Plugin install handler calls `installManifest()` with `source: 'plugin'` when theme present
+- [ ] Uninstalling plugin uninstalls the theme
+
+### Schema changes
+- [ ] `pluginInstalls` migration: add `manifestJson`, `previousVersion`, `previousManifestJson`, `endpoint`, `lastHealthyAt`
+- [ ] Migration: `drizzle/0004_plugin_install_fields.sql`
+
+### Registry population
+- [ ] Move 4 examples from `examples/plugins/` into registry with manifests
+- [ ] Author 6 more plugins to hit 10-plugin target (gmail, gcal-import, notion-import, linear-import, todoist-import, pocket)
+
+### Definition of done
+- [ ] User installs a plugin from the in-app marketplace without leaving the app
+- [ ] Plugin authors can submit via PR to `public/plugin-registry/`
+- [ ] At least 10 plugins in the registry on launch
+- [ ] Plugin authors can ship a theme as part of their plugin manifest
+- [ ] CI validates submitted manifests automatically (via `@kairos/plugin-validator`)
+- [ ] `@kairos/plugin-validator` + `@kairos/theme-validator` published to npm
+- [ ] At least one plugin ships with Sigstore provenance and verifies on install
+- [ ] Update → version bumps, config + memory preserved
+- [ ] Rollback: install v2, roll back to v1, config + memory survive
 
 ---
 
@@ -183,6 +260,9 @@ These are explicitly deferred. Don't build them:
 - Chat / `chatSessions` / `/api/chat`
 - Voice (returns as a plugin in phase 3)
 - Multi-user (single-user only in v1)
-- Plugin marketplace UI (phase 4)
 - Stripe / paid tier (post-v1)
 - Direct LLM provider SDKs anywhere outside `lib/llm/` and bundled plugins
+- Paid plugins, revenue split
+- Plugin sandboxing beyond HTTP isolation (no V8 isolates, no WebAssembly runtime)
+- Plugin-to-plugin dependencies
+- Private plugin registries / enterprise plugin stores

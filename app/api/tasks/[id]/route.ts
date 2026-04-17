@@ -19,6 +19,8 @@ const UpdateTaskSchema = z.object({
   dependsOn: z.array(z.string()).optional(),
   recurrenceRule: z.record(z.string(), z.unknown()).nullable().optional(),
   tagIds: z.array(z.string()).optional(),
+  scheduledAt: z.string().datetime({ offset: true }).nullable().optional(),
+  scheduledEnd: z.string().datetime({ offset: true }).nullable().optional(),
 });
 
 type Params = { params: Promise<{ id: string }> };
@@ -47,21 +49,36 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const task = await updateTask(userId, id, parsed.data);
   if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  // Re-schedule if scheduling-related fields changed
-  const scheduleFields: (keyof typeof parsed.data)[] = [
-    'durationMins', 'deadline', 'priority', 'schedulable', 'bufferMins', 'isSplittable', 'dependsOn',
-  ];
-  const touchesSchedule = scheduleFields.some((f) => f in parsed.data);
-  if (touchesSchedule && parsed.data.schedulable !== false) {
-    await enqueueJob('schedule:single-task', {
+  // Re-schedule logic: manual placement vs auto-schedule
+  const isManualPlacement = 'scheduledAt' in parsed.data && parsed.data.scheduledAt !== null;
+  if (isManualPlacement) {
+    // Manual placement — reschedule others around this locked task
+    await enqueueJob('schedule:full-run', {
       userId,
-      payload: { taskId: id },
-      idempotencyKey: `schedule:single-task:${id}:${Date.now()}`,
+      payload: {},
+      idempotencyKey: `schedule:full-run:${userId}:${Date.now()}`,
     });
     fetch(
       new URL('/api/cron/drain', process.env.BETTER_AUTH_URL ?? 'http://localhost:3000').toString(),
       { method: 'POST' },
-    ).catch(() => {/* fire-and-forget */});
+    ).catch(() => {});
+  } else {
+    // Auto-schedule if scheduling-related fields changed
+    const scheduleFields: (keyof typeof parsed.data)[] = [
+      'durationMins', 'deadline', 'priority', 'schedulable', 'bufferMins', 'isSplittable', 'dependsOn',
+    ];
+    const touchesSchedule = scheduleFields.some((f) => f in parsed.data);
+    if (touchesSchedule && parsed.data.schedulable !== false) {
+      await enqueueJob('schedule:single-task', {
+        userId,
+        payload: { taskId: id },
+        idempotencyKey: `schedule:single-task:${id}:${Date.now()}`,
+      });
+      fetch(
+        new URL('/api/cron/drain', process.env.BETTER_AUTH_URL ?? 'http://localhost:3000').toString(),
+        { method: 'POST' },
+      ).catch(() => {});
+    }
   }
 
   return NextResponse.json(task);
