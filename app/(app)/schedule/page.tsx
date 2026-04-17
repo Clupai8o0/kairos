@@ -115,7 +115,10 @@ export default function SchedulePage() {
             const p = runSchedule.mutateAsync();
             toast.promise(p, {
               loading: 'Scheduling tasks…',
-              success: 'Schedule run queued',
+              success: (r) =>
+                r.remaining > 0
+                  ? `Scheduled ${r.scheduled} task${r.scheduled === 1 ? '' : 's'}, ${r.remaining} remaining`
+                  : `Scheduled ${r.scheduled} task${r.scheduled === 1 ? '' : 's'}`,
               error: (e) => e?.message ?? 'Failed to run schedule',
             });
           }}

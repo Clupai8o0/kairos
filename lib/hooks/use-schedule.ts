@@ -11,6 +11,6 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 export function useRunSchedule() {
   return useMutation({
     mutationFn: () =>
-      apiFetch<{ jobId: string }>('/api/schedule/run', { method: 'POST' }),
+      apiFetch<{ scheduled: number; remaining: number }>('/api/schedule/run', { method: 'POST' }),
   });
 }
