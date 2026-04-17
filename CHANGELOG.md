@@ -8,7 +8,7 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 
 ## Current State
 
-**Phase:** 4b complete. Pending: public repo + v1.0.0 tag.
+**Phase:** 4b complete. Phase 5 planned (3 slices: 5a scheduling completion, 5b recurrence, 5c chat).
 
 ### What's built (phases 1–4b)
 - [x] Full backend: scheduler pipeline, GCal layer, plugin host, scratchpad, jobs queue
@@ -54,6 +54,10 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 - `ResolvedTheme.id` exposed in both union members so layout can set `data-theme` regardless of theme kind
 - Theme registry served as static JSON from `public/theme-registry/` — no external service for v1
 - **ADR-R15:** Hybrid plugin distribution — built-in plugins bundled, community plugins over HTTP, self-hosters can optionally bundle at build time
+- **ADR-R16:** Blackout blocks replace blackout days — ranges, partial-day, recurrence support
+- **ADR-R17:** Window templates — user-defined time intents, soft-ranked placement
+- **ADR-R18:** Flexible recurrence — spawn-on-complete, per-instance edits, series deletion
+- **ADR-R19:** Session-scoped chat — core + plugin tools, no persistence (softens ADR-R8)
 
 ### Known issues / blockers
 - Lighthouse perf score not yet measured (needs live deploy)
@@ -62,16 +66,34 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 - `v1.0.0` tag not yet applied (pending deploy verification)
 
 ### Next concrete action
-1. `pnpm db:migrate` on production to apply `0003_theme_installs.sql` + `0004_plugin_install_fields.sql`
-2. `pnpm install` to wire workspace packages
-3. Set GitHub repo to public
-4. `git tag v1.0.0 && git push origin v1.0.0`
+1. Begin Slice 5a: Drizzle migration `0006_schedule_types.sql` (drop `blackout_days`, create `blackout_blocks`, create `window_templates`, add FKs)
+2. Update `lib/scheduler/slots.ts` and `lib/scheduler/placement.ts` for blackout blocks and template ranking
+3. Build blackout + window template CRUD services and API routes
 
 ---
 
 ## Session log
 
 Append new entries at the top. Use the template below.
+
+---
+
+## 2025-04-18 — Session 12: Phase 5 planning
+
+**Goal for this session:** Document Phase 5 scope — blackout blocks, window templates, flexible recurrence, session-scoped chat.
+
+**Changes:**
+- `TODO.md` — added full Phase 5 section (slices 5a/5b/5c) with Build, Test, Verify, and Definition of Done checklists per slice, plus cross-slice verification and explicit not-in-scope list. Updated "Not in v1" to note chat moved to Phase 5c.
+- `references/architecture-decisions.md` — added ADR-R16 (blackout blocks), ADR-R17 (window templates), ADR-R18 (flexible recurrence), ADR-R19 (session-scoped chat). Updated phase scope reference to include Phase 5.
+- `CHANGELOG.md` — updated current state, active decisions, and next action to reflect Phase 5 planning.
+
+**Decisions locked:**
+- ADR-R16: `blackoutBlocks` replaces `blackoutDays` — ranges, partial-day, recurrence
+- ADR-R17: Window templates with soft-ranked placement (preferred template wins if free, any slot otherwise)
+- ADR-R18: Spawn-on-complete recurrence, `parentTaskId` as series root, `?scope=instance|series` on delete
+- ADR-R19: Session-scoped chat over `lib/llm/`, no `chatSessions`/`chatMessages` tables, core + plugin tools
+
+**Next action:** Start Slice 5a — migration `0006_schedule_types.sql`, then scheduler changes, then CRUD services + routes.
 
 ---
 

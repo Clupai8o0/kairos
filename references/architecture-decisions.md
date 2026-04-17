@@ -187,7 +187,7 @@ These are not ADRs — they're the v1 boundary. Anything outside this list is no
 - Better Auth with Google OAuth
 
 **Not in v1:**
-- Chat / `chatSessions` / chat routes
+- Chat / `chatSessions` / chat routes — **moved to Phase 5c** (session-scoped, no persistence; ADR-R19)
 - Voice (returns as a plugin in phase 3)
 - Multi-user (single-user only in v1)
 - Plugin marketplace UI (phase 4)
@@ -197,6 +197,7 @@ These are not ADRs — they're the v1 boundary. Anything outside this list is no
 **Phase 3:** open source — public repo, license, landing page filled in, plugin SDK, three example plugins, theme token contract documented for contributors.
 **Phase 4:** in-app plugin + theme marketplace (shared UI, shared registry model). See ADR-R14.
 **Phase 4b:** plugin marketplace completion — registry, install flow, HTTP runtime, signing, versioning, validator CLIs. See ADR-R15.
+**Phase 5:** scheduling completion (blackout blocks ADR-R16, window templates ADR-R17), flexible recurrence (ADR-R18), session-scoped chat (ADR-R19). Ships in three slices (5a → 5b → 5c).
 
 ---
 
@@ -215,3 +216,44 @@ These are not ADRs — they're the v1 boundary. Anything outside this list is no
 - `pluginInstalls` schema extended with `manifestJson`, `previousVersion`, `previousManifestJson`, `endpoint`, `lastHealthyAt` for HTTP health tracking and single-step rollback
 - Signing optional in v1 (Sigstore provenance via npm `--provenance`), may become required in v2
 - Full spec: `docs/superpowers/plans/13-plugin-marketplace.md`
+
+### ADR-R16: Blackout days replaced by blackout blocks with ranges and recurrence
+**Decision:** Replace the `blackoutDays` schema with `blackoutBlocks`. Each block has a start and end datetime (both `timestamptz`), an optional recurrence rule reusing `RecurrenceRule` from the scheduler, and an optional reason. Single-day all-day blocks are represented as `start = 00:00, end = 23:59:59` on the same date.
+**Context:** The existing `blackoutDays` schema stores a single date and can't express "vacation June 3-10" or "block 2-5pm every Tuesday" — both requested.
+**Consequences:**
+- Migration drops `blackout_days`, creates `blackout_blocks` with the new shape. No production data preserved (v1 never shipped blackouts to users).
+- `lib/scheduler/slots.ts` gets a `blackoutBlocks` parameter replacing `blackoutDates: Date[]`. Signature breaks, callers in `runner.ts` update in the same PR.
+- Free-slot computation subtracts each concrete blackout interval in the lookahead window, including recurrence expansions via `generateOccurrences`.
+- Old `blackoutDates` shape dies. No back-compat shim.
+
+### ADR-R17: Window templates, not per-window types
+**Decision:** Schedule windows are grouped into user-defined templates. Each template names a time intent ("Deep work", "Admin", "Personal"). Tasks get an optional `preferredTemplateId`. Placement is soft-ranked: when multiple free slots fit, the one inside the task's preferred template wins; otherwise any free slot wins.
+**Context:** Four options were considered — string tags on windows, strict enums, fully user-defined types, templates. Templates won because they match how users think about time ("my deep-work hours"), preserve the existing flat-window schema with a single new FK column, and keep placement as a soft ranking (never a hard constraint that leaves a task unscheduled).
+**Consequences:**
+- New table `windowTemplates(id, userId, name, description, color, isDefault, createdAt, updatedAt)`.
+- `scheduleWindows` gets `templateId: text references windowTemplates.id on delete cascade`. Existing windows on migration go into a seeded "Default" template per user.
+- `tasks` gets `preferredTemplateId: text references windowTemplates.id on delete set null`.
+- `lib/scheduler/placement.ts` adds a `rank(slot, task, templates)` pass before picking. Purely additive — no existing test changes semantics.
+- API: `GET/POST/PATCH/DELETE /api/window-templates`. Schedule windows API takes `templateId` on write.
+
+### ADR-R18: Flexible recurrence with spawn-on-complete and per-instance edits
+**Decision:** Recurrence supports two modes on the `RecurrenceRule` type: `mode: 'fixed'` (current behaviour — occurrences on calendar dates regardless of completion) and `mode: 'after-complete'` (next occurrence scheduled N units after the previous one is marked done). Completing a recurring task spawns the next instance by creating a new task row with `parentTaskId = this.id`. The completed task stays in history; the new task inherits metadata. Users can delete a single instance or the whole series.
+**Context:** The old Python build had a "replace previous cycle with current cycle" model. That's lossy — completed instances have value as history and for analytics. Spawn-on-complete preserves the chain (via `parentTaskId`) without destroying history.
+**Consequences:**
+- `RecurrenceRule` adds `mode: 'fixed' | 'after-complete'` (default `'fixed'` for back-compat).
+- `after-complete` rules use `interval` + `freq`. At completion time, `next.scheduledAt = completedAt + interval * unit`.
+- New service function `spawnNextOccurrence(taskId, completedAt)` — computes next time, returns a `NewTask` row; the service writes it and enqueues a placement job.
+- `parentTaskId` is the series root. Direct children point to it, not the previous instance. "Delete series" is `WHERE parentTaskId = :root OR id = :root`.
+- Task DELETE takes optional `?scope=instance|series` (default `instance`). `series` requires a parent or child of a series.
+- Integration test coverage mandatory — first change in v1+ that creates DB rows as a side effect of completion.
+
+### ADR-R19: Chat is session-scoped with core + plugin tool surface
+**Decision:** A new surface at `app/(app)/chat/` and `app/api/chat/*` implements a general LLM sidekick. Messages are held in browser state and server memory for the request duration, not persisted. Tools available to the model: a fixed set of core tools (task CRUD, schedule query, tag/window/template operations) plus any plugin-exposed tools.
+**Context:** ADR-R8 deferred chat entirely; it's now the right time. Persistence was the right thing to defer — session-scoped chat avoids `chatSessions`/`chatMessages` tables, avoids a search surface, and avoids privacy concerns.
+**Consequences:**
+- **ADR-R8 is softened, not reversed.** No `chatSessions` table. No `chatMessages` table. History is export-only (clipboard/markdown).
+- `lib/chat/` directory: `tools.ts` (core tool catalogue), `plugin-tools.ts` (plugin tool aggregator), `router.ts` (tool-call dispatcher), `stream.ts` (Vercel AI SDK `streamText` wrapper).
+- Plugin manifest schema gets optional `tools: ToolDefinition[]`. Plugin interface gets optional `invokeTool`. Existing plugins stay valid.
+- Chat UI is a single `/chat` route with a transcript pane + input. Command palette gets "Open chat" entry.
+- Tool execution permissions: core tools always available; plugin tools require the plugin to be installed and enabled.
+- No streaming to persistence. No retrieval of prior chats.

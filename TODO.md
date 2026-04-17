@@ -257,7 +257,7 @@ Full specs: `docs/superpowers/plans/12-phase-4b-completion.md`, `13-plugin-marke
 
 These are explicitly deferred. Don't build them:
 
-- Chat / `chatSessions` / `/api/chat`
+- Chat / `chatSessions` / `/api/chat` — **moved to Phase 5c** (session-scoped, no persistence)
 - Voice (returns as a plugin in phase 3)
 - Multi-user (single-user only in v1)
 - Stripe / paid tier (post-v1)
@@ -266,3 +266,232 @@ These are explicitly deferred. Don't build them:
 - Plugin sandboxing beyond HTTP isolation (no V8 isolates, no WebAssembly runtime)
 - Plugin-to-plugin dependencies
 - Private plugin registries / enterprise plugin stores
+
+---
+
+## Phase 5 — Post-v1: scheduling completion, recurrence, chat
+
+**Goal:** Close three gaps v1 shipped without (blackout blocks, window templates, flexible recurrence) and add the first new product surface (session-scoped chat). Ships in three slices (5a → 5b → 5c). Don't start the next slice until the previous one is shippable.
+
+New ADRs: R16 (blackout blocks), R17 (window templates), R18 (flexible recurrence), R19 (session-scoped chat). See `references/architecture-decisions.md`.
+
+---
+
+### Slice 5a — Scheduling completion
+
+**Goal:** Blackout blocks and window templates are fully usable end-to-end. API, UI, scheduler integration, tests.
+
+#### Build
+- [ ] Drizzle migration `0006_schedule_types.sql` — drops `blackout_days`, creates `blackout_blocks`, creates `window_templates`, adds `template_id` to `schedule_windows`, adds `preferred_template_id` to `tasks`
+- [ ] Migration runs clean on a fresh DB and on a DB with v1 data (one seeded user, windows, no blackouts)
+- [ ] `lib/db/schema/schedule.ts` reflects new shape; `index.ts` re-exports
+- [ ] `lib/scheduler/slots.ts` accepts `blackoutBlocks: BlackoutBlock[]` and expands recurrence inside the lookahead window
+- [ ] `lib/scheduler/placement.ts` gains `rankSlotsForTask` — pure function, no IO
+- [ ] `lib/scheduler/runner.ts` loads templates + blackouts and passes them into the pipeline
+- [ ] `lib/services/blackouts.ts` — create, list, update, delete
+- [ ] `lib/services/window-templates.ts` — create, list, update, delete, ensure-default
+- [ ] `lib/services/schedule-windows.ts` — `setScheduleWindows` accepts `templateId` per window
+- [ ] `app/api/blackouts/route.ts` + `[id]/route.ts`
+- [ ] `app/api/window-templates/route.ts` + `[id]/route.ts`
+- [ ] Update `app/api/schedule-windows/route.ts` for templateId
+- [ ] Settings page — Schedule section above existing sections, with Windows (grouped by template) and Blackouts subsections
+- [ ] Task form — preferred-template dropdown (optional, null = no preference)
+- [ ] `lib/hooks/use-blackouts.ts`, `lib/hooks/use-window-templates.ts`
+
+#### Test
+- [ ] Unit: `computeFreeSlots` with a single-day blackout — no slots inside that day
+- [ ] Unit: `computeFreeSlots` with a datetime-range blackout spanning multiple days — no slots inside the range
+- [ ] Unit: `computeFreeSlots` with a partial-day blackout (block 2-5pm Tuesday) — slots exist before 2pm and after 5pm same day
+- [ ] Unit: `computeFreeSlots` with a recurring blackout (every Friday) — no Friday slots in the lookahead window
+- [ ] Unit: `computeFreeSlots` with overlapping busy + blackout — same result as busy-only for the overlap
+- [ ] Unit: `rankSlotsForTask` prefers slots inside the task's preferred template
+- [ ] Unit: `rankSlotsForTask` falls back to earliest-first when no preferred-template slot is free
+- [ ] Unit: `rankSlotsForTask` with a task that has no `preferredTemplateId` — behaviour matches v1 (earliest free slot)
+- [ ] Integration: POST `/api/blackouts` creates a row; GET lists it; PATCH updates; DELETE removes
+- [ ] Integration: POST `/api/window-templates` creates; cascade — deleting a template removes its windows
+- [ ] Integration: creating a schedule window without `templateId` returns 400
+- [ ] Integration: a fresh user gets a seeded "Default" template after signup (or on first window creation)
+- [ ] Integration: task with `preferredTemplateId` places inside that template's window when free
+- [ ] Integration: task with `preferredTemplateId` falls back to any free slot when the template's windows are all busy
+- [ ] Integration: task scheduled around an active blackout (create blackout 2-3pm today, create task that would normally land there) — task lands outside the blackout
+- [ ] Integration: scheduler respects a recurring blackout — task that would normally land on a blocked-Friday goes to Thursday or Monday
+- [ ] Snapshot test on the new migration SQL (so accidental schema drift is visible in PR review)
+
+#### Verify (manual)
+- [ ] Create a blackout for "tomorrow 2-5pm" and a task "Call the plumber (1 hour)" — task schedules outside that window
+- [ ] Create a weekly recurring blackout "Fridays 9-5" — four weeks ahead, no Friday placements happen
+- [ ] Create three templates ("Deep work", "Admin", "Personal") with distinct windows; create three tasks each with a different preferred template; run a full schedule run; every task lands in the right template
+- [ ] Rename a template — windows and tasks still reference it correctly
+- [ ] Delete a non-default template that has windows — UI confirms, windows removed, tasks' `preferredTemplateId` drops to null
+- [ ] Delete the default template — UI blocks this (another must be marked default first)
+- [ ] Keyboard-navigate the whole Schedule settings section — no mouse required to create/edit/delete templates, windows, blackouts
+- [ ] Lighthouse mobile pass on `/settings` — perf > 85, a11y > 95
+
+#### Definition of done
+- [ ] Blackout blocks table replaces blackout days, migration clean on fresh DB
+- [ ] User can create a datetime-range blackout, a partial-day blackout, and a recurring blackout via the UI
+- [ ] Scheduler respects all three — verified by integration test
+- [ ] User can create a window template, rename it, delete it (deletion cascades to its windows)
+- [ ] Seeded "Default" template exists for a new user
+- [ ] Schedule windows editor requires picking a template on create; existing windows migrate into Default
+- [ ] Task form shows the preferred-template picker; tasks with a preference get placed in matching windows when possible
+- [ ] No raw `bg-zinc-*` or hex literals introduced — `no-raw-colors` CI stays clean
+- [ ] Vitest: new unit tests for `rankSlotsForTask` and for `computeFreeSlots` with recurring blackouts; new integration tests for all new routes
+- [ ] Settings page Lighthouse a11y > 95
+
+---
+
+### Slice 5b — Flexible recurrence
+
+**Goal:** Recurring tasks work end-to-end. Completing one spawns the next. Deletion handles single-instance and series-wide cases.
+
+#### Build
+- [ ] `RecurrenceRule` type extended with `mode: 'fixed' | 'after-complete'` (optional, default `'fixed'`)
+- [ ] `lib/scheduler/recurrence.ts` adds `nextOccurrenceAfterComplete(rule, completedAt)` — pure, returns a `Date`
+- [ ] `lib/services/recurrence.ts` — new file with `spawnNextOccurrence`, `deleteSeries`, `deleteInstance`, and `resolveSeriesRoot`
+- [ ] `lib/services/tasks.ts` — completion path calls `spawnNextOccurrence` when `recurrenceRule` is set
+- [ ] `lib/services/tasks.ts` — delete path dispatches on `scope`
+- [ ] `app/api/tasks/[id]/route.ts` DELETE reads `?scope=instance|series` (default `instance`)
+- [ ] `app/api/tasks/[id]/complete/route.ts` — new route; idempotent
+- [ ] Task form — recurrence editor mode toggle (fixed vs after-complete), interval input label reflects mode
+- [ ] Task row — chain glyph for series members, hover tooltip showing past/upcoming count
+- [ ] Delete modal — "This occurrence" / "Whole series (X instances)" options
+- [ ] Schedule view — visual grouping for same-series tasks
+
+#### Test
+- [ ] Unit: `nextOccurrenceAfterComplete({ freq: 'daily', interval: 1, mode: 'after-complete' }, completedAt)` returns `completedAt + 1 day`
+- [ ] Unit: `nextOccurrenceAfterComplete({ freq: 'weekly', interval: 2, mode: 'after-complete' }, completedAt)` returns `completedAt + 14 days`
+- [ ] Unit: `nextOccurrenceAfterComplete` ignores `byDayOfWeek` — tested error or fallback behaviour
+- [ ] Unit: `generateOccurrences` with no `mode` still produces identical output to v1 (back-compat snapshot)
+- [ ] Unit: `resolveSeriesRoot` returns self for a root task, returns `parentTaskId` for a child
+- [ ] Integration: complete a `fixed` daily task — new row created with correct `scheduledAt` and `parentTaskId`
+- [ ] Integration: complete an `after-complete` daily task at 3pm — new row has `scheduledAt = tomorrow 3pm`
+- [ ] Integration: spawned instance inherits `tags`, `durationMins`, `description`, `preferredTemplateId`, `bufferMins`, `isSplittable`, `minChunkMins`, `priority`
+- [ ] Integration: spawned instance does NOT inherit `completedAt`, `status`, `gcalEventId`, `scheduledAt`, `scheduledEnd`
+- [ ] Integration: completion enqueues a `schedule:single-task` job for the spawned instance
+- [ ] Integration: `DELETE /api/tasks/{id}?scope=instance` removes one row; children survive
+- [ ] Integration: `DELETE /api/tasks/{id}?scope=series` on the root removes root + all children
+- [ ] Integration: `DELETE /api/tasks/{id}?scope=series` on a child resolves to root and removes everything
+- [ ] Integration: series deletion removes GCal events for every instance (msw-mocked)
+- [ ] Integration: completing a non-recurring task does NOT spawn anything
+- [ ] Integration: completing a recurring task past its `until` date does NOT spawn
+- [ ] Integration: completing a recurring task past its `count` does NOT spawn
+- [ ] Integration: double-clicking complete does not spawn two instances (idempotency)
+- [ ] Snapshot: `generateOccurrences` outputs unchanged from v1
+
+#### Verify (manual)
+- [ ] Create "Daily standup, 10am, fixed daily" — complete it — next instance appears at tomorrow 10am
+- [ ] Create "Water plants, every 3 days after complete" — complete at 6pm — next appears at 6pm three days later
+- [ ] Complete the after-complete task at 8am next time — cycle shifts to 8am (completion-anchored)
+- [ ] Complete a recurring task with `until` set to today — no next instance
+- [ ] Complete a recurring task with `count: 3` twice — no spawn after the third
+- [ ] Delete one instance of a weekly series — only that week disappears
+- [ ] Delete the series from a middle instance — confirmation modal lists the right count, everything goes
+- [ ] Delete the series from the root — same behaviour
+- [ ] Create a series, delete it, GCal event list is clean
+- [ ] After-complete task completed 3 weeks late — next instance is from completion time, not original time
+
+#### Definition of done
+- [ ] Completing a `fixed`-mode recurring task spawns the next instance with correct scheduled time
+- [ ] Completing an `after-complete`-mode recurring task spawns at `completedAt + interval`
+- [ ] `parentTaskId` is written on spawned instances
+- [ ] Spawned instance inherits tags, duration, description, preferredTemplateId, bufferMins, isSplittable, minChunkMins
+- [ ] Deleting with `?scope=instance` removes only the single row
+- [ ] Deleting with `?scope=series` removes root and all children, and their GCal events
+- [ ] `generateOccurrences` tests still pass byte-identically (back-compat)
+- [ ] UI shows chain glyph on series tasks, delete modal names the scope
+
+---
+
+### Slice 5c — Chat
+
+**Goal:** A `/chat` route where a user can converse with an LLM that can read and mutate their task state, and invoke plugin-exposed tools.
+
+#### Build
+- [ ] `lib/chat/tools.ts` — core tool catalogue backed by existing services
+- [ ] `lib/chat/plugin-tools.ts` — aggregates tools from installed plugins, namespaces as `<pluginName>__<toolName>`
+- [ ] `lib/chat/router.ts` — dispatches tool calls to core or plugin
+- [ ] `lib/chat/stream.ts` — `streamText` wrapper using `lib/llm/`
+- [ ] `lib/plugins/types.ts` — `ToolDefinition` type; `ScratchpadPlugin.tools?` and `.invokeTool?` added
+- [ ] `packages/plugin-sdk/src/manifest.ts` — `PluginManifestSchema.tools?` added
+- [ ] `app/api/chat/route.ts` — POST, streaming response
+- [ ] `app/(app)/chat/page.tsx` — client component, holds conversation state
+- [ ] `components/app/chat/Transcript.tsx`
+- [ ] `components/app/chat/Composer.tsx`
+- [ ] `components/app/chat/ToolCallBlock.tsx` with type-differentiated renderers
+- [ ] Command palette entry "Open chat"
+- [ ] "Not saved" banner on chat entry
+- [ ] "Copy transcript to Markdown" button
+- [ ] Available-tools chip in composer showing core + plugin contributions
+
+#### Test
+- [ ] Unit: every core tool's `execute` calls the right service function (mock services)
+- [ ] Unit: every tool's `inputSchema` rejects invalid args
+- [ ] Unit: `plugin-tools.ts` aggregates tools from multiple plugins, namespaces correctly
+- [ ] Unit: `plugin-tools.ts` skips disabled plugins
+- [ ] Unit: `plugin-tools.ts` skips plugins that declare `tools` but don't implement `invokeTool`
+- [ ] Unit: `router.ts` routes core tool names to core, namespaced names to the right plugin
+- [ ] Unit: `router.ts` — unknown tool name returns structured error
+- [ ] Integration: `POST /api/chat` with a simple message returns a streaming response
+- [ ] Integration: `POST /api/chat` with no configured LLM provider returns 400
+- [ ] Integration: chat request triggering `list_tasks` returns real task data
+- [ ] Integration: chat request triggering `create_task` creates a task row
+- [ ] Integration: chat request triggering `delete_task` with series scope removes the full series
+- [ ] Integration: no `chat*` tables exist — explicit DB schema assertion
+- [ ] Integration: plugin with declared tools — callable from chat, validation works
+- [ ] Integration: plugin without declared tools — no plugin tools exposed
+- [ ] Integration: HTTP plugin declares tools in manifest — works via `invokeTool` over HTTP with HMAC
+- [ ] Integration: circuit-broken HTTP plugin's tools — graceful error, no crash
+- [ ] Snapshot: system prompt sent to the LLM
+
+#### Verify (manual)
+- [ ] Type "what's on my plate tomorrow" — gets a grounded list
+- [ ] Type "move my 2pm meeting to Thursday" — task moves via `reschedule_task`
+- [ ] Type "create a task to prep for Tuesday, 1 hour, deadline Monday, priority high, tag meetings" — task created correctly
+- [ ] Multi-tool-call query works correctly
+- [ ] Reload the page mid-conversation — conversation is gone, no errors
+- [ ] Install a plugin with tools; open chat — tools appear in the chip
+- [ ] Disable the plugin; reopen chat — tools are gone
+- [ ] Copy transcript — readable Markdown with tool calls inline
+- [ ] Streaming — tokens visibly progressive
+- [ ] Tool call blocks are collapsible
+- [ ] Keyboard-only flow works: Cmd-K → "Open chat" → type → Cmd-Enter → read → Esc
+
+#### Definition of done
+- [ ] User can converse with an LLM that reads and mutates task state via core tools
+- [ ] Plugin-exposed tools work when plugins are installed
+- [ ] No `chatSessions` / `chatMessages` tables (ADR-R19)
+- [ ] Reloading loses the conversation
+- [ ] LLM provider is the user's configured one
+- [ ] Streaming works — tokens appear progressively
+- [ ] Tool calls render inline with legible outputs
+- [ ] "Copy transcript" produces reproducible Markdown
+
+---
+
+### Phase 5 cross-slice verification
+
+- [ ] Full Vitest suite passes on a clean checkout
+- [ ] `pnpm lint` — no errors, no new warnings
+- [ ] `pnpm tsc --noEmit` — clean
+- [ ] CI grep step still blocks `Project` / `projectId` / direct LLM provider imports outside allowed paths
+- [ ] Migration 0006 applies cleanly on v1 data and on a fresh DB
+- [ ] No new raw-Tailwind-colour utilities introduced
+- [ ] ADR-R16 through ADR-R19 in `references/architecture-decisions.md`
+- [ ] Every slice has a `CHANGELOG.md` entry with date, files touched count, and next action
+- [ ] Lighthouse on all app routes — perf > 85, a11y > 95
+- [ ] Frontend bundle size on `/dashboard` under 10% growth vs v1
+- [ ] No new direct `openai` / `@anthropic-ai/sdk` imports outside `lib/llm/` and bundled plugins
+- [ ] Self-hosted mode still works end-to-end — Docker compose up, sign in, full chat + scheduling + recurrence flow
+- [ ] README + CONTRIBUTING updated with phase-5 features
+
+### Not in Phase 5 (explicitly)
+
+- Chat history persistence — deferred per ADR-R19
+- Multi-user — deferred per ADR-006
+- Stripe / paid tier — deferred
+- Voice input into chat — plugin-territory
+- Chat running in the background (agent mode) — human-in-the-loop only
+- Cross-device chat sync — not applicable when chat isn't persisted
+- Chat-invoked plugin install — user installs plugins via settings, chat uses what's installed
+
