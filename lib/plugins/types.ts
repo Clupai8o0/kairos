@@ -51,6 +51,24 @@ export interface PluginContext {
   log(level: 'debug' | 'info' | 'warn' | 'error', message: string, fields?: Record<string, unknown>): void;
 }
 
+// ── Tool definitions for chat surface ───────────────────────────────────────
+
+export const ToolParameterSchema = z.object({
+  name: z.string(),
+  type: z.enum(['string', 'number', 'boolean', 'object', 'array']),
+  description: z.string(),
+  required: z.boolean().default(true),
+});
+
+export const ToolDefinitionSchema = z.object({
+  name: z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/),
+  description: z.string(),
+  parameters: z.array(ToolParameterSchema).default([]),
+});
+
+export type ToolParameter = z.infer<typeof ToolParameterSchema>;
+export type ToolDefinition = z.infer<typeof ToolDefinitionSchema>;
+
 export interface ScratchpadPlugin {
   name: string;
   version: string;
@@ -62,4 +80,9 @@ export interface ScratchpadPlugin {
   parse(input: ScratchpadInput, context: PluginContext): Promise<ParseResult>;
   onInstall?(context: PluginContext): Promise<void>;
   onUninstall?(context: PluginContext): Promise<void>;
+
+  /** Optional tools exposed to the chat surface */
+  tools?: ToolDefinition[];
+  /** Invoke a named tool — required if tools is non-empty */
+  invokeTool?(toolName: string, args: Record<string, unknown>, context: PluginContext): Promise<unknown>;
 }

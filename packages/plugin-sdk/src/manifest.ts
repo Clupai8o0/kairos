@@ -27,6 +27,17 @@ export const PluginManifestSchema = z.object({
   repository: z.string().url().optional(),
 
   changelog: z.string().optional(),
+
+  tools: z.array(z.object({
+    name: z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/),
+    description: z.string(),
+    parameters: z.array(z.object({
+      name: z.string(),
+      type: z.enum(['string', 'number', 'boolean', 'object', 'array']),
+      description: z.string(),
+      required: z.boolean().default(true),
+    })).default([]),
+  })).optional(),
 }).refine(
   (m) => m.distribution !== 'http' || !!m.endpoint,
   { message: 'HTTP plugins must provide an endpoint URL' },

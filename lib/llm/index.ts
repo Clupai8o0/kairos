@@ -5,7 +5,7 @@ import type { z } from 'zod';
 
 type Provider = 'openai' | 'anthropic' | 'ollama';
 
-function resolveModel() {
+export function resolveModel() {
   const provider = (process.env.LLM_PROVIDER ?? 'openai') as Provider;
   const modelId =
     process.env.LLM_MODEL ??

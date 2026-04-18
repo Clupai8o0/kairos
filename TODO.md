@@ -408,28 +408,28 @@ New ADRs: R16 (blackout blocks), R17 (window templates), R18 (flexible recurrenc
 **Goal:** A `/chat` route where a user can converse with an LLM that can read and mutate their task state, and invoke plugin-exposed tools.
 
 #### Build
-- [ ] `lib/chat/tools.ts` — core tool catalogue backed by existing services
-- [ ] `lib/chat/plugin-tools.ts` — aggregates tools from installed plugins, namespaces as `<pluginName>__<toolName>`
-- [ ] `lib/chat/router.ts` — dispatches tool calls to core or plugin
-- [ ] `lib/chat/stream.ts` — `streamText` wrapper using `lib/llm/`
-- [ ] `lib/plugins/types.ts` — `ToolDefinition` type; `ScratchpadPlugin.tools?` and `.invokeTool?` added
-- [ ] `packages/plugin-sdk/src/manifest.ts` — `PluginManifestSchema.tools?` added
-- [ ] `app/api/chat/route.ts` — POST, streaming response
-- [ ] `app/(app)/chat/page.tsx` — client component, holds conversation state
-- [ ] `components/app/chat/Transcript.tsx`
-- [ ] `components/app/chat/Composer.tsx`
-- [ ] `components/app/chat/ToolCallBlock.tsx` with type-differentiated renderers
-- [ ] Command palette entry "Open chat"
-- [ ] "Not saved" banner on chat entry
-- [ ] "Copy transcript to Markdown" button
-- [ ] Available-tools chip in composer showing core + plugin contributions
+- [x] `lib/chat/tools.ts` — core tool catalogue backed by existing services
+- [x] `lib/chat/plugin-tools.ts` — aggregates tools from installed plugins, namespaces as `<pluginName>__<toolName>`
+- [x] `lib/chat/router.ts` — dispatches tool calls to core or plugin
+- [x] `lib/chat/stream.ts` — `streamText` wrapper using `lib/llm/`
+- [x] `lib/plugins/types.ts` — `ToolDefinition` type; `ScratchpadPlugin.tools?` and `.invokeTool?` added
+- [x] `packages/plugin-sdk/src/manifest.ts` — `PluginManifestSchema.tools?` added
+- [x] `app/api/chat/route.ts` — POST, streaming response
+- [x] `app/(app)/chat/page.tsx` — client component, holds conversation state
+- [x] `components/app/chat/transcript.tsx`
+- [x] `components/app/chat/composer.tsx`
+- [x] `components/app/chat/tool-call-block.tsx` with type-differentiated renderers
+- [x] Command palette entry "Open chat"
+- [x] "Not saved" banner on chat entry
+- [x] "Copy transcript to Markdown" button
+- [x] Available-tools chip in composer showing core + plugin contributions
 
 #### Test
-- [ ] Unit: every core tool's `execute` calls the right service function (mock services)
+- [x] Unit: every core tool's `execute` calls the right service function (mock services)
 - [ ] Unit: every tool's `inputSchema` rejects invalid args
-- [ ] Unit: `plugin-tools.ts` aggregates tools from multiple plugins, namespaces correctly
-- [ ] Unit: `plugin-tools.ts` skips disabled plugins
-- [ ] Unit: `plugin-tools.ts` skips plugins that declare `tools` but don't implement `invokeTool`
+- [x] Unit: `plugin-tools.ts` aggregates tools from multiple plugins, namespaces correctly
+- [x] Unit: `plugin-tools.ts` skips disabled plugins
+- [x] Unit: `plugin-tools.ts` skips plugins that declare `tools` but don't implement `invokeTool`
 - [ ] Unit: `router.ts` routes core tool names to core, namespaced names to the right plugin
 - [ ] Unit: `router.ts` — unknown tool name returns structured error
 - [ ] Integration: `POST /api/chat` with a simple message returns a streaming response

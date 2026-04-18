@@ -28,6 +28,7 @@ function buildCommands(
     { id: 'go-schedule', label: 'Go to Schedule', hint: 'nav', action: () => router.push('/schedule') },
     { id: 'go-scratchpad', label: 'Go to Scratchpad', hint: 'nav', action: () => router.push('/scratchpad') },
     { id: 'go-settings', label: 'Go to Settings', hint: 'nav', action: () => router.push('/settings') },
+    { id: 'go-chat', label: 'Open chat', hint: 'nav', action: () => router.push('/chat') },
     {
       id: 'run-schedule',
       label: 'Run full schedule',

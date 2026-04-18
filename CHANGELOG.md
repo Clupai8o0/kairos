@@ -8,7 +8,7 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 
 ## Current State
 
-**Phase:** 5b complete. Phase 5 planned (3 slices: 5a scheduling completion ✓, 5b recurrence ✓, 5c chat).
+**Phase:** 5c in progress. Phase 5 planned (3 slices: 5a scheduling completion ✓, 5b recurrence ✓, 5c chat — build complete, integration tests remaining).
 
 ### What's built (phases 1–5a)
 - [x] Full backend: scheduler pipeline, GCal layer, plugin host, scratchpad, jobs queue
@@ -76,6 +76,22 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 - [x] Phase 5b: `DELETE /api/tasks/:id?scope=series` — delete entire recurring series
 - [x] Phase 5b: Frontend — recurrence editor (mode/freq/interval), series delete (instance vs whole), ↻ glyph, useCompleteTask hook
 - [x] Phase 5b: 9 new unit tests (nextOccurrenceAfterComplete + back-compat), 9 new integration tests (complete + series delete)
+- [x] Phase 5c: `lib/chat/tools.ts` — 9 core tools (listTasks, createTask, updateTask, deleteTask, completeTask, listTags, createTag, listSchedule, runSchedule) using AI SDK v6 `tool()` with `inputSchema`
+- [x] Phase 5c: `lib/chat/plugin-tools.ts` — aggregates tools from installed plugins, namespaces as `pluginName__toolName`, skips disabled/non-implementing plugins
+- [x] Phase 5c: `lib/chat/router.ts` — merges core + plugin tools via `createAllTools(userId)` + `getAvailableToolNames(userId)`
+- [x] Phase 5c: `lib/chat/stream.ts` — `streamText` wrapper using `lib/llm/resolveModel()`, system prompt, `stopWhen: stepCountIs(5)`
+- [x] Phase 5c: `lib/plugins/types.ts` — `ToolDefinition` type + `ScratchpadPlugin.tools?` / `.invokeTool?` added
+- [x] Phase 5c: `packages/plugin-sdk/src/manifest.ts` — `PluginManifestSchema.tools?` added
+- [x] Phase 5c: `lib/plugins/manifest-types.ts` — tools schema added, z.record fixed for Zod v4
+- [x] Phase 5c: `app/api/chat/route.ts` — POST streaming endpoint, `convertToModelMessages()` + `toUIMessageStreamResponse()`
+- [x] Phase 5c: `app/api/chat/tools/route.ts` — GET available tool names
+- [x] Phase 5c: `app/(app)/chat/page.tsx` — useChat v6 hook, local input state, sendMessage/status API, parts-based rendering
+- [x] Phase 5c: `components/app/chat/transcript.tsx` — AnimatePresence message list, `isStaticToolUIPart` / `isTextUIPart` filters
+- [x] Phase 5c: `components/app/chat/composer.tsx` — auto-growing textarea, Enter-to-send, Shift+Enter for newline
+- [x] Phase 5c: `components/app/chat/tool-call-block.tsx` — type-differentiated tool call renderers with v6 states
+- [x] Phase 5c: sidebar + command palette — "Chat" nav item + "Open chat" in Cmd-K
+- [x] Phase 5c: 18 unit tests (13 core tools + 5 plugin tools) — all passing
+- [x] Phase 5c: `@ai-sdk/react@3.0.170` installed as new dependency
 
 ### Active decisions (promoted to ADRs)
 - Default pack tokens in `@theme {}` (Tailwind-native); marketplace/custom packs compiled under `[data-theme="id"] {}` (selector scope)
@@ -94,7 +110,7 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 - `v1.0.0` tag not yet applied (pending deploy verification)
 
 ### Next concrete action
-1. Begin Slice 5c: Session-scoped chat (ADR-R19) — chat route, core tools, plugin tool bridge
+1. Slice 5c remaining: integration tests, manual verification, then definition-of-done sign-off
 2. Or: hardening pass — fix pre-existing `me-theme` test mock, Lighthouse audit, deploy verification
 
 ---

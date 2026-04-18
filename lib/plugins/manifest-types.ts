@@ -13,14 +13,25 @@ export const PluginManifestSchema = z.object({
   npmPackage: z.string().optional(),
   handlesInputTypes: z.array(z.enum(['text', 'url', 'share', 'voice', 'file'])).min(1),
   capabilities: z.array(z.enum(['llm', 'http-fetch', 'file-read'])).default([]),
-  configSchema: z.record(z.unknown()).optional(),
-  defaultConfig: z.record(z.unknown()).optional(),
-  theme: z.record(z.unknown()).optional(),
+  configSchema: z.record(z.string(), z.unknown()).optional(),
+  defaultConfig: z.record(z.string(), z.unknown()).optional(),
+  theme: z.record(z.string(), z.unknown()).optional(),
   provenance: z.string().url().optional(),
   icon: z.string().url().optional(),
   homepage: z.string().url().optional(),
   repository: z.string().url().optional(),
   changelog: z.string().optional(),
+
+  tools: z.array(z.object({
+    name: z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/),
+    description: z.string(),
+    parameters: z.array(z.object({
+      name: z.string(),
+      type: z.enum(['string', 'number', 'boolean', 'object', 'array']),
+      description: z.string(),
+      required: z.boolean().default(true),
+    })).default([]),
+  })).optional(),
 }).refine(
   (m) => m.distribution !== 'http' || !!m.endpoint,
   { message: 'HTTP plugins must provide an endpoint URL' },
