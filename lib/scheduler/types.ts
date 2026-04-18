@@ -10,11 +10,25 @@ export type ScheduleWindow = {
   dayOfWeek: number;   // 0=Sunday..6=Saturday
   startTime: string;   // 'HH:MM' 24h
   endTime: string;     // 'HH:MM' 24h
+  templateId?: string | null;
+};
+
+export type WindowTemplate = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+};
+
+export type BlackoutBlock = {
+  startAt: Date;
+  endAt: Date;
+  recurrenceRule?: RecurrenceRule | null;
 };
 
 export type TimeSlot = {
   start: Date;
   end: Date;
+  templateId?: string | null;
 };
 
 export type BusyInterval = {
@@ -39,4 +53,5 @@ export type RecurrenceRule = {
   byDayOfMonth?: number;   // 1..31
   until?: string;          // ISO date string (inclusive)
   count?: number;          // hard cap applied at 366
+  mode?: 'fixed' | 'after-complete';  // default 'fixed'
 };

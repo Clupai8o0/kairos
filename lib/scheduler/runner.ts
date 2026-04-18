@@ -4,12 +4,12 @@
 
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
-import { tasks, scheduleWindows, blackoutDays, scheduleLogs } from '@/lib/db/schema';
+import { tasks, scheduleWindows, blackoutBlocks, windowTemplates, scheduleLogs } from '@/lib/db/schema';
 import { newId } from '@/lib/utils/id';
-import type { Task, PlacedChunk, BusyInterval } from './types';
+import type { Task, PlacedChunk, BusyInterval, BlackoutBlock, RecurrenceRule, WindowTemplate } from './types';
 import { selectCandidates, buildDoneSet } from './candidates';
 import { computeFreeSlots, consumeSlot } from './slots';
-import { placeTask, placementConsumedRange } from './placement';
+import { placeTask, placementConsumedRange, rankSlotsForTask } from './placement';
 import { splitTask } from './splitting';
 
 // ── GCal adapter interface ────────────────────────────────────────────────────
@@ -44,12 +44,36 @@ function lookaheadRange(now: Date): { from: Date; to: Date } {
 }
 
 async function loadContext(userId: string) {
-  const [userTasks, windows, blackouts] = await Promise.all([
+  const [userTasks, windows, blackouts, templates] = await Promise.all([
     db.select().from(tasks).where(eq(tasks.userId, userId)),
     db.select().from(scheduleWindows).where(eq(scheduleWindows.userId, userId)),
-    db.select().from(blackoutDays).where(eq(blackoutDays.userId, userId)),
+    db.select().from(blackoutBlocks).where(eq(blackoutBlocks.userId, userId)),
+    db.select().from(windowTemplates).where(eq(windowTemplates.userId, userId)),
   ]);
-  return { userTasks, windows, blackouts };
+  return { userTasks, windows, blackouts, templates };
+}
+
+type LoadedContext = Awaited<ReturnType<typeof loadContext>>;
+
+function mapWindows(windows: LoadedContext['windows']) {
+  return windows.map((w) => ({
+    dayOfWeek: w.dayOfWeek,
+    startTime: w.startTime,
+    endTime: w.endTime,
+    templateId: w.templateId,
+  }));
+}
+
+function mapBlackouts(blackouts: LoadedContext['blackouts']): BlackoutBlock[] {
+  return blackouts.map((b) => ({
+    startAt: b.startAt,
+    endAt: b.endAt,
+    recurrenceRule: b.recurrenceRule as RecurrenceRule | null,
+  }));
+}
+
+function mapTemplates(templates: LoadedContext['templates']): WindowTemplate[] {
+  return templates.map((t) => ({ id: t.id, name: t.name, isDefault: t.isDefault }));
 }
 
 // ── scheduleSingleTask ────────────────────────────────────────────────────────
@@ -69,7 +93,7 @@ export async function scheduleSingleTask(
   const now = new Date();
   const { from, to } = lookaheadRange(now);
 
-  const { userTasks, windows, blackouts } = await loadContext(userId);
+  const { userTasks, windows, blackouts, templates } = await loadContext(userId);
   const target = userTasks.find((t) => t.id === taskId);
 
   if (!target || !target.schedulable) return null;
@@ -93,21 +117,18 @@ export async function scheduleSingleTask(
 
   const scored = { ...target, urgency: 0 }; // urgency is irrelevant for single placement
   const freeSlots = computeFreeSlots(
-    windows.map((w) => ({
-      dayOfWeek: w.dayOfWeek,
-      startTime: w.startTime,
-      endTime: w.endTime,
-    })),
-    blackouts.map((b) => b.date),
+    mapWindows(windows),
+    mapBlackouts(blackouts),
     busy,
     from,
     to,
   );
 
-  let placed: PlacedChunk | null = placeTask(scored, freeSlots);
+  const rankedSlots = rankSlotsForTask(freeSlots, scored, mapTemplates(templates));
+  let placed: PlacedChunk | null = placeTask(scored, rankedSlots);
 
   if (!placed && scored.isSplittable) {
-    const chunks = splitTask(scored, freeSlots);
+    const chunks = splitTask(scored, rankedSlots);
     // For single-task placement, use only the first chunk; remainder enqueued as follow-up
     placed = chunks?.[0] ?? null;
   }
@@ -162,7 +183,7 @@ export async function scheduleFullRunChunk(
   const now = new Date();
   const { from, to } = lookaheadRange(now);
 
-  const { userTasks: rawTasks, windows, blackouts } = await loadContext(userId);
+  const { userTasks: rawTasks, windows, blackouts, templates } = await loadContext(userId);
 
   // Unlock tasks whose locked time has passed so the auto-scheduler can reclaim them
   const pastLockedIds = rawTasks
@@ -197,25 +218,24 @@ export async function scheduleFullRunChunk(
   ];
 
   let freeSlots = computeFreeSlots(
-    windows.map((w) => ({
-      dayOfWeek: w.dayOfWeek,
-      startTime: w.startTime,
-      endTime: w.endTime,
-    })),
-    blackouts.map((b) => b.date),
+    mapWindows(windows),
+    mapBlackouts(blackouts),
     busy,
     from,
     to,
   );
 
+  const tmpl = mapTemplates(templates);
+
   const scheduledIds: string[] = [];
   const gcalUpdates: Array<{ id: string; gcalEventId: string | null; start: Date; end: Date }> = [];
 
   for (const task of candidates) {
-    let placed: PlacedChunk | null = placeTask(task, freeSlots);
+    const rankedSlots = rankSlotsForTask(freeSlots, task, tmpl);
+    let placed: PlacedChunk | null = placeTask(task, rankedSlots);
 
     if (!placed && task.isSplittable) {
-      const chunks = splitTask(task, freeSlots);
+      const chunks = splitTask(task, rankedSlots);
       placed = chunks?.[0] ?? null;
     }
 

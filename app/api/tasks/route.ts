@@ -20,6 +20,7 @@ const CreateTaskSchema = z.object({
   isSplittable: z.boolean().default(false),
   dependsOn: z.array(z.string()).default([]),
   recurrenceRule: z.record(z.string(), z.unknown()).optional(),
+  preferredTemplateId: z.string().nullable().optional(),
   tagIds: z.array(z.string()).default([]),
 });
 

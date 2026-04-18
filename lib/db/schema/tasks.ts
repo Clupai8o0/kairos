@@ -11,6 +11,7 @@ import {
 import { type AnyPgColumn } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { user } from './auth';
+import { windowTemplates } from './schedule';
 
 export const tasks = pgTable(
   'tasks',
@@ -65,6 +66,10 @@ export const tasks = pgTable(
     source: text('source'),
     sourceRef: text('source_ref'),
     sourceMetadata: jsonb('source_metadata').notNull().default(sql`'{}'::jsonb`),
+
+    // Schedule preferences
+    preferredTemplateId: text('preferred_template_id')
+      .references(() => windowTemplates.id, { onDelete: 'set null' }),
 
     // Bookkeeping
     completedAt: timestamp('completed_at'),

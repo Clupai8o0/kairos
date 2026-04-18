@@ -36,6 +36,7 @@ export interface CreateTaskInput {
   isSplittable: boolean;
   dependsOn: string[];
   tagIds: string[];
+  preferredTemplateId?: string | null;
 }
 
 export interface UpdateTaskInput {
@@ -51,6 +52,8 @@ export interface UpdateTaskInput {
   scheduledAt?: string | null;
   scheduledEnd?: string | null;
   tagIds?: string[];
+  preferredTemplateId?: string | null;
+  recurrenceRule?: Record<string, unknown> | null;
 }
 
 export function useCreateTask() {
@@ -84,6 +87,33 @@ export function useDeleteTask() {
   return useMutation({
     mutationFn: (id: string) =>
       apiFetch<void>(`/api/tasks/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: TASKS_KEY }),
+  });
+}
+
+export function useCompleteTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<Task>(`/api/tasks/${id}/complete`, { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: TASKS_KEY }),
+  });
+}
+
+export function useDeleteTaskSeries() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<void>(`/api/tasks/${id}?scope=series`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: TASKS_KEY }),
+  });
+}
+
+export function useDeleteTaskSeries() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<void>(`/api/tasks/${id}?scope=series`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: TASKS_KEY }),
   });
 }

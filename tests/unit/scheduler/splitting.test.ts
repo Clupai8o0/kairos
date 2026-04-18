@@ -29,6 +29,8 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     sourceRef: null,
     sourceMetadata: {},
     completedAt: null,
+    timeLocked: false,
+    preferredTemplateId: null,
     metadata: {},
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),

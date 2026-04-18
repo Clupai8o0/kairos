@@ -26,6 +26,7 @@ export type CreateTaskInput = {
   isSplittable: boolean;
   dependsOn: string[];
   recurrenceRule?: Record<string, unknown>;
+  preferredTemplateId?: string | null;
   tagIds: string[];
 };
 
@@ -43,6 +44,7 @@ export type UpdateTaskInput = {
   isSplittable?: boolean;
   dependsOn?: string[];
   recurrenceRule?: Record<string, unknown> | null;
+  preferredTemplateId?: string | null;
   tagIds?: string[];
   scheduledAt?: string | null;
   scheduledEnd?: string | null;
@@ -129,7 +131,7 @@ export async function createTask(
   userId: string,
   input: CreateTaskInput,
 ): Promise<TaskWithTags> {
-  const { tagIds, deadline, recurrenceRule, scheduledAt, scheduledEnd, ...rest } = input;
+  const { tagIds, deadline, recurrenceRule, preferredTemplateId, scheduledAt, scheduledEnd, ...rest } = input;
   const id = newId();
   await db.insert(tasks).values({
     id,
@@ -137,6 +139,7 @@ export async function createTask(
     ...rest,
     deadline: deadline ? new Date(deadline) : undefined,
     recurrenceRule: recurrenceRule ?? undefined,
+    preferredTemplateId: preferredTemplateId ?? undefined,
     scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
     scheduledEnd: scheduledEnd ? new Date(scheduledEnd) : undefined,
     updatedAt: new Date(),
@@ -152,7 +155,7 @@ export async function updateTask(
   id: string,
   input: UpdateTaskInput,
 ): Promise<TaskWithTags | null> {
-  const { tagIds, deadline, recurrenceRule, scheduledAt, scheduledEnd, ...rest } = input;
+  const { tagIds, deadline, recurrenceRule, preferredTemplateId, scheduledAt, scheduledEnd, ...rest } = input;
 
   const patch: Partial<typeof tasks.$inferInsert> = { ...rest, updatedAt: new Date() };
   if (deadline !== undefined) {
@@ -160,6 +163,9 @@ export async function updateTask(
   }
   if (recurrenceRule !== undefined) {
     patch.recurrenceRule = recurrenceRule ?? null;
+  }
+  if (preferredTemplateId !== undefined) {
+    patch.preferredTemplateId = preferredTemplateId ?? null;
   }
   if (scheduledAt !== undefined) {
     patch.scheduledAt = scheduledAt ? new Date(scheduledAt) : null;

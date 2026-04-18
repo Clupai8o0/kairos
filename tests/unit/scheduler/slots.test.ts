@@ -1,7 +1,7 @@
 // tests/unit/scheduler/slots.test.ts
 import { describe, expect, it } from 'vitest';
 import { computeFreeSlots, consumeSlot } from '@/lib/scheduler/slots';
-import type { ScheduleWindow, TimeSlot } from '@/lib/scheduler/types';
+import type { ScheduleWindow, TimeSlot, BlackoutBlock } from '@/lib/scheduler/types';
 
 // Week starting 2026-04-20 (Monday)
 // Mon=1, Tue=2, Wed=3, Thu=4, Fri=5, Sat=6, Sun=0
@@ -47,8 +47,12 @@ describe('computeFreeSlots', () => {
     expect(result).toHaveLength(5); // Mon–Fri
   });
 
-  it('blackout day removes slots for that day', () => {
-    const result = computeFreeSlots(WEEKDAY_WINDOWS, [WED], [], FROM, TO);
+  it('blackout block removes slots for that day', () => {
+    const blackouts: BlackoutBlock[] = [{
+      startAt: h(WED, 0),
+      endAt: h(WED, 23, 59),
+    }];
+    const result = computeFreeSlots(WEEKDAY_WINDOWS, blackouts, [], FROM, TO);
     // 5 days - 1 blackout = 4 slots
     expect(result).toHaveLength(4);
     // Wednesday slot should not be present
@@ -105,6 +109,61 @@ describe('computeFreeSlots', () => {
     const badWindow: ScheduleWindow = { dayOfWeek: 1, startTime: '17:00', endTime: '09:00' };
     const result = computeFreeSlots([badWindow], [], [], FROM, TO);
     expect(result).toHaveLength(0);
+  });
+
+  it('partial-day blackout block trims the slot', () => {
+    const blackouts: BlackoutBlock[] = [{
+      startAt: h(MON, 12),
+      endAt: h(MON, 14),
+    }];
+    const result = computeFreeSlots([MON_WINDOW], blackouts, [], FROM, TO);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ start: h(MON, 9), end: h(MON, 12) });
+    expect(result[1]).toEqual({ start: h(MON, 14), end: h(MON, 17) });
+  });
+
+  it('multi-day blackout block removes multiple days', () => {
+    const blackouts: BlackoutBlock[] = [{
+      startAt: h(MON, 0),
+      endAt: h(WED, 23, 59),
+    }];
+    const result = computeFreeSlots(WEEKDAY_WINDOWS, blackouts, [], FROM, TO);
+    // Mon, Tue, Wed fully covered → only Thu and Fri remain
+    expect(result).toHaveLength(2);
+  });
+
+  it('recurring weekly blackout blocks repeat across the range', () => {
+    // Block Monday 12-13 every week
+    const blackouts: BlackoutBlock[] = [{
+      startAt: h(MON, 12),
+      endAt: h(MON, 13),
+      recurrenceRule: { freq: 'weekly' as const, interval: 1, byDayOfWeek: [1] },
+    }];
+    // Only one Monday in range
+    const result = computeFreeSlots([MON_WINDOW], blackouts, [], FROM, TO);
+    expect(result).toHaveLength(2);
+    expect(result[0].end).toEqual(h(MON, 12));
+    expect(result[1].start).toEqual(h(MON, 13));
+  });
+
+  it('propagates templateId from window to slot', () => {
+    const windows: ScheduleWindow[] = [
+      { dayOfWeek: 1, startTime: '09:00', endTime: '17:00', templateId: 'tpl-work' },
+    ];
+    const result = computeFreeSlots(windows, [], [], FROM, TO);
+    expect(result).toHaveLength(1);
+    expect(result[0].templateId).toBe('tpl-work');
+  });
+
+  it('preserves templateId after busy subtraction', () => {
+    const windows: ScheduleWindow[] = [
+      { dayOfWeek: 1, startTime: '09:00', endTime: '17:00', templateId: 'tpl-a' },
+    ];
+    const busy = [{ start: h(MON, 12), end: h(MON, 13) }];
+    const result = computeFreeSlots(windows, [], busy, FROM, TO);
+    expect(result).toHaveLength(2);
+    expect(result[0].templateId).toBe('tpl-a');
+    expect(result[1].templateId).toBe('tpl-a');
   });
 });
 

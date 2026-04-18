@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from '@/lib/hooks/use-tasks';
+import { useTasks, useCreateTask, useUpdateTask, useDeleteTask, useCompleteTask } from '@/lib/hooks/use-tasks';
 import { useTags } from '@/lib/hooks/use-tags';
 import type { Task, TaskStatus } from '@/lib/hooks/types';
 
@@ -300,9 +300,10 @@ function TaskModal({
 function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
+  const completeTask = useCompleteTask();
 
   function markDone() {
-    updateTask.mutate({ id: task.id, status: 'done' });
+    completeTask.mutate(task.id);
   }
 
   function markPending() {
@@ -334,6 +335,10 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
       >
         {task.title}
       </span>
+
+      {(task.parentTaskId || task.recurrenceRule) && (
+        <span className="text-fg-4 text-[10px] shrink-0" title="Recurring task">↻</span>
+      )}
 
       {/* Meta */}
       <div className="flex items-center gap-2 shrink-0 opacity-0 group-hover:opacity-100 sm:opacity-100 transition-opacity">

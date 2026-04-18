@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
 import { toast } from 'sonner';
 import { useCalendars, useUpdateCalendar, useSyncCalendars } from '@/lib/hooks/use-calendars';
 import { usePlugins, useTogglePlugin } from '@/lib/hooks/use-plugins';
-import { useScheduleWindows, useSetScheduleWindows, type WindowInput } from '@/lib/hooks/use-schedule-windows';
+import { ScheduleSection } from '@/components/app/schedule-section';
+import { BlackoutsSection } from '@/components/app/blackouts-section';
 import { authClient } from '@/lib/auth/client';
 import { useRouter } from 'next/navigation';
 
@@ -41,221 +41,6 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
         ].join(' ')}
       />
     </button>
-  );
-}
-
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const DEFAULT_START = '09:00';
-const DEFAULT_END = '17:00';
-
-type DayState = { enabled: boolean; startTime: string; endTime: string };
-
-function buildDayStates(windows: WindowInput[]): DayState[] {
-  return DAYS.map((_, dow) => {
-    const match = windows.find((w) => w.dayOfWeek === dow);
-    return match
-      ? { enabled: true, startTime: match.startTime, endTime: match.endTime }
-      : { enabled: false, startTime: DEFAULT_START, endTime: DEFAULT_END };
-  });
-}
-
-// dow 1–5 = Mon–Fri
-const WEEKDAY_DOWS = [1, 2, 3, 4, 5];
-
-function ScheduleEditor({ initialWindows }: { initialWindows: WindowInput[] }) {
-  const setWindows = useSetScheduleWindows();
-  const [days, setDays] = useState<DayState[]>(() => buildDayStates(initialWindows));
-  const [dirty, setDirty] = useState(false);
-  // dow of the row whose copy bar is open, or null
-  const [copySource, setCopySource] = useState<number | null>(null);
-  // set of target dows selected in the copy bar
-  const [copyTargets, setCopyTargets] = useState<Set<number>>(new Set());
-
-  function updateDay(dow: number, patch: Partial<DayState>) {
-    setDays((prev) => prev.map((d, i) => (i === dow ? { ...d, ...patch } : d)));
-    setDirty(true);
-  }
-
-  function openCopy(dow: number) {
-    setCopySource(dow);
-    // pre-select all other enabled days as a convenience
-    const targets = new Set(
-      days.map((d, i) => ({ d, i })).filter(({ d, i }) => d.enabled && i !== dow).map(({ i }) => i),
-    );
-    setCopyTargets(targets);
-  }
-
-  function toggleCopyTarget(dow: number) {
-    setCopyTargets((prev) => {
-      const next = new Set(prev);
-      next.has(dow) ? next.delete(dow) : next.add(dow);
-      return next;
-    });
-  }
-
-  function selectWeekdays(sourceDow: number) {
-    setCopyTargets(new Set(WEEKDAY_DOWS.filter((d) => d !== sourceDow)));
-  }
-
-  function applyAndClose() {
-    if (copySource === null) return;
-    const src = days[copySource];
-    setDays((prev) =>
-      prev.map((d, i) =>
-        copyTargets.has(i) ? { enabled: true, startTime: src.startTime, endTime: src.endTime } : d,
-      ),
-    );
-    setDirty(true);
-    setCopySource(null);
-    setCopyTargets(new Set());
-  }
-
-  function handleSave() {
-    const windows: WindowInput[] = days
-      .map((d, dow) => ({ enabled: d.enabled, dayOfWeek: dow, startTime: d.startTime, endTime: d.endTime }))
-      .filter((d) => d.enabled)
-      .map(({ dayOfWeek, startTime, endTime }) => ({ dayOfWeek, startTime, endTime }));
-
-    const p = setWindows.mutateAsync(windows);
-    toast.promise(p, {
-      loading: 'Saving schedule…',
-      success: 'Schedule saved',
-      error: (e) => e?.message ?? 'Failed to save',
-    });
-    p.then(() => setDirty(false)).catch(() => {});
-  }
-
-  return (
-    <>
-      <div className="rounded-lg border border-wire-2 overflow-hidden">
-        {DAYS.map((label, dow) => {
-          const d = days[dow];
-          const isCopyOpen = copySource === dow;
-          return (
-            <div key={dow} className="border-b border-wire-2 last:border-b-0">
-              {/* Day row */}
-              <div className="flex items-center gap-3 px-4 py-2.5">
-                <Toggle
-                  checked={d.enabled}
-                  onChange={(v) => {
-                    updateDay(dow, { enabled: v });
-                    if (!v && copySource === dow) setCopySource(null);
-                  }}
-                />
-                <span className={`w-8 text-sm font-[510] shrink-0 ${d.enabled ? 'text-fg-2' : 'text-fg-4'}`}>
-                  {label}
-                </span>
-                {d.enabled ? (
-                  <div className="flex items-center gap-2 ml-auto">
-                    <input
-                      type="time"
-                      value={d.startTime}
-                      onChange={(e) => updateDay(dow, { startTime: e.target.value })}
-                      className="bg-surface-2 border border-wire rounded px-2 py-1 text-xs text-fg-2 focus:outline-none focus:border-brand"
-                    />
-                    <span className="text-fg-4 text-xs">–</span>
-                    <input
-                      type="time"
-                      value={d.endTime}
-                      onChange={(e) => updateDay(dow, { endTime: e.target.value })}
-                      className="bg-surface-2 border border-wire rounded px-2 py-1 text-xs text-fg-2 focus:outline-none focus:border-brand"
-                    />
-                    {/* Copy button */}
-                    <button
-                      onClick={() => isCopyOpen ? setCopySource(null) : openCopy(dow)}
-                      title="Copy timing to other days"
-                      className={[
-                        'ml-1 p-1 rounded transition-colors',
-                        isCopyOpen
-                          ? 'text-brand bg-surface-2'
-                          : 'text-fg-4 hover:text-fg-2 hover:bg-surface-2',
-                      ].join(' ')}
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                      </svg>
-                    </button>
-                  </div>
-                ) : (
-                  <span className="ml-auto text-xs text-fg-4">off</span>
-                )}
-              </div>
-
-              {/* Copy bar — expands below when open */}
-              {isCopyOpen && (
-                <div className="px-4 pb-3 pt-0 border-t border-wire-2 bg-surface-2">
-                  <div className="flex items-center gap-2 flex-wrap pt-2.5">
-                    <span className="text-fg-4 text-xs shrink-0">Copy to:</span>
-                    {DAYS.map((dlabel, tdow) => {
-                      if (tdow === dow) return null;
-                      const selected = copyTargets.has(tdow);
-                      return (
-                        <button
-                          key={tdow}
-                          onClick={() => toggleCopyTarget(tdow)}
-                          className={[
-                            'px-2 py-0.5 rounded text-xs font-[510] border transition-colors',
-                            selected
-                              ? 'bg-brand text-white border-brand'
-                              : 'text-fg-3 border-wire hover:border-wire-2',
-                          ].join(' ')}
-                        >
-                          {dlabel}
-                        </button>
-                      );
-                    })}
-                    <button
-                      onClick={() => selectWeekdays(dow)}
-                      className="px-2 py-0.5 rounded text-xs font-[510] border border-wire hover:border-wire-2 text-fg-3 transition-colors"
-                    >
-                      Weekdays
-                    </button>
-                    <button
-                      onClick={applyAndClose}
-                      disabled={copyTargets.size === 0}
-                      className="ml-auto px-3 py-0.5 rounded text-xs font-[510] bg-brand text-white hover:opacity-90 transition-opacity disabled:opacity-40"
-                    >
-                      Apply
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      {dirty && (
-        <button
-          onClick={handleSave}
-          disabled={setWindows.isPending}
-          className="mt-2 px-4 py-2 rounded-lg bg-brand text-white text-sm font-[510] hover:opacity-90 transition-opacity disabled:opacity-50"
-        >
-          Save schedule
-        </button>
-      )}
-    </>
-  );
-}
-
-function ScheduleSection() {
-  const { data: savedWindows, isLoading } = useScheduleWindows();
-
-  return (
-    <Section
-      title="Schedule"
-      description="When Kairos is allowed to place tasks. Tasks only land in these windows."
-    >
-      {isLoading ? (
-        <div className="space-y-2">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-11 bg-ghost rounded-lg animate-pulse" />
-          ))}
-        </div>
-      ) : (
-        <ScheduleEditor key={savedWindows ? 'loaded' : 'empty'} initialWindows={savedWindows ?? []} />
-      )}
-    </Section>
   );
 }
 
@@ -299,8 +84,11 @@ export default function SettingsPage() {
           </Link>
         </div>
 
-        {/* Schedule */}
+        {/* Schedule — window templates */}
         <ScheduleSection />
+
+        {/* Blackout blocks */}
+        <BlackoutsSection />
 
         {/* Account */}
         <Section title="Account">

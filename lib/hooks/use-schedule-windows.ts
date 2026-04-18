@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 export type ScheduleWindow = {
   id: string;
   userId: string;
+  templateId: string | null;
   dayOfWeek: number;
   startTime: string;
   endTime: string;
@@ -15,6 +16,7 @@ export type WindowInput = {
   dayOfWeek: number;
   startTime: string;
   endTime: string;
+  templateId: string;
 };
 
 const KEY = ['schedule-windows'] as const;

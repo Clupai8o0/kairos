@@ -2,7 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth } from '@/lib/auth/helpers';
-import { deleteTask, getTask, updateTask } from '@/lib/services/tasks';
+import { getTask, updateTask } from '@/lib/services/tasks';
+import { deleteInstance, deleteSeries } from '@/lib/services/recurrence';
 import { enqueueJob } from '@/lib/services/jobs';
 
 const UpdateTaskSchema = z.object({
@@ -19,6 +20,7 @@ const UpdateTaskSchema = z.object({
   isSplittable: z.boolean().optional(),
   dependsOn: z.array(z.string()).optional(),
   recurrenceRule: z.record(z.string(), z.unknown()).nullable().optional(),
+  preferredTemplateId: z.string().nullable().optional(),
   tagIds: z.array(z.string()).optional(),
   scheduledAt: z.string().datetime({ offset: true }).nullable().optional(),
   scheduledEnd: z.string().datetime({ offset: true }).nullable().optional(),
@@ -66,7 +68,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   } else {
     // Auto-schedule if scheduling-related fields changed
     const scheduleFields: (keyof typeof parsed.data)[] = [
-      'durationMins', 'deadline', 'priority', 'schedulable', 'bufferMins', 'isSplittable', 'dependsOn',
+      'durationMins', 'deadline', 'priority', 'schedulable', 'bufferMins', 'isSplittable', 'dependsOn', 'preferredTemplateId',
     ];
     const touchesSchedule = scheduleFields.some((f) => f in parsed.data);
     if (touchesSchedule && parsed.data.schedulable !== false) {
@@ -85,21 +87,50 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   return NextResponse.json(task);
 }
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, { params }: Params) {
   const authResult = await requireAuth();
   if (authResult instanceof Response) return authResult;
   const { userId } = authResult;
 
   const { id } = await params;
-  const deleted = await deleteTask(userId, id);
-  if (!deleted) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  
+  // Read scope from query params, default to 'instance'
+  const scope = req.nextUrl.searchParams.get('scope') ?? 'instance';
+  
+  // Validate scope parameter
+  if (scope !== 'instance' && scope !== 'series') {
+    return NextResponse.json({ error: 'Invalid scope. Must be "instance" or "series"' }, { status: 400 });
+  }
 
-  // Fire-and-forget: remove the associated GCal event if one exists
-  if (deleted.gcalEventId) {
-    const gcalEventId = deleted.gcalEventId;
-    import('@/lib/gcal/events')
-      .then(({ deleteEvent }) => deleteEvent(userId, 'primary', gcalEventId))
-      .catch(() => {});
+  if (scope === 'instance') {
+    // Delete single instance
+    const deleted = await deleteInstance(userId, id);
+    if (!deleted) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+    // Fire-and-forget: remove the associated GCal event if one exists
+    if (deleted.gcalEventId) {
+      const gcalEventId = deleted.gcalEventId;
+      import('@/lib/gcal/events')
+        .then(({ deleteEvent }) => deleteEvent(userId, 'primary', gcalEventId))
+        .catch(() => {});
+    }
+  } else {
+    // Delete entire series
+    const result = await deleteSeries(userId, id);
+    if (result.deletedIds.length === 0) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    // Fire-and-forget: remove all associated GCal events
+    if (result.gcalEventIds.length > 0) {
+      import('@/lib/gcal/events')
+        .then(({ deleteEvent }) => {
+          result.gcalEventIds.forEach(gcalEventId => 
+            deleteEvent(userId, 'primary', gcalEventId).catch(() => {})
+          );
+        })
+        .catch(() => {});
+    }
   }
 
   return new NextResponse(null, { status: 204 });

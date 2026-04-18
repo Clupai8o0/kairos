@@ -1,6 +1,6 @@
 // tests/unit/scheduler/recurrence.test.ts
 import { describe, expect, it } from 'vitest';
-import { generateOccurrences } from '@/lib/scheduler/recurrence';
+import { generateOccurrences, nextOccurrenceAfterComplete } from '@/lib/scheduler/recurrence';
 import type { RecurrenceRule } from '@/lib/scheduler/types';
 
 // All dates in local time to match the implementation
@@ -125,5 +125,79 @@ describe('generateOccurrences', () => {
     const bigTo = new Date(2028, 0, 1);
     const result = generateOccurrences(rule, ANCHOR, FROM, bigTo);
     expect(result.length).toBeLessThanOrEqual(366);
+  });
+});
+
+describe('nextOccurrenceAfterComplete', () => {
+  const COMPLETED = new Date(2026, 2, 15, 15, 0, 0, 0); // 2026-03-15 15:00
+
+  it('returns completedAt + 1 day for daily', () => {
+    const rule: RecurrenceRule = { freq: 'daily', interval: 1, mode: 'after-complete' };
+    const next = nextOccurrenceAfterComplete(rule, COMPLETED);
+    expect(next).toEqual(new Date(2026, 2, 16, 15, 0, 0, 0));
+  });
+
+  it('returns completedAt + 14 days for bi-weekly', () => {
+    const rule: RecurrenceRule = { freq: 'weekly', interval: 2, mode: 'after-complete' };
+    const next = nextOccurrenceAfterComplete(rule, COMPLETED);
+    expect(next).toEqual(new Date(2026, 2, 29, 15, 0, 0, 0));
+  });
+
+  it('ignores byDayOfWeek', () => {
+    const rule: RecurrenceRule = { freq: 'weekly', interval: 1, mode: 'after-complete', byDayOfWeek: [1, 3] };
+    const next = nextOccurrenceAfterComplete(rule, COMPLETED);
+    // Should be +7 days regardless of byDayOfWeek
+    expect(next).toEqual(new Date(2026, 2, 22, 15, 0, 0, 0));
+  });
+
+  it('returns null when past until', () => {
+    const rule: RecurrenceRule = { freq: 'daily', interval: 1, mode: 'after-complete', until: '2026-03-15' };
+    const next = nextOccurrenceAfterComplete(rule, COMPLETED);
+    // next would be Mar 16, but until is end of Mar 15 → null
+    expect(next).toBeNull();
+  });
+
+  it('works with monthly frequency', () => {
+    const rule: RecurrenceRule = { freq: 'monthly', interval: 1, mode: 'after-complete' };
+    const next = nextOccurrenceAfterComplete(rule, COMPLETED);
+    expect(next).toEqual(new Date(2026, 3, 15, 15, 0, 0, 0)); // April 15
+  });
+
+  it('works with yearly frequency', () => {
+    const rule: RecurrenceRule = { freq: 'yearly', interval: 1, mode: 'after-complete' };
+    const next = nextOccurrenceAfterComplete(rule, COMPLETED);
+    expect(next).toEqual(new Date(2027, 2, 15, 15, 0, 0, 0)); // March 15, 2027
+  });
+
+  it('defaults interval to 1 when not set', () => {
+    const rule: RecurrenceRule = { freq: 'daily', mode: 'after-complete' };
+    const next = nextOccurrenceAfterComplete(rule, COMPLETED);
+    expect(next).toEqual(new Date(2026, 2, 16, 15, 0, 0, 0));
+  });
+
+  it('works without mode (backward compat — same math)', () => {
+    const rule: RecurrenceRule = { freq: 'daily', interval: 1 };
+    const next = nextOccurrenceAfterComplete(rule, COMPLETED);
+    expect(next).toEqual(new Date(2026, 2, 16, 15, 0, 0, 0));
+  });
+});
+
+describe('generateOccurrences back-compat snapshot', () => {
+  it('produces identical output with or without mode field', () => {
+    const anchor = new Date(2026, 0, 5, 9, 0, 0, 0);
+    const from = new Date(2026, 0, 5, 0, 0, 0, 0);
+    const to = new Date(2026, 0, 19, 23, 59, 59);
+
+    const ruleWithout: RecurrenceRule = { freq: 'daily', interval: 1 };
+    const ruleWith: RecurrenceRule = { freq: 'daily', interval: 1, mode: 'fixed' };
+    const ruleAfterComplete: RecurrenceRule = { freq: 'daily', interval: 1, mode: 'after-complete' };
+
+    const resultWithout = generateOccurrences(ruleWithout, anchor, from, to);
+    const resultWith = generateOccurrences(ruleWith, anchor, from, to);
+    const resultAfterComplete = generateOccurrences(ruleAfterComplete, anchor, from, to);
+
+    // generateOccurrences ignores mode — all should be identical
+    expect(resultWith).toEqual(resultWithout);
+    expect(resultAfterComplete).toEqual(resultWithout);
   });
 });

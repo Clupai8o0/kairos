@@ -1,7 +1,7 @@
 // tests/unit/scheduler/placement.test.ts
 import { describe, expect, it } from 'vitest';
-import { placeTask, placementConsumedRange } from '@/lib/scheduler/placement';
-import type { ScoredTask, TimeSlot } from '@/lib/scheduler/types';
+import { placeTask, placementConsumedRange, rankSlotsForTask } from '@/lib/scheduler/placement';
+import type { ScoredTask, TimeSlot, WindowTemplate } from '@/lib/scheduler/types';
 import type { Task } from '@/lib/db/schema/tasks';
 
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -29,6 +29,8 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     sourceRef: null,
     sourceMetadata: {},
     completedAt: null,
+    timeLocked: false,
+    preferredTemplateId: null,
     metadata: {},
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
@@ -122,5 +124,49 @@ describe('placementConsumedRange', () => {
     const range = placementConsumedRange(task, chunk);
     expect(range.start).toEqual(BASE);
     expect(range.end).toEqual(new Date(BASE.getTime() + mins(45)));
+  });
+});
+
+describe('rankSlotsForTask', () => {
+  const templates: WindowTemplate[] = [
+    { id: 'tpl-work', name: 'Work', isDefault: true },
+    { id: 'tpl-personal', name: 'Personal', isDefault: false },
+  ];
+
+  const slotsWithTemplates: TimeSlot[] = [
+    { start: new Date(BASE.getTime()), end: new Date(BASE.getTime() + mins(60)), templateId: 'tpl-work' },
+    { start: new Date(BASE.getTime() + mins(120)), end: new Date(BASE.getTime() + mins(180)), templateId: 'tpl-personal' },
+    { start: new Date(BASE.getTime() + mins(240)), end: new Date(BASE.getTime() + mins(300)), templateId: 'tpl-work' },
+  ];
+
+  it('returns slots unchanged when task has no preference', () => {
+    const task = scored({ preferredTemplateId: null });
+    const result = rankSlotsForTask(slotsWithTemplates, task, templates);
+    expect(result).toEqual(slotsWithTemplates);
+  });
+
+  it('prioritises slots matching preferred template', () => {
+    const task = scored({ preferredTemplateId: 'tpl-personal' });
+    const result = rankSlotsForTask(slotsWithTemplates, task, templates);
+    // Personal slot should be first, then the two work slots in original order
+    expect(result[0].templateId).toBe('tpl-personal');
+    expect(result[1].templateId).toBe('tpl-work');
+    expect(result[2].templateId).toBe('tpl-work');
+  });
+
+  it('preserves chronological order within each partition', () => {
+    const task = scored({ preferredTemplateId: 'tpl-work' });
+    const result = rankSlotsForTask(slotsWithTemplates, task, templates);
+    // Two work slots first (in original order), then personal
+    expect(result[0]).toEqual(slotsWithTemplates[0]);
+    expect(result[1]).toEqual(slotsWithTemplates[2]);
+    expect(result[2]).toEqual(slotsWithTemplates[1]);
+  });
+
+  it('falls back to all slots when preferred template has no matching slots', () => {
+    const task = scored({ preferredTemplateId: 'tpl-nonexistent' });
+    const result = rankSlotsForTask(slotsWithTemplates, task, templates);
+    // All slots in rest partition, original order
+    expect(result).toEqual(slotsWithTemplates);
   });
 });

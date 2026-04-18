@@ -36,6 +36,13 @@
       "when": 1776400000000,
       "tag": "0005_time_locked",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776500000000,
+      "tag": "0006_schedule_types",
+      "breakpoints": true
     }
   ]
 }

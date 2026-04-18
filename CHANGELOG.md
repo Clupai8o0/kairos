@@ -8,9 +8,9 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 
 ## Current State
 
-**Phase:** 4b complete. Phase 5 planned (3 slices: 5a scheduling completion, 5b recurrence, 5c chat).
+**Phase:** 5b complete. Phase 5 planned (3 slices: 5a scheduling completion ✓, 5b recurrence ✓, 5c chat).
 
-### What's built (phases 1–4b)
+### What's built (phases 1–5a)
 - [x] Full backend: scheduler pipeline, GCal layer, plugin host, scratchpad, jobs queue
 - [x] Full frontend: all 7 app routes wired to real APIs via TanStack Query
 - [x] Theme system: 2 built-in packs, server-side `data-theme` injection (no FOUC), Cmd+K palette switcher, Settings→Appearance picker
@@ -48,6 +48,34 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 - [x] Phase 4b: updated marketplace UI — full plugin browse/install/uninstall/toggle
 - [x] Phase 4b: updated `lib/hooks/use-plugins.ts` — registry, install, uninstall, updates hooks
 - [x] Phase 4b: updated `CONTRIBUTING.md` — plugin development guide
+- [x] Phase 5a: `drizzle/0006_schedule_types.sql` — drop `blackout_days`, create `blackout_blocks` + `window_templates`, add `template_id` FK to `schedule_windows`, add `preferred_template_id` to `tasks`
+- [x] Phase 5a: `lib/scheduler/types.ts` — added `BlackoutBlock`, `WindowTemplate` types, `templateId` on `ScheduleWindow`/`TimeSlot`
+- [x] Phase 5a: `lib/scheduler/slots.ts` — replaced `blackoutDates: Date[]` with `blackoutBlocks: BlackoutBlock[]`, recurring expansion via `generateOccurrences`, templateId propagation
+- [x] Phase 5a: `lib/scheduler/placement.ts` — added `rankSlotsForTask()` for preferred-template slot ranking
+- [x] Phase 5a: `lib/scheduler/runner.ts` — updated to load `blackoutBlocks`/`windowTemplates`, pass through pipeline
+- [x] Phase 5a: `lib/services/blackouts.ts` — full CRUD service
+- [x] Phase 5a: `lib/services/window-templates.ts` — full CRUD + `ensureDefaultTemplate()`
+- [x] Phase 5a: updated `lib/services/schedule-windows.ts` — `templateId` on `WindowInput`
+- [x] Phase 5a: updated `lib/services/tasks.ts` — `preferredTemplateId` on input types
+- [x] Phase 5a: `app/api/blackouts/route.ts` + `app/api/blackouts/[id]/route.ts` — full REST endpoints
+- [x] Phase 5a: `app/api/window-templates/route.ts` + `app/api/window-templates/[id]/route.ts` — full REST endpoints
+- [x] Phase 5a: updated task API routes — `preferredTemplateId` in create/update schemas
+- [x] Phase 5a: `lib/hooks/use-blackouts.ts` + `lib/hooks/use-window-templates.ts` — TanStack Query hooks
+- [x] Phase 5a: updated `lib/hooks/types.ts` — `BlackoutBlock`, `WindowTemplate` types, `preferredTemplateId` on `Task`
+- [x] Phase 5a: updated settings page — auto-creates default template, threads `templateId` through schedule editor
+- [x] Phase 5a: `components/app/schedule-section.tsx` — template CRUD (create/rename/delete/set-default), collapsible per-template day editors, preserves cross-template windows on save
+- [x] Phase 5a: `components/app/blackouts-section.tsx` — blackout block CRUD with datetime-range picker, recurrence toggle, inline edit/delete
+- [x] Phase 5a: `components/app/task-edit-modal.tsx` — preferred-template dropdown (shown when schedulable, loads templates)
+- [x] Phase 5a: `lib/hooks/use-tasks.ts` — `preferredTemplateId` added to `CreateTaskInput` + `UpdateTaskInput`
+- [x] Phase 5a: 73 unit tests passing (6 new for slots blackout blocks + templateId, 4 new for `rankSlotsForTask`)
+- [x] Phase 5a: 21 new integration tests (blackouts + window-templates routes)
+- [x] Phase 5b: `RecurrenceRule.mode` — `'fixed' | 'after-complete'` added to scheduler types
+- [x] Phase 5b: `nextOccurrenceAfterComplete()` — pure function in `lib/scheduler/recurrence.ts`
+- [x] Phase 5b: `lib/services/recurrence.ts` — resolveSeriesRoot, spawnNextOccurrence, deleteInstance, deleteSeries
+- [x] Phase 5b: `POST /api/tasks/:id/complete` — idempotent complete + spawn-on-complete for recurring tasks
+- [x] Phase 5b: `DELETE /api/tasks/:id?scope=series` — delete entire recurring series
+- [x] Phase 5b: Frontend — recurrence editor (mode/freq/interval), series delete (instance vs whole), ↻ glyph, useCompleteTask hook
+- [x] Phase 5b: 9 new unit tests (nextOccurrenceAfterComplete + back-compat), 9 new integration tests (complete + series delete)
 
 ### Active decisions (promoted to ADRs)
 - Default pack tokens in `@theme {}` (Tailwind-native); marketplace/custom packs compiled under `[data-theme="id"] {}` (selector scope)
@@ -66,15 +94,85 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 - `v1.0.0` tag not yet applied (pending deploy verification)
 
 ### Next concrete action
-1. Begin Slice 5a: Drizzle migration `0006_schedule_types.sql` (drop `blackout_days`, create `blackout_blocks`, create `window_templates`, add FKs)
-2. Update `lib/scheduler/slots.ts` and `lib/scheduler/placement.ts` for blackout blocks and template ranking
-3. Build blackout + window template CRUD services and API routes
+1. Begin Slice 5c: Session-scoped chat (ADR-R19) — chat route, core tools, plugin tool bridge
+2. Or: hardening pass — fix pre-existing `me-theme` test mock, Lighthouse audit, deploy verification
 
 ---
 
 ## Session log
 
 Append new entries at the top. Use the template below.
+
+---
+
+## 2025-07-20 — Session 15: Slice 5b — Flexible Recurrence
+
+**Goal for this session:** Implement Slice 5b — flexible recurrence with `mode: 'fixed' | 'after-complete'`, spawn-on-complete, per-instance/series deletion, complete route, and recurrence UI.
+
+**Changes:**
+- `lib/scheduler/types.ts` — added `mode?: 'fixed' | 'after-complete'` to `RecurrenceRule`
+- `lib/scheduler/recurrence.ts` — added `nextOccurrenceAfterComplete(rule, completedAt)` pure function
+- `lib/services/recurrence.ts` (NEW ~241 lines) — `resolveSeriesRoot`, `spawnNextOccurrence`, `deleteInstance`, `deleteSeries`
+- `app/api/tasks/[id]/complete/route.ts` (NEW ~60 lines) — POST endpoint: auth → complete task → spawn next if recurring → enqueue schedule
+- `app/api/tasks/[id]/route.ts` — DELETE handler updated: reads `?scope=instance|series`, dispatches to recurrence service
+- `lib/hooks/use-tasks.ts` — added `useCompleteTask`, `useDeleteTaskSeries` hooks, `recurrenceRule` on `UpdateTaskInput`
+- `lib/hooks/types.ts` — added `scheduledEnd`, `recurrenceIndex` fields to `Task`
+- `components/app/task-edit-modal.tsx` — recurrence editor (mode/freq/interval toggle), series delete confirmation (instance vs whole series)
+- `app/(app)/tasks/page.tsx` — `useCompleteTask` for markDone, ↻ glyph for recurring tasks
+- `tests/unit/scheduler/recurrence.test.ts` — 9 new tests (22 total) for `nextOccurrenceAfterComplete` + back-compat
+- `tests/integration/tasks.test.ts` — 9 new tests (22 total) for DELETE ?scope=series + POST complete endpoint
+
+**Verification:** 204/205 tests pass (1 pre-existing `me-theme` mock issue), all new tests green.
+
+**ADRs promoted:** ADR-R18 (Flexible recurrence) already in `references/architecture-decisions.md`.
+
+---
+
+## 2025-07-18 — Session 14: Phase 5a frontend completion + TODO.md update
+
+**Goal for this session:** Complete remaining Slice 5a frontend (template management UI, blackouts section, preferred-template picker) and update TODO.md checkboxes.
+
+**Changes:**
+- `components/app/schedule-section.tsx` (NEW ~245 lines) — `TemplateEditor` (per-template day editor preserving cross-template windows), `TemplateCard` (expandable with rename/delete/set-default), `ScheduleSection` (template list with add button, auto-creates default)
+- `components/app/blackouts-section.tsx` (NEW ~180 lines) — `BlackoutForm` (datetime-local + recurrence), `BlackoutRow` (display with edit/delete), `BlackoutsSection` (CRUD list)
+- `app/(app)/settings/page.tsx` (REDUCED ~535→~250 lines) — extracted schedule + blackout components, replaced inline code with `<ScheduleSection />` and `<BlackoutsSection />`
+- `components/app/task-edit-modal.tsx` — added `preferredTemplateId` state + template dropdown (conditional on schedulable + templates exist)
+- `lib/hooks/use-tasks.ts` — added `preferredTemplateId?: string | null` to `CreateTaskInput` + `UpdateTaskInput`
+- Fixed lint warning in `schedule-section.tsx` (ternary → if/else for `toggleCopyTarget`)
+- Updated `TODO.md` — checked off all completed Slice 5a Build, Test, and Definition of Done items
+
+**Verification:** 186/187 tests pass (1 pre-existing `me-theme` mock issue), typecheck clean, lint clean (only pre-existing `no-raw-colors` in theme files).
+
+## 2025-07-17 — Session 13: Phase 5a implementation
+
+**Goal for this session:** Implement Slice 5a — blackout blocks, window templates, scheduler integration, services, API routes, hooks, settings UI, tests.
+
+**Changes:**
+- `lib/db/schema/schedule.ts` — removed `blackoutDays`, added `windowTemplates` + `blackoutBlocks` tables, added `templateId` FK on `scheduleWindows`
+- `lib/db/schema/tasks.ts` — added `preferredTemplateId` FK
+- `drizzle/0006_schedule_types.sql` — migration for all schema changes
+- `lib/scheduler/types.ts` — `BlackoutBlock`, `WindowTemplate` types, `templateId` on `ScheduleWindow`/`TimeSlot`
+- `lib/scheduler/slots.ts` — `BlackoutBlock[]` param, `expandBlackouts()` with recurrence, templateId propagation
+- `lib/scheduler/placement.ts` — `rankSlotsForTask()` for preferred-template ranking
+- `lib/scheduler/runner.ts` — loads new entities, threads through pipeline (287 lines — over soft cap, acceptable for orchestrator)
+- `lib/services/blackouts.ts` — full CRUD
+- `lib/services/window-templates.ts` — full CRUD + `ensureDefaultTemplate()` with delete protection + default uniqueness
+- `lib/services/schedule-windows.ts` — `templateId` on `WindowInput`
+- `lib/services/tasks.ts` — `preferredTemplateId` on create/update inputs
+- `app/api/blackouts/` — 2 route files (collection + item)
+- `app/api/window-templates/` — 2 route files (collection + item)
+- `app/api/schedule-windows/route.ts` — `templateId` in Zod schema
+- `app/api/tasks/route.ts` + `app/api/tasks/[id]/route.ts` — `preferredTemplateId` in schemas
+- `lib/hooks/use-blackouts.ts` + `lib/hooks/use-window-templates.ts` — TanStack Query hooks
+- `lib/hooks/types.ts` — new interfaces + `preferredTemplateId` on `Task`
+- `app/(app)/settings/page.tsx` — auto-create default template, thread `templateId` through editor
+- 5 test files updated (makeTask + new assertions), 2 new integration test files
+
+**Test results:** 186 pass, 1 pre-existing failure (`me-theme.test.ts` db mock issue). Typecheck clean. Lint clean (only pre-existing `no-raw-colors` errors).
+
+**Decisions:** None new — all aligned with ADR-R16 (blackout blocks) and ADR-R17 (window templates).
+
+**Next:** Slice 5b (flexible recurrence) or Slice 5c (session-scoped chat).
 
 ---
 

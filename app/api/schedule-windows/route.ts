@@ -8,6 +8,7 @@ const WindowSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6),
   startTime: z.string().regex(/^\d{2}:\d{2}$/, 'Must be HH:MM'),
   endTime: z.string().regex(/^\d{2}:\d{2}$/, 'Must be HH:MM'),
+  templateId: z.string(),
 });
 
 const PutSchema = z.object({

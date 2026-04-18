@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { useUpdateTask, useDeleteTask } from '@/lib/hooks/use-tasks';
+import { useUpdateTask, useDeleteTask, useDeleteTaskSeries } from '@/lib/hooks/use-tasks';
 import { useTags } from '@/lib/hooks/use-tags';
+import { useWindowTemplates } from '@/lib/hooks/use-window-templates';
 import type { Task } from '@/lib/hooks/types';
 
 function toLocal(iso: string) {
@@ -29,11 +30,26 @@ export function TaskEditModal({ task, onClose }: Props) {
   const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(
     new Set(task.tags.map((t) => t.id)),
   );
+  const [preferredTemplateId, setPreferredTemplateId] = useState<string | null>(task.preferredTemplateId);
+  const [recurrenceEnabled, setRecurrenceEnabled] = useState(!!task.recurrenceRule);
+  const [recurrenceFreq, setRecurrenceFreq] = useState<string>(
+    (task.recurrenceRule as Record<string, unknown>)?.freq as string ?? 'daily'
+  );
+  const [recurrenceInterval, setRecurrenceInterval] = useState<string>(
+    String((task.recurrenceRule as Record<string, unknown>)?.interval ?? '1')
+  );
+  const [recurrenceMode, setRecurrenceMode] = useState<string>(
+    (task.recurrenceRule as Record<string, unknown>)?.mode as string ?? 'fixed'
+  );
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const isSeries = !!task.parentTaskId || !!task.recurrenceRule;
 
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
+  const deleteTaskSeries = useDeleteTaskSeries();
   const { data: allTags = [] } = useTags();
+  const { data: templates = [] } = useWindowTemplates();
 
   function toggleTag(id: string) {
     setSelectedTagIds((prev) => {
@@ -55,6 +71,10 @@ export function TaskEditModal({ task, onClose }: Props) {
       deadline: deadline ? new Date(deadline).toISOString() : null,
       schedulable,
       tagIds: [...selectedTagIds],
+      preferredTemplateId: preferredTemplateId || null,
+      recurrenceRule: recurrenceEnabled
+        ? { freq: recurrenceFreq, interval: Number(recurrenceInterval), mode: recurrenceMode }
+        : null,
     });
     toast.promise(p, { loading: 'Saving…', success: 'Saved', error: (e) => e?.message ?? 'Failed' });
     p.then(onClose).catch(() => {});
@@ -63,6 +83,12 @@ export function TaskEditModal({ task, onClose }: Props) {
   function handleDelete() {
     const p = deleteTask.mutateAsync(task.id);
     toast.promise(p, { loading: 'Deleting…', success: 'Deleted', error: (e) => e?.message ?? 'Failed' });
+    p.then(onClose).catch(() => {});
+  }
+
+  function handleDeleteSeries() {
+    const p = deleteTaskSeries.mutateAsync(task.id);
+    toast.promise(p, { loading: 'Deleting series…', success: 'Series deleted', error: (e) => e?.message ?? 'Failed' });
     p.then(onClose).catch(() => {});
   }
 
@@ -188,6 +214,94 @@ export function TaskEditModal({ task, onClose }: Props) {
               <span className="text-sm text-fg-2">Auto-schedule</span>
             </div>
 
+            {schedulable && templates.length > 0 && (
+              <div>
+                <label className="block text-[10px] font-[510] uppercase tracking-wide text-fg-3 mb-1">Preferred template</label>
+                <select
+                  className="w-full bg-surface border border-wire rounded px-2.5 py-1.5 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
+                  value={preferredTemplateId ?? ''}
+                  onChange={(e) => setPreferredTemplateId(e.target.value || null)}
+                >
+                  <option value="">No preference</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}{t.isDefault ? ' (default)' : ''}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-fg-4 mt-0.5">Task will prefer slots in this template&apos;s windows</p>
+              </div>
+            )}
+
+            {schedulable && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={recurrenceEnabled}
+                    onClick={() => setRecurrenceEnabled((v) => !v)}
+                    className={`relative w-8 h-4 rounded-full transition-colors ${recurrenceEnabled ? 'bg-accent' : 'bg-surface-3'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-fg transition-transform ${recurrenceEnabled ? 'translate-x-4' : ''}`} />
+                  </button>
+                  <span className="text-sm text-fg-2">Recurring</span>
+                </div>
+
+                {recurrenceEnabled && (
+                  <div className="space-y-2 pl-0.5">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-[510] uppercase tracking-wide text-fg-3 mb-1">Mode</label>
+                        <select
+                          className="w-full bg-surface border border-wire rounded px-2.5 py-1.5 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
+                          value={recurrenceMode}
+                          onChange={(e) => setRecurrenceMode(e.target.value)}
+                        >
+                          <option value="fixed">Fixed schedule</option>
+                          <option value="after-complete">After completion</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-[510] uppercase tracking-wide text-fg-3 mb-1">Frequency</label>
+                        <select
+                          className="w-full bg-surface border border-wire rounded px-2.5 py-1.5 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
+                          value={recurrenceFreq}
+                          onChange={(e) => setRecurrenceFreq(e.target.value)}
+                        >
+                          <option value="daily">Daily</option>
+                          <option value="weekly">Weekly</option>
+                          <option value="monthly">Monthly</option>
+                          <option value="yearly">Yearly</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-[510] uppercase tracking-wide text-fg-3 mb-1">
+                        {recurrenceMode === 'after-complete' ? 'Repeat every' : 'Every'}
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={365}
+                          className="w-20 bg-surface border border-wire rounded px-2.5 py-1.5 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
+                          value={recurrenceInterval}
+                          onChange={(e) => setRecurrenceInterval(e.target.value)}
+                        />
+                        <span className="text-sm text-fg-3">
+                          {recurrenceFreq === 'daily' ? 'day(s)' : recurrenceFreq === 'weekly' ? 'week(s)' : recurrenceFreq === 'monthly' ? 'month(s)' : 'year(s)'}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-fg-4">
+                      {recurrenceMode === 'after-complete'
+                        ? 'Next occurrence scheduled relative to when you complete this one'
+                        : 'Occurrences scheduled on fixed calendar dates'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {allTags.length > 0 && (
               <div>
                 <label className="block text-[10px] font-[510] uppercase tracking-wide text-fg-3 mb-1.5">Tags</label>
@@ -219,13 +333,21 @@ export function TaskEditModal({ task, onClose }: Props) {
           <div className="flex items-center justify-between px-4 py-3 border-t border-wire">
             {confirmDelete ? (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-danger">Delete this task?</span>
+                <span className="text-xs text-danger">Delete?</span>
                 <button
                   onClick={handleDelete}
                   className="text-xs font-[510] text-danger border border-danger/40 hover:border-danger px-2 py-0.5 rounded transition-colors"
                 >
-                  Confirm
+                  {isSeries ? 'This one' : 'Confirm'}
                 </button>
+                {isSeries && (
+                  <button
+                    onClick={handleDeleteSeries}
+                    className="text-xs font-[510] text-danger border border-danger/40 hover:border-danger px-2 py-0.5 rounded transition-colors"
+                  >
+                    Whole series
+                  </button>
+                )}
                 <button
                   onClick={() => setConfirmDelete(false)}
                   className="text-xs text-fg-3 hover:text-fg transition-colors"

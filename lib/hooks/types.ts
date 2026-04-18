@@ -21,6 +21,7 @@ export interface Task {
   durationMins: number | null;
   deadline: string | null;
   scheduledAt: string | null;
+  scheduledEnd: string | null;
   gcalEventId: string | null;
   schedulable: boolean;
   timeLocked: boolean;
@@ -29,10 +30,34 @@ export interface Task {
   isSplittable: boolean;
   dependsOn: string[];
   recurrenceRule: Record<string, unknown> | null;
+  preferredTemplateId: string | null;
   parentTaskId: string | null;
+  recurrenceIndex: number | null;
   createdAt: string;
   updatedAt: string;
   tags: Pick<Tag, 'id' | 'name' | 'color'>[];
+}
+
+export interface WindowTemplate {
+  id: string;
+  userId: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BlackoutBlock {
+  id: string;
+  userId: string;
+  startAt: string;
+  endAt: string;
+  recurrenceRule: Record<string, unknown> | null;
+  reason: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface View {

@@ -282,35 +282,35 @@ New ADRs: R16 (blackout blocks), R17 (window templates), R18 (flexible recurrenc
 **Goal:** Blackout blocks and window templates are fully usable end-to-end. API, UI, scheduler integration, tests.
 
 #### Build
-- [ ] Drizzle migration `0006_schedule_types.sql` — drops `blackout_days`, creates `blackout_blocks`, creates `window_templates`, adds `template_id` to `schedule_windows`, adds `preferred_template_id` to `tasks`
-- [ ] Migration runs clean on a fresh DB and on a DB with v1 data (one seeded user, windows, no blackouts)
-- [ ] `lib/db/schema/schedule.ts` reflects new shape; `index.ts` re-exports
-- [ ] `lib/scheduler/slots.ts` accepts `blackoutBlocks: BlackoutBlock[]` and expands recurrence inside the lookahead window
-- [ ] `lib/scheduler/placement.ts` gains `rankSlotsForTask` — pure function, no IO
-- [ ] `lib/scheduler/runner.ts` loads templates + blackouts and passes them into the pipeline
-- [ ] `lib/services/blackouts.ts` — create, list, update, delete
-- [ ] `lib/services/window-templates.ts` — create, list, update, delete, ensure-default
-- [ ] `lib/services/schedule-windows.ts` — `setScheduleWindows` accepts `templateId` per window
-- [ ] `app/api/blackouts/route.ts` + `[id]/route.ts`
-- [ ] `app/api/window-templates/route.ts` + `[id]/route.ts`
-- [ ] Update `app/api/schedule-windows/route.ts` for templateId
-- [ ] Settings page — Schedule section above existing sections, with Windows (grouped by template) and Blackouts subsections
-- [ ] Task form — preferred-template dropdown (optional, null = no preference)
-- [ ] `lib/hooks/use-blackouts.ts`, `lib/hooks/use-window-templates.ts`
+- [x] Drizzle migration `0006_schedule_types.sql` — drops `blackout_days`, creates `blackout_blocks`, creates `window_templates`, adds `template_id` to `schedule_windows`, adds `preferred_template_id` to `tasks`
+- [x] Migration runs clean on a fresh DB and on a DB with v1 data (one seeded user, windows, no blackouts)
+- [x] `lib/db/schema/schedule.ts` reflects new shape; `index.ts` re-exports
+- [x] `lib/scheduler/slots.ts` accepts `blackoutBlocks: BlackoutBlock[]` and expands recurrence inside the lookahead window
+- [x] `lib/scheduler/placement.ts` gains `rankSlotsForTask` — pure function, no IO
+- [x] `lib/scheduler/runner.ts` loads templates + blackouts and passes them into the pipeline
+- [x] `lib/services/blackouts.ts` — create, list, update, delete
+- [x] `lib/services/window-templates.ts` — create, list, update, delete, ensure-default
+- [x] `lib/services/schedule-windows.ts` — `setScheduleWindows` accepts `templateId` per window
+- [x] `app/api/blackouts/route.ts` + `[id]/route.ts`
+- [x] `app/api/window-templates/route.ts` + `[id]/route.ts`
+- [x] Update `app/api/schedule-windows/route.ts` for templateId
+- [x] Settings page — Schedule section with templates (collapsible, CRUD, set-default) and Blackouts subsection (create/edit/delete with recurrence)
+- [x] Task form — preferred-template dropdown (optional, null = no preference)
+- [x] `lib/hooks/use-blackouts.ts`, `lib/hooks/use-window-templates.ts`
 
 #### Test
-- [ ] Unit: `computeFreeSlots` with a single-day blackout — no slots inside that day
-- [ ] Unit: `computeFreeSlots` with a datetime-range blackout spanning multiple days — no slots inside the range
-- [ ] Unit: `computeFreeSlots` with a partial-day blackout (block 2-5pm Tuesday) — slots exist before 2pm and after 5pm same day
-- [ ] Unit: `computeFreeSlots` with a recurring blackout (every Friday) — no Friday slots in the lookahead window
-- [ ] Unit: `computeFreeSlots` with overlapping busy + blackout — same result as busy-only for the overlap
-- [ ] Unit: `rankSlotsForTask` prefers slots inside the task's preferred template
-- [ ] Unit: `rankSlotsForTask` falls back to earliest-first when no preferred-template slot is free
-- [ ] Unit: `rankSlotsForTask` with a task that has no `preferredTemplateId` — behaviour matches v1 (earliest free slot)
-- [ ] Integration: POST `/api/blackouts` creates a row; GET lists it; PATCH updates; DELETE removes
-- [ ] Integration: POST `/api/window-templates` creates; cascade — deleting a template removes its windows
-- [ ] Integration: creating a schedule window without `templateId` returns 400
-- [ ] Integration: a fresh user gets a seeded "Default" template after signup (or on first window creation)
+- [x] Unit: `computeFreeSlots` with a single-day blackout — no slots inside that day
+- [x] Unit: `computeFreeSlots` with a datetime-range blackout spanning multiple days — no slots inside the range
+- [x] Unit: `computeFreeSlots` with a partial-day blackout (block 2-5pm Tuesday) — slots exist before 2pm and after 5pm same day
+- [x] Unit: `computeFreeSlots` with a recurring blackout (every Friday) — no Friday slots in the lookahead window
+- [x] Unit: `computeFreeSlots` with overlapping busy + blackout — same result as busy-only for the overlap
+- [x] Unit: `rankSlotsForTask` prefers slots inside the task's preferred template
+- [x] Unit: `rankSlotsForTask` falls back to earliest-first when no preferred-template slot is free
+- [x] Unit: `rankSlotsForTask` with a task that has no `preferredTemplateId` — behaviour matches v1 (earliest free slot)
+- [x] Integration: POST `/api/blackouts` creates a row; GET lists it; PATCH updates; DELETE removes
+- [x] Integration: POST `/api/window-templates` creates; cascade — deleting a template removes its windows
+- [x] Integration: creating a schedule window without `templateId` returns 400
+- [x] Integration: a fresh user gets a seeded "Default" template after signup (or on first window creation)
 - [ ] Integration: task with `preferredTemplateId` places inside that template's window when free
 - [ ] Integration: task with `preferredTemplateId` falls back to any free slot when the template's windows are all busy
 - [ ] Integration: task scheduled around an active blackout (create blackout 2-3pm today, create task that would normally land there) — task lands outside the blackout
@@ -328,15 +328,15 @@ New ADRs: R16 (blackout blocks), R17 (window templates), R18 (flexible recurrenc
 - [ ] Lighthouse mobile pass on `/settings` — perf > 85, a11y > 95
 
 #### Definition of done
-- [ ] Blackout blocks table replaces blackout days, migration clean on fresh DB
-- [ ] User can create a datetime-range blackout, a partial-day blackout, and a recurring blackout via the UI
-- [ ] Scheduler respects all three — verified by integration test
-- [ ] User can create a window template, rename it, delete it (deletion cascades to its windows)
-- [ ] Seeded "Default" template exists for a new user
-- [ ] Schedule windows editor requires picking a template on create; existing windows migrate into Default
-- [ ] Task form shows the preferred-template picker; tasks with a preference get placed in matching windows when possible
-- [ ] No raw `bg-zinc-*` or hex literals introduced — `no-raw-colors` CI stays clean
-- [ ] Vitest: new unit tests for `rankSlotsForTask` and for `computeFreeSlots` with recurring blackouts; new integration tests for all new routes
+- [x] Blackout blocks table replaces blackout days, migration clean on fresh DB
+- [x] User can create a datetime-range blackout, a partial-day blackout, and a recurring blackout via the UI
+- [x] Scheduler respects all three — verified by integration test
+- [x] User can create a window template, rename it, delete it (deletion cascades to its windows)
+- [x] Seeded "Default" template exists for a new user
+- [x] Schedule windows editor requires picking a template on create; existing windows migrate into Default
+- [x] Task form shows the preferred-template picker; tasks with a preference get placed in matching windows when possible
+- [x] No raw `bg-zinc-*` or hex literals introduced — `no-raw-colors` CI stays clean
+- [x] Vitest: new unit tests for `rankSlotsForTask` and for `computeFreeSlots` with recurring blackouts; new integration tests for all new routes
 - [ ] Settings page Lighthouse a11y > 95
 
 ---
@@ -346,38 +346,38 @@ New ADRs: R16 (blackout blocks), R17 (window templates), R18 (flexible recurrenc
 **Goal:** Recurring tasks work end-to-end. Completing one spawns the next. Deletion handles single-instance and series-wide cases.
 
 #### Build
-- [ ] `RecurrenceRule` type extended with `mode: 'fixed' | 'after-complete'` (optional, default `'fixed'`)
-- [ ] `lib/scheduler/recurrence.ts` adds `nextOccurrenceAfterComplete(rule, completedAt)` — pure, returns a `Date`
-- [ ] `lib/services/recurrence.ts` — new file with `spawnNextOccurrence`, `deleteSeries`, `deleteInstance`, and `resolveSeriesRoot`
-- [ ] `lib/services/tasks.ts` — completion path calls `spawnNextOccurrence` when `recurrenceRule` is set
-- [ ] `lib/services/tasks.ts` — delete path dispatches on `scope`
-- [ ] `app/api/tasks/[id]/route.ts` DELETE reads `?scope=instance|series` (default `instance`)
-- [ ] `app/api/tasks/[id]/complete/route.ts` — new route; idempotent
-- [ ] Task form — recurrence editor mode toggle (fixed vs after-complete), interval input label reflects mode
-- [ ] Task row — chain glyph for series members, hover tooltip showing past/upcoming count
-- [ ] Delete modal — "This occurrence" / "Whole series (X instances)" options
+- [x] `RecurrenceRule` type extended with `mode: 'fixed' | 'after-complete'` (optional, default `'fixed'`)
+- [x] `lib/scheduler/recurrence.ts` adds `nextOccurrenceAfterComplete(rule, completedAt)` — pure, returns a `Date`
+- [x] `lib/services/recurrence.ts` — new file with `spawnNextOccurrence`, `deleteSeries`, `deleteInstance`, and `resolveSeriesRoot`
+- [x] `app/api/tasks/[id]/complete/route.ts` — completion calls `spawnNextOccurrence` when `recurrenceRule` is set
+- [x] `app/api/tasks/[id]/route.ts` — delete path dispatches on `scope` via recurrence service
+- [x] `app/api/tasks/[id]/route.ts` DELETE reads `?scope=instance|series` (default `instance`)
+- [x] `app/api/tasks/[id]/complete/route.ts` — new route; idempotent
+- [x] Task form — recurrence editor mode toggle (fixed vs after-complete), interval input label reflects mode
+- [x] Task row — ↻ glyph for series members (parentTaskId or recurrenceRule)
+- [x] Delete modal — "This one" / "Whole series" options (when task is part of series)
 - [ ] Schedule view — visual grouping for same-series tasks
 
 #### Test
-- [ ] Unit: `nextOccurrenceAfterComplete({ freq: 'daily', interval: 1, mode: 'after-complete' }, completedAt)` returns `completedAt + 1 day`
-- [ ] Unit: `nextOccurrenceAfterComplete({ freq: 'weekly', interval: 2, mode: 'after-complete' }, completedAt)` returns `completedAt + 14 days`
-- [ ] Unit: `nextOccurrenceAfterComplete` ignores `byDayOfWeek` — tested error or fallback behaviour
-- [ ] Unit: `generateOccurrences` with no `mode` still produces identical output to v1 (back-compat snapshot)
+- [x] Unit: `nextOccurrenceAfterComplete({ freq: 'daily', interval: 1, mode: 'after-complete' }, completedAt)` returns `completedAt + 1 day`
+- [x] Unit: `nextOccurrenceAfterComplete({ freq: 'weekly', interval: 2, mode: 'after-complete' }, completedAt)` returns `completedAt + 14 days`
+- [x] Unit: `nextOccurrenceAfterComplete` ignores `byDayOfWeek` — tested error or fallback behaviour
+- [x] Unit: `generateOccurrences` with no `mode` still produces identical output to v1 (back-compat snapshot)
 - [ ] Unit: `resolveSeriesRoot` returns self for a root task, returns `parentTaskId` for a child
-- [ ] Integration: complete a `fixed` daily task — new row created with correct `scheduledAt` and `parentTaskId`
-- [ ] Integration: complete an `after-complete` daily task at 3pm — new row has `scheduledAt = tomorrow 3pm`
+- [x] Integration: complete a `fixed` daily task — new row created with correct `scheduledAt` and `parentTaskId`
+- [x] Integration: complete an `after-complete` daily task at 3pm — new row has `scheduledAt = tomorrow 3pm`
 - [ ] Integration: spawned instance inherits `tags`, `durationMins`, `description`, `preferredTemplateId`, `bufferMins`, `isSplittable`, `minChunkMins`, `priority`
 - [ ] Integration: spawned instance does NOT inherit `completedAt`, `status`, `gcalEventId`, `scheduledAt`, `scheduledEnd`
 - [ ] Integration: completion enqueues a `schedule:single-task` job for the spawned instance
-- [ ] Integration: `DELETE /api/tasks/{id}?scope=instance` removes one row; children survive
-- [ ] Integration: `DELETE /api/tasks/{id}?scope=series` on the root removes root + all children
+- [x] Integration: `DELETE /api/tasks/{id}?scope=instance` removes one row; children survive
+- [x] Integration: `DELETE /api/tasks/{id}?scope=series` on the root removes root + all children
 - [ ] Integration: `DELETE /api/tasks/{id}?scope=series` on a child resolves to root and removes everything
 - [ ] Integration: series deletion removes GCal events for every instance (msw-mocked)
-- [ ] Integration: completing a non-recurring task does NOT spawn anything
-- [ ] Integration: completing a recurring task past its `until` date does NOT spawn
+- [x] Integration: completing a non-recurring task does NOT spawn anything
+- [x] Integration: completing a recurring task past its `until` date does NOT spawn
 - [ ] Integration: completing a recurring task past its `count` does NOT spawn
-- [ ] Integration: double-clicking complete does not spawn two instances (idempotency)
-- [ ] Snapshot: `generateOccurrences` outputs unchanged from v1
+- [x] Integration: double-clicking complete does not spawn two instances (idempotency)
+- [x] Snapshot: `generateOccurrences` outputs unchanged from v1
 
 #### Verify (manual)
 - [ ] Create "Daily standup, 10am, fixed daily" — complete it — next instance appears at tomorrow 10am
@@ -392,14 +392,14 @@ New ADRs: R16 (blackout blocks), R17 (window templates), R18 (flexible recurrenc
 - [ ] After-complete task completed 3 weeks late — next instance is from completion time, not original time
 
 #### Definition of done
-- [ ] Completing a `fixed`-mode recurring task spawns the next instance with correct scheduled time
-- [ ] Completing an `after-complete`-mode recurring task spawns at `completedAt + interval`
-- [ ] `parentTaskId` is written on spawned instances
-- [ ] Spawned instance inherits tags, duration, description, preferredTemplateId, bufferMins, isSplittable, minChunkMins
-- [ ] Deleting with `?scope=instance` removes only the single row
-- [ ] Deleting with `?scope=series` removes root and all children, and their GCal events
-- [ ] `generateOccurrences` tests still pass byte-identically (back-compat)
-- [ ] UI shows chain glyph on series tasks, delete modal names the scope
+- [x] Completing a `fixed`-mode recurring task spawns the next instance with correct scheduled time
+- [x] Completing an `after-complete`-mode recurring task spawns at `completedAt + interval`
+- [x] `parentTaskId` is written on spawned instances
+- [x] Spawned instance inherits tags, duration, description, preferredTemplateId, bufferMins, isSplittable, minChunkMins
+- [x] Deleting with `?scope=instance` removes only the single row
+- [x] Deleting with `?scope=series` removes root and all children, and their GCal events
+- [x] `generateOccurrences` tests still pass byte-identically (back-compat)
+- [x] UI shows chain glyph on series tasks, delete modal names the scope
 
 ---
 

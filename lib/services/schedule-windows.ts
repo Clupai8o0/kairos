@@ -10,6 +10,7 @@ export type WindowInput = {
   dayOfWeek: number; // 0=Sun .. 6=Sat
   startTime: string; // 'HH:MM'
   endTime: string;   // 'HH:MM'
+  templateId: string;
 };
 
 export async function listScheduleWindows(userId: string): Promise<ScheduleWindowRow[]> {
@@ -38,6 +39,7 @@ export async function setScheduleWindows(
       windows.map((w) => ({
         id: newId(),
         userId,
+        templateId: w.templateId,
         dayOfWeek: w.dayOfWeek,
         startTime: w.startTime,
         endTime: w.endTime,

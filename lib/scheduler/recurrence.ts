@@ -108,3 +108,36 @@ export function generateOccurrences(
 
   return results;
 }
+
+/**
+ * For `mode: 'after-complete'` recurrence: given the completion time of the
+ * last occurrence, returns the Date of the next occurrence.
+ *
+ * `byDayOfWeek` is intentionally ignored — the next occurrence is always
+ * `completedAt + interval * freq_unit`.
+ *
+ * Returns `null` if `rule.until` is set and the computed date exceeds end-of-day
+ * of that date.
+ */
+export function nextOccurrenceAfterComplete(
+  rule: RecurrenceRule,
+  completedAt: Date,
+): Date | null {
+  const interval = rule.interval ?? 1;
+
+  let next: Date;
+  switch (rule.freq) {
+    case 'daily':   next = addDays(completedAt, interval);     break;
+    case 'weekly':  next = addDays(completedAt, 7 * interval); break;
+    case 'monthly': next = addMonths(completedAt, interval);   break;
+    case 'yearly':  next = addYears(completedAt, interval);    break;
+  }
+
+  if (rule.until) {
+    const until = new Date(rule.until);
+    until.setHours(23, 59, 59, 999);
+    if (next > until) return null;
+  }
+
+  return next;
+}

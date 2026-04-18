@@ -1,7 +1,32 @@
 // lib/scheduler/placement.ts
 // Assigns a single task to the first available slot. Pure — no IO.
 
-import type { ScoredTask, TimeSlot, PlacedChunk } from './types';
+import type { ScoredTask, TimeSlot, PlacedChunk, WindowTemplate } from './types';
+
+/**
+ * Reorders slots so those matching the task's preferred template come first.
+ * Each partition retains its original (chronological) order.
+ * If the task has no preference, returns slots unchanged.
+ */
+export function rankSlotsForTask(
+  slots: TimeSlot[],
+  task: ScoredTask,
+  _templates: WindowTemplate[],
+): TimeSlot[] {
+  const preferredId = task.preferredTemplateId;
+  if (!preferredId) return slots;
+
+  const preferred: TimeSlot[] = [];
+  const rest: TimeSlot[] = [];
+  for (const s of slots) {
+    if (s.templateId === preferredId) {
+      preferred.push(s);
+    } else {
+      rest.push(s);
+    }
+  }
+  return [...preferred, ...rest];
+}
 
 /**
  * Finds the first slot that has room for the task (duration + buffer).

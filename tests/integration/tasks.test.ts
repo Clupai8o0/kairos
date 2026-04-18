@@ -34,6 +34,8 @@ const MOCK_TASK = {
   metadata: {},
   createdAt: new Date('2026-04-15T00:00:00Z'),
   updatedAt: new Date('2026-04-15T00:00:00Z'),
+  timeLocked: false,
+  preferredTemplateId: null,
   tags: [{ id: 'tag-1', name: 'work', color: '#3b82f6' }],
 };
 
@@ -50,6 +52,7 @@ async function setupRouteModule(
   modulePath: string,
   authResult: unknown,
   tasksMock: Record<string, unknown>,
+  recurrenceMock?: Record<string, unknown>,
 ) {
   vi.resetModules();
   vi.doMock('@/lib/auth/helpers', () => ({
@@ -57,6 +60,9 @@ async function setupRouteModule(
   }));
   vi.doMock('@/lib/services/tasks', () => tasksMock);
   vi.doMock('@/lib/services/jobs', () => ({ enqueueJob: vi.fn().mockResolvedValue(null) }));
+  if (recurrenceMock) {
+    vi.doMock('@/lib/services/recurrence', () => recurrenceMock);
+  }
   return import(modulePath);
 }
 
@@ -150,7 +156,8 @@ describe('GET /api/tasks/:id', () => {
     const { GET } = await setupRouteModule(
       '@/app/api/tasks/[id]/route',
       { userId: MOCK_USER_ID },
-      { getTask: vi.fn().mockResolvedValue(MOCK_TASK), updateTask: vi.fn(), deleteTask: vi.fn() },
+      { getTask: vi.fn().mockResolvedValue(MOCK_TASK), updateTask: vi.fn() },
+      { deleteInstance: vi.fn(), deleteSeries: vi.fn() },
     );
     const res = await GET(
       jsonRequest('http://localhost/api/tasks/task-1'),
@@ -165,7 +172,8 @@ describe('GET /api/tasks/:id', () => {
     const { GET } = await setupRouteModule(
       '@/app/api/tasks/[id]/route',
       { userId: MOCK_USER_ID },
-      { getTask: vi.fn().mockResolvedValue(null), updateTask: vi.fn(), deleteTask: vi.fn() },
+      { getTask: vi.fn().mockResolvedValue(null), updateTask: vi.fn() },
+      { deleteInstance: vi.fn(), deleteSeries: vi.fn() },
     );
     const res = await GET(
       jsonRequest('http://localhost/api/tasks/ghost'),
@@ -185,8 +193,8 @@ describe('PATCH /api/tasks/:id', () => {
       {
         getTask: vi.fn(),
         updateTask: vi.fn().mockResolvedValue({ ...MOCK_TASK, title: 'Updated' }),
-        deleteTask: vi.fn(),
       },
+      { deleteInstance: vi.fn(), deleteSeries: vi.fn() },
     );
     const res = await PATCH(
       jsonRequest('http://localhost/api/tasks/task-1', { method: 'PATCH', body: { title: 'Updated' } }),
@@ -201,7 +209,8 @@ describe('PATCH /api/tasks/:id', () => {
     const { PATCH } = await setupRouteModule(
       '@/app/api/tasks/[id]/route',
       { userId: MOCK_USER_ID },
-      { getTask: vi.fn(), updateTask: vi.fn().mockResolvedValue(null), deleteTask: vi.fn() },
+      { getTask: vi.fn(), updateTask: vi.fn().mockResolvedValue(null) },
+      { deleteInstance: vi.fn(), deleteSeries: vi.fn() },
     );
     const res = await PATCH(
       jsonRequest('http://localhost/api/tasks/ghost', { method: 'PATCH', body: { title: 'x' } }),
@@ -214,7 +223,8 @@ describe('PATCH /api/tasks/:id', () => {
     const { PATCH } = await setupRouteModule(
       '@/app/api/tasks/[id]/route',
       { userId: MOCK_USER_ID },
-      { getTask: vi.fn(), updateTask: vi.fn(), deleteTask: vi.fn() },
+      { getTask: vi.fn(), updateTask: vi.fn() },
+      { deleteInstance: vi.fn(), deleteSeries: vi.fn() },
     );
     const res = await PATCH(
       jsonRequest('http://localhost/api/tasks/task-1', {
@@ -230,11 +240,12 @@ describe('PATCH /api/tasks/:id', () => {
 describe('DELETE /api/tasks/:id', () => {
   beforeEach(() => vi.resetAllMocks());
 
-  it('returns 204 on success', async () => {
+  it('returns 204 on success (instance scope)', async () => {
     const { DELETE } = await setupRouteModule(
       '@/app/api/tasks/[id]/route',
       { userId: MOCK_USER_ID },
-      { getTask: vi.fn(), updateTask: vi.fn(), deleteTask: vi.fn().mockResolvedValue({ id: 'task-1', gcalEventId: null }) },
+      { getTask: vi.fn(), updateTask: vi.fn() },
+      { deleteInstance: vi.fn().mockResolvedValue({ id: 'task-1', gcalEventId: null }), deleteSeries: vi.fn() },
     );
     const res = await DELETE(
       jsonRequest('http://localhost/api/tasks/task-1', { method: 'DELETE' }),
@@ -243,16 +254,197 @@ describe('DELETE /api/tasks/:id', () => {
     expect(res.status).toBe(204);
   });
 
-  it('returns 404 when task not found', async () => {
+  it('returns 404 when task not found (instance)', async () => {
     const { DELETE } = await setupRouteModule(
       '@/app/api/tasks/[id]/route',
       { userId: MOCK_USER_ID },
-      { getTask: vi.fn(), updateTask: vi.fn(), deleteTask: vi.fn().mockResolvedValue(null) },
+      { getTask: vi.fn(), updateTask: vi.fn() },
+      { deleteInstance: vi.fn().mockResolvedValue(null), deleteSeries: vi.fn() },
     );
     const res = await DELETE(
       jsonRequest('http://localhost/api/tasks/ghost', { method: 'DELETE' }),
       { params: Promise.resolve({ id: 'ghost' }) },
     );
     expect(res.status).toBe(404);
+  });
+});
+
+describe('DELETE /api/tasks/:id?scope=series', () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it('deletes entire series and returns 204', async () => {
+    const { DELETE } = await setupRouteModule(
+      '@/app/api/tasks/[id]/route',
+      { userId: MOCK_USER_ID },
+      { getTask: vi.fn(), updateTask: vi.fn() },
+      {
+        deleteInstance: vi.fn(),
+        deleteSeries: vi.fn().mockResolvedValue({
+          deletedIds: ['task-1', 'task-2', 'task-3'],
+          gcalEventIds: ['gcal-1', 'gcal-2'],
+        }),
+      },
+    );
+    const res = await DELETE(
+      jsonRequest('http://localhost/api/tasks/task-1?scope=series', { method: 'DELETE' }),
+      { params: Promise.resolve({ id: 'task-1' }) },
+    );
+    expect(res.status).toBe(204);
+  });
+
+  it('returns 404 when series delete finds nothing', async () => {
+    const { DELETE } = await setupRouteModule(
+      '@/app/api/tasks/[id]/route',
+      { userId: MOCK_USER_ID },
+      { getTask: vi.fn(), updateTask: vi.fn() },
+      {
+        deleteInstance: vi.fn(),
+        deleteSeries: vi.fn().mockResolvedValue({ deletedIds: [], gcalEventIds: [] }),
+      },
+    );
+    const res = await DELETE(
+      jsonRequest('http://localhost/api/tasks/task-1?scope=series', { method: 'DELETE' }),
+      { params: Promise.resolve({ id: 'task-1' }) },
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 400 for invalid scope', async () => {
+    const { DELETE } = await setupRouteModule(
+      '@/app/api/tasks/[id]/route',
+      { userId: MOCK_USER_ID },
+      { getTask: vi.fn(), updateTask: vi.fn() },
+      { deleteInstance: vi.fn(), deleteSeries: vi.fn() },
+    );
+    const res = await DELETE(
+      jsonRequest('http://localhost/api/tasks/task-1?scope=invalid', { method: 'DELETE' }),
+      { params: Promise.resolve({ id: 'task-1' }) },
+    );
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/tasks/:id/complete', () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  async function setupCompleteRouteModule(
+    authResult: unknown,
+    tasksMock: Record<string, unknown>,
+    recurrenceMock?: Record<string, unknown>,
+  ) {
+    vi.resetModules();
+    vi.doMock('@/lib/auth/helpers', () => ({
+      requireAuth: vi.fn().mockResolvedValue(authResult),
+    }));
+    vi.doMock('@/lib/services/tasks', () => tasksMock);
+    vi.doMock('@/lib/services/jobs', () => ({ enqueueJob: vi.fn().mockResolvedValue(null) }));
+    vi.doMock('@/lib/db/client', () => ({
+      db: { update: vi.fn().mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }) }) },
+    }));
+    vi.doMock('@/lib/db/schema', () => ({
+      tasks: { id: 'id', userId: 'user_id' },
+    }));
+    vi.doMock('drizzle-orm', () => ({
+      and: vi.fn((...args: unknown[]) => args),
+      eq: vi.fn((a: unknown, b: unknown) => [a, b]),
+    }));
+    if (recurrenceMock) {
+      vi.doMock('@/lib/services/recurrence', () => recurrenceMock);
+    }
+    return import('@/app/api/tasks/[id]/complete/route');
+  }
+
+  it('returns 401 when unauthenticated', async () => {
+    const { POST } = await setupCompleteRouteModule(
+      new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }),
+      { getTask: vi.fn() },
+    );
+    const res = await POST(
+      jsonRequest('http://localhost/api/tasks/task-1/complete', { method: 'POST' }),
+      { params: Promise.resolve({ id: 'task-1' }) },
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 for non-existent task', async () => {
+    const { POST } = await setupCompleteRouteModule(
+      { userId: MOCK_USER_ID },
+      { getTask: vi.fn().mockResolvedValue(null) },
+    );
+    const res = await POST(
+      jsonRequest('http://localhost/api/tasks/ghost/complete', { method: 'POST' }),
+      { params: Promise.resolve({ id: 'ghost' }) },
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('is idempotent — returns task as-is when already done', async () => {
+    const doneTask = { ...MOCK_TASK, status: 'done', completedAt: '2026-04-15T12:00:00Z' };
+    const { POST } = await setupCompleteRouteModule(
+      { userId: MOCK_USER_ID },
+      { getTask: vi.fn().mockResolvedValue(doneTask) },
+    );
+    const res = await POST(
+      jsonRequest('http://localhost/api/tasks/task-1/complete', { method: 'POST' }),
+      { params: Promise.resolve({ id: 'task-1' }) },
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe('done');
+  });
+
+  it('completes a non-recurring task (no spawn)', async () => {
+    const getTaskMock = vi.fn()
+      .mockResolvedValueOnce(MOCK_TASK) // first call: check task
+      .mockResolvedValueOnce({ ...MOCK_TASK, status: 'done' }); // second call: return updated
+    const { POST } = await setupCompleteRouteModule(
+      { userId: MOCK_USER_ID },
+      { getTask: getTaskMock },
+      { spawnNextOccurrence: vi.fn() },
+    );
+    const res = await POST(
+      jsonRequest('http://localhost/api/tasks/task-1/complete', { method: 'POST' }),
+      { params: Promise.resolve({ id: 'task-1' }) },
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it('completes a recurring task and spawns next', async () => {
+    const recurringTask = { ...MOCK_TASK, recurrenceRule: { freq: 'daily', interval: 1, mode: 'after-complete' } };
+    const getTaskMock = vi.fn()
+      .mockResolvedValueOnce(recurringTask)
+      .mockResolvedValueOnce({ ...recurringTask, status: 'done' });
+    const spawnMock = vi.fn().mockResolvedValue('new-task-id');
+    const { POST } = await setupCompleteRouteModule(
+      { userId: MOCK_USER_ID },
+      { getTask: getTaskMock },
+      { spawnNextOccurrence: spawnMock },
+    );
+    const res = await POST(
+      jsonRequest('http://localhost/api/tasks/task-1/complete', { method: 'POST' }),
+      { params: Promise.resolve({ id: 'task-1' }) },
+    );
+    expect(res.status).toBe(200);
+    expect(spawnMock).toHaveBeenCalled();
+  });
+
+  it('completing a recurring task past until does NOT spawn', async () => {
+    const recurringTask = { ...MOCK_TASK, recurrenceRule: { freq: 'daily', interval: 1, until: '2026-01-01' } };
+    const getTaskMock = vi.fn()
+      .mockResolvedValueOnce(recurringTask)
+      .mockResolvedValueOnce({ ...recurringTask, status: 'done' });
+    const spawnMock = vi.fn().mockResolvedValue(null);
+    const { POST } = await setupCompleteRouteModule(
+      { userId: MOCK_USER_ID },
+      { getTask: getTaskMock },
+      { spawnNextOccurrence: spawnMock },
+    );
+    const res = await POST(
+      jsonRequest('http://localhost/api/tasks/task-1/complete', { method: 'POST' }),
+      { params: Promise.resolve({ id: 'task-1' }) },
+    );
+    expect(res.status).toBe(200);
+    // spawnNextOccurrence was called but returned null (past until)
+    expect(spawnMock).toHaveBeenCalled();
   });
 });
