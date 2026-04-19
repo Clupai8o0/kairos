@@ -14,6 +14,8 @@ function toLocal(iso: string) {
 }
 
 // Google Calendar event color palette (colorId "1"–"11")
+// These are GCal API color IDs — not design tokens, disable raw-color rule here.
+/* eslint-disable kairos/no-raw-colors */
 const GCAL_COLORS: { id: string; label: string; hex: string }[] = [
   { id: '1', label: 'Lavender', hex: '#7986cb' },
   { id: '2', label: 'Sage', hex: '#33b679' },
@@ -27,6 +29,7 @@ const GCAL_COLORS: { id: string; label: string; hex: string }[] = [
   { id: '10', label: 'Basil', hex: '#0b8043' },
   { id: '11', label: 'Tomato', hex: '#d50000' },
 ];
+/* eslint-enable kairos/no-raw-colors */
 
 interface Props {
   start: string; // ISO

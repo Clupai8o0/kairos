@@ -10,7 +10,11 @@ vi.mock('@/lib/db/client', () => {
   const mockWhere = vi.fn().mockResolvedValue([]);
   const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
   const mockUpdate = vi.fn().mockReturnValue({ set: mockSet });
-  return { db: { update: mockUpdate } };
+  // select chain: db.select().from().where() — used for themeInstalls lookup on unknown packs
+  const mockSelectWhere = vi.fn().mockResolvedValue([]);
+  const mockFrom = vi.fn().mockReturnValue({ where: mockSelectWhere });
+  const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
+  return { db: { update: mockUpdate, select: mockSelect } };
 });
 
 import { PATCH } from '@/app/api/me/theme/route';

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import {
   listTasks,
   createTask,
+  createTasksBulk,
   updateTask,
   deleteTask,
   getTask,
@@ -85,6 +86,54 @@ export function createCoreTools(userId: string) {
           title: task.title,
           status: task.status,
           schedulable: task.schedulable,
+        };
+      },
+    }),
+
+    bulkCreateTasks: tool({
+      description:
+        'Create multiple tasks at once from a single prompt. Use this instead of createTask when the user wants to create 2 or more tasks.',
+      inputSchema: z.object({
+        tasks: z
+          .array(
+            z.object({
+              title: z.string().describe('Task title'),
+              description: z.string().optional().describe('Task description'),
+              durationMins: z.number().int().positive().optional().describe('Duration in minutes'),
+              priority: z.number().int().min(1).max(4).default(3).describe('Priority 1 (highest) to 4 (lowest)'),
+              schedulable: z.boolean().default(true).describe('Whether the task can be auto-scheduled'),
+              bufferMins: z.number().int().min(0).default(15).describe('Buffer minutes after the task'),
+              isSplittable: z.boolean().default(false).describe('Whether the task can be split into chunks'),
+              tagIds: z.array(z.string()).default([]).describe('Tag IDs to attach'),
+              deadline: z.string().optional().describe('ISO 8601 deadline'),
+            }),
+          )
+          .min(1)
+          .max(25)
+          .describe('Array of tasks to create'),
+      }),
+      execute: async (args) => {
+        const created = await createTasksBulk(
+          userId,
+          args.tasks.map((t) => ({ ...t, dependsOn: [] })),
+        );
+
+        const schedulable = created.filter((t) => t.schedulable);
+        if (schedulable.length > 0) {
+          await enqueueJob('schedule:full-run', {
+            userId,
+            idempotencyKey: `bulk-schedule:${userId}:${Date.now()}`,
+          });
+        }
+
+        return {
+          created: created.length,
+          tasks: created.map((t) => ({
+            id: t.id,
+            title: t.title,
+            status: t.status,
+            schedulable: t.schedulable,
+          })),
         };
       },
     }),

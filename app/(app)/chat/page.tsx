@@ -1,7 +1,7 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import { isToolUIPart, isTextUIPart, type UIMessage } from 'ai';
+import { isTextUIPart, type UIMessage } from 'ai';
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { Transcript } from '@/components/app/chat/transcript';
 import { Composer } from '@/components/app/chat/composer';

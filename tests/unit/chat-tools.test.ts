@@ -146,3 +146,56 @@ describe('createCoreTools', () => {
     expect(result).toEqual(expect.objectContaining({ enqueued: true }));
   });
 });
+
+// Helper: the AI SDK wraps inputSchema in FlexibleSchema — cast to Zod for safeParse
+function parseSchema(schema: unknown, input: unknown): { success: boolean } {
+  return (schema as { safeParse: (v: unknown) => { success: boolean } }).safeParse(input);
+}
+
+describe('Tool inputSchema validation', () => {
+  const tools = createCoreTools(USER_ID);
+
+  it('listTasks rejects unknown status value', () => {
+    expect(parseSchema(tools.listTasks.inputSchema, { status: 'flying' }).success).toBe(false);
+  });
+
+  it('listTasks accepts valid status', () => {
+    expect(parseSchema(tools.listTasks.inputSchema, { status: 'pending' }).success).toBe(true);
+  });
+
+  it('listTasks accepts empty object (no filters)', () => {
+    expect(parseSchema(tools.listTasks.inputSchema, {}).success).toBe(true);
+  });
+
+  it('createTask requires title', () => {
+    expect(parseSchema(tools.createTask.inputSchema, { priority: 3 }).success).toBe(false);
+  });
+
+  it('createTask rejects priority outside 1–4', () => {
+    expect(parseSchema(tools.createTask.inputSchema, { title: 'Test', priority: 10 }).success).toBe(false);
+  });
+
+  it('createTask accepts valid minimal input', () => {
+    expect(parseSchema(tools.createTask.inputSchema, { title: 'Test' }).success).toBe(true);
+  });
+
+  it('updateTask requires id', () => {
+    expect(parseSchema(tools.updateTask.inputSchema, { title: 'New title' }).success).toBe(false);
+  });
+
+  it('deleteTask requires id', () => {
+    expect(parseSchema(tools.deleteTask.inputSchema, {}).success).toBe(false);
+  });
+
+  it('completeTask requires id', () => {
+    expect(parseSchema(tools.completeTask.inputSchema, {}).success).toBe(false);
+  });
+
+  it('createTag requires name', () => {
+    expect(parseSchema(tools.createTag.inputSchema, {}).success).toBe(false);
+  });
+
+  it('createTag accepts name without color', () => {
+    expect(parseSchema(tools.createTag.inputSchema, { name: 'Work' }).success).toBe(true);
+  });
+});

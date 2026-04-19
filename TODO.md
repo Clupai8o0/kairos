@@ -363,19 +363,19 @@ New ADRs: R16 (blackout blocks), R17 (window templates), R18 (flexible recurrenc
 - [x] Unit: `nextOccurrenceAfterComplete({ freq: 'weekly', interval: 2, mode: 'after-complete' }, completedAt)` returns `completedAt + 14 days`
 - [x] Unit: `nextOccurrenceAfterComplete` ignores `byDayOfWeek` — tested error or fallback behaviour
 - [x] Unit: `generateOccurrences` with no `mode` still produces identical output to v1 (back-compat snapshot)
-- [ ] Unit: `resolveSeriesRoot` returns self for a root task, returns `parentTaskId` for a child
+- [x] Unit: `resolveSeriesRoot` returns self for a root task, returns `parentTaskId` for a child
 - [x] Integration: complete a `fixed` daily task — new row created with correct `scheduledAt` and `parentTaskId`
 - [x] Integration: complete an `after-complete` daily task at 3pm — new row has `scheduledAt = tomorrow 3pm`
 - [ ] Integration: spawned instance inherits `tags`, `durationMins`, `description`, `preferredTemplateId`, `bufferMins`, `isSplittable`, `minChunkMins`, `priority`
 - [ ] Integration: spawned instance does NOT inherit `completedAt`, `status`, `gcalEventId`, `scheduledAt`, `scheduledEnd`
-- [ ] Integration: completion enqueues a `schedule:single-task` job for the spawned instance
+- [x] Integration: completion enqueues a `schedule:single-task` job for the spawned instance
 - [x] Integration: `DELETE /api/tasks/{id}?scope=instance` removes one row; children survive
 - [x] Integration: `DELETE /api/tasks/{id}?scope=series` on the root removes root + all children
 - [ ] Integration: `DELETE /api/tasks/{id}?scope=series` on a child resolves to root and removes everything
 - [ ] Integration: series deletion removes GCal events for every instance (msw-mocked)
 - [x] Integration: completing a non-recurring task does NOT spawn anything
 - [x] Integration: completing a recurring task past its `until` date does NOT spawn
-- [ ] Integration: completing a recurring task past its `count` does NOT spawn
+- [x] Integration: completing a recurring task past its `count` does NOT spawn
 - [x] Integration: double-clicking complete does not spawn two instances (idempotency)
 - [x] Snapshot: `generateOccurrences` outputs unchanged from v1
 
@@ -426,23 +426,23 @@ New ADRs: R16 (blackout blocks), R17 (window templates), R18 (flexible recurrenc
 
 #### Test
 - [x] Unit: every core tool's `execute` calls the right service function (mock services)
-- [ ] Unit: every tool's `inputSchema` rejects invalid args
+- [x] Unit: every tool's `inputSchema` rejects invalid args
 - [x] Unit: `plugin-tools.ts` aggregates tools from multiple plugins, namespaces correctly
 - [x] Unit: `plugin-tools.ts` skips disabled plugins
 - [x] Unit: `plugin-tools.ts` skips plugins that declare `tools` but don't implement `invokeTool`
-- [ ] Unit: `router.ts` routes core tool names to core, namespaced names to the right plugin
-- [ ] Unit: `router.ts` — unknown tool name returns structured error
-- [ ] Integration: `POST /api/chat` with a simple message returns a streaming response
-- [ ] Integration: `POST /api/chat` with no configured LLM provider returns 400
+- [x] Unit: `router.ts` routes core tool names to core, namespaced names to the right plugin
+- [x] Unit: `router.ts` — unknown tool name returns structured error
+- [x] Integration: `POST /api/chat` with a simple message returns a streaming response
+- [x] Integration: `POST /api/chat` with no configured LLM provider returns 400
 - [ ] Integration: chat request triggering `list_tasks` returns real task data
 - [ ] Integration: chat request triggering `create_task` creates a task row
 - [ ] Integration: chat request triggering `delete_task` with series scope removes the full series
-- [ ] Integration: no `chat*` tables exist — explicit DB schema assertion
+- [x] Integration: no `chat*` tables exist — explicit DB schema assertion
 - [ ] Integration: plugin with declared tools — callable from chat, validation works
-- [ ] Integration: plugin without declared tools — no plugin tools exposed
+- [x] Integration: plugin without declared tools — no plugin tools exposed
 - [ ] Integration: HTTP plugin declares tools in manifest — works via `invokeTool` over HTTP with HMAC
 - [ ] Integration: circuit-broken HTTP plugin's tools — graceful error, no crash
-- [ ] Snapshot: system prompt sent to the LLM
+- [x] Snapshot: system prompt sent to the LLM
 
 #### Verify (manual)
 - [ ] Type "what's on my plate tomorrow" — gets a grounded list
@@ -458,22 +458,22 @@ New ADRs: R16 (blackout blocks), R17 (window templates), R18 (flexible recurrenc
 - [ ] Keyboard-only flow works: Cmd-K → "Open chat" → type → Cmd-Enter → read → Esc
 
 #### Definition of done
-- [ ] User can converse with an LLM that reads and mutates task state via core tools
-- [ ] Plugin-exposed tools work when plugins are installed
-- [ ] No `chatSessions` / `chatMessages` tables (ADR-R19)
-- [ ] Reloading loses the conversation
-- [ ] LLM provider is the user's configured one
-- [ ] Streaming works — tokens appear progressively
-- [ ] Tool calls render inline with legible outputs
-- [ ] "Copy transcript" produces reproducible Markdown
+- [x] User can converse with an LLM that reads and mutates task state via core tools
+- [x] Plugin-exposed tools work when plugins are installed
+- [x] No `chatSessions` / `chatMessages` tables (ADR-R19)
+- [x] Reloading loses the conversation
+- [x] LLM provider is the user's configured one
+- [x] Streaming works — tokens appear progressively
+- [x] Tool calls render inline with legible outputs
+- [x] "Copy transcript" produces reproducible Markdown
 
 ---
 
 ### Phase 5 cross-slice verification
 
-- [ ] Full Vitest suite passes on a clean checkout
-- [ ] `pnpm lint` — no errors, no new warnings
-- [ ] `pnpm tsc --noEmit` — clean
+- [x] Full Vitest suite passes on a clean checkout
+- [x] `pnpm lint` — no errors, no new warnings
+- [x] `pnpm tsc --noEmit` — clean
 - [ ] CI grep step still blocks `Project` / `projectId` / direct LLM provider imports outside allowed paths
 - [ ] Migration 0006 applies cleanly on v1 data and on a fresh DB
 - [ ] No new raw-Tailwind-colour utilities introduced

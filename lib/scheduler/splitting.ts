@@ -20,6 +20,7 @@ export function splitTask(
 
   const totalMs = (task.durationMins ?? 30) * 60 * 1000;
   const minChunkMs = (task.minChunkMins ?? 15) * 60 * 1000;
+  const bufferMs = (task.bufferMins ?? 0) * 60 * 1000;
 
   const chunks: PlacedChunk[] = [];
   let remainingMs = totalMs;
@@ -29,9 +30,14 @@ export function splitTask(
     if (remainingMs <= 0) break;
 
     const available = slot.end.getTime() - slot.start.getTime();
-    if (available < minChunkMs) continue; // too small for a useful chunk
+    // Slot must fit at least minChunkMs + buffer (last chunk skips buffer)
+    const needsBuffer = remainingMs > minChunkMs;
+    const minRequired = minChunkMs + (needsBuffer ? bufferMs : 0);
+    if (available < minRequired) continue;
 
-    const chunkMs = Math.min(available, remainingMs);
+    // Reserve buffer from usable time unless this is the last chunk
+    const usable = needsBuffer ? available - bufferMs : available;
+    const chunkMs = Math.min(usable, remainingMs);
     chunks.push({
       start: slot.start,
       end: new Date(slot.start.getTime() + chunkMs),

@@ -60,7 +60,7 @@ export function ToolCallBlock({ toolPart }: ToolCallBlockProps) {
       )}
 
       {state === 'output-error' && (
-        <span className="text-red-400 text-[11px]">
+        <span className="text-danger text-[11px]">
           Error: {toolPart.errorText}
         </span>
       )}

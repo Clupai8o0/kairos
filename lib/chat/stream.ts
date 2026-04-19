@@ -2,7 +2,7 @@
 import { streamText, stepCountIs, type ModelMessage, type ToolSet } from 'ai';
 import { resolveModel } from '@/lib/llm';
 
-const SYSTEM_PROMPT = `You are Kairos, an AI scheduling assistant. You help users manage tasks, schedule, and organize their time.
+export const SYSTEM_PROMPT = `You are Kairos, an AI scheduling assistant. You help users manage tasks, schedule, and organize their time.
 
 You have access to tools for managing tasks, tags, and scheduling. Use them when the user asks to create, update, delete, or query their tasks and schedule.
 
@@ -18,6 +18,6 @@ export function createChatStream(
     system: SYSTEM_PROMPT,
     messages,
     tools,
-    stopWhen: stepCountIs(5),
+    stopWhen: stepCountIs(10),
   });
 }

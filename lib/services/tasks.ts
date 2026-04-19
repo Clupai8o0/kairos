@@ -150,6 +150,44 @@ export async function createTask(
   return (await getTask(userId, id))!;
 }
 
+export async function createTasksBulk(
+  userId: string,
+  inputs: CreateTaskInput[],
+): Promise<TaskWithTags[]> {
+  if (inputs.length === 0) return [];
+
+  const ids: string[] = [];
+  const allTagLinks: { taskId: string; tagId: string }[] = [];
+
+  const rows = inputs.map((input) => {
+    const { tagIds, deadline, recurrenceRule, preferredTemplateId, scheduledAt, scheduledEnd, ...rest } = input;
+    const id = newId();
+    ids.push(id);
+    if (tagIds.length > 0) {
+      for (const tagId of tagIds) allTagLinks.push({ taskId: id, tagId });
+    }
+    return {
+      id,
+      userId,
+      ...rest,
+      deadline: deadline ? new Date(deadline) : undefined,
+      recurrenceRule: recurrenceRule ?? undefined,
+      preferredTemplateId: preferredTemplateId ?? undefined,
+      scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
+      scheduledEnd: scheduledEnd ? new Date(scheduledEnd) : undefined,
+      updatedAt: new Date(),
+    };
+  });
+
+  await db.insert(tasks).values(rows);
+  if (allTagLinks.length > 0) {
+    await db.insert(taskTags).values(allTagLinks);
+  }
+
+  const created = await db.select().from(tasks).where(inArray(tasks.id, ids));
+  return attachTags(created);
+}
+
 export async function updateTask(
   userId: string,
   id: string,

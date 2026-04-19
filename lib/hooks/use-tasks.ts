@@ -108,12 +108,3 @@ export function useDeleteTaskSeries() {
     onSuccess: () => qc.invalidateQueries({ queryKey: TASKS_KEY }),
   });
 }
-
-export function useDeleteTaskSeries() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch<void>(`/api/tasks/${id}?scope=series`, { method: 'DELETE' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: TASKS_KEY }),
-  });
-}

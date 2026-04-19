@@ -5,6 +5,13 @@ import type { z } from 'zod';
 
 type Provider = 'openai' | 'anthropic' | 'ollama';
 
+export function isLLMConfigured(): boolean {
+  const provider = process.env.LLM_PROVIDER ?? 'openai';
+  if (provider === 'anthropic') return !!process.env.ANTHROPIC_API_KEY;
+  if (provider === 'ollama') return true;
+  return !!process.env.OPENAI_API_KEY;
+}
+
 export function resolveModel() {
   const provider = (process.env.LLM_PROVIDER ?? 'openai') as Provider;
   const modelId =

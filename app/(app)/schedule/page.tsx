@@ -303,7 +303,7 @@ export default function SchedulePage() {
                       {' – '}
                       {new Date(lockPending.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                     </p>
-                    <p className="text-[11px] text-fg-4 mt-1.5">The auto-scheduler won't move this task. If the time passes without completion, it will be unlocked and rescheduled automatically.</p>
+                    <p className="text-[11px] text-fg-4 mt-1.5">The auto-scheduler won&apos;t move this task. If the time passes without completion, it will be unlocked and rescheduled automatically.</p>
                   </div>
                 </div>
                 <div className="flex gap-2 justify-end">

@@ -447,4 +447,57 @@ describe('POST /api/tasks/:id/complete', () => {
     // spawnNextOccurrence was called but returned null (past until)
     expect(spawnMock).toHaveBeenCalled();
   });
+
+  it('completing a recurring task past its count does NOT spawn', async () => {
+    const recurringTask = { ...MOCK_TASK, recurrenceRule: { freq: 'daily', interval: 1, count: 3 } };
+    const getTaskMock = vi.fn()
+      .mockResolvedValueOnce(recurringTask)
+      .mockResolvedValueOnce({ ...recurringTask, status: 'done' });
+    // spawnNextOccurrence returns null because count is reached
+    const spawnMock = vi.fn().mockResolvedValue(null);
+    const { POST } = await setupCompleteRouteModule(
+      { userId: MOCK_USER_ID },
+      { getTask: getTaskMock },
+      { spawnNextOccurrence: spawnMock },
+    );
+    const res = await POST(
+      jsonRequest('http://localhost/api/tasks/task-1/complete', { method: 'POST' }),
+      { params: Promise.resolve({ id: 'task-1' }) },
+    );
+    expect(res.status).toBe(200);
+    expect(spawnMock).toHaveBeenCalled();
+  });
+
+  it('completion of recurring task enqueues schedule:single-task for spawned instance', async () => {
+    const recurringTask = { ...MOCK_TASK, recurrenceRule: { freq: 'daily', interval: 1, mode: 'after-complete' } };
+    vi.resetModules();
+    const enqueueJobMock = vi.fn().mockResolvedValue(null);
+    vi.doMock('@/lib/auth/helpers', () => ({
+      requireAuth: vi.fn().mockResolvedValue({ userId: MOCK_USER_ID }),
+    }));
+    vi.doMock('@/lib/services/tasks', () => ({
+      getTask: vi.fn()
+        .mockResolvedValueOnce(recurringTask)
+        .mockResolvedValueOnce({ ...recurringTask, status: 'done' }),
+    }));
+    vi.doMock('@/lib/services/jobs', () => ({ enqueueJob: enqueueJobMock }));
+    vi.doMock('@/lib/services/recurrence', () => ({
+      spawnNextOccurrence: vi.fn().mockResolvedValue('spawned-task-id'),
+    }));
+    vi.doMock('@/lib/db/client', () => ({
+      db: { update: vi.fn().mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }) }) },
+    }));
+    vi.doMock('@/lib/db/schema', () => ({ tasks: {} }));
+    vi.doMock('drizzle-orm', () => ({ and: vi.fn(), eq: vi.fn() }));
+    const { POST } = await import('@/app/api/tasks/[id]/complete/route');
+    const res = await POST(
+      jsonRequest('http://localhost/api/tasks/task-1/complete', { method: 'POST' }),
+      { params: Promise.resolve({ id: 'task-1' }) },
+    );
+    expect(res.status).toBe(200);
+    expect(enqueueJobMock).toHaveBeenCalledWith(
+      'schedule:single-task',
+      expect.objectContaining({ userId: MOCK_USER_ID, payload: { taskId: 'spawned-task-id' } }),
+    );
+  });
 });

@@ -108,16 +108,51 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 - `vercel.json` cron still set to daily at midnight UTC (hobby plan limitation)
 - GitHub repo not yet set to public (manual step)
 - `v1.0.0` tag not yet applied (pending deploy verification)
+- 5c integration tests for "LLM tool calls produce real DB mutations" and "HTTP plugin tool invocation over HMAC" deferred (require live LLM mocking)
+- 5b integration tests for "spawned instance field inheritance" and "GCal event cleanup on series delete" deferred (require DB-level test infrastructure)
 
 ### Next concrete action
-1. Slice 5c remaining: integration tests, manual verification, then definition-of-done sign-off
-2. Or: hardening pass — fix pre-existing `me-theme` test mock, Lighthouse audit, deploy verification
+1. Manual verification of Phase 5c chat flow (live deploy)
+2. Deploy: `pnpm db:migrate` production, `git tag v1.0.0 && git push origin v1.0.0`
+3. Set GitHub repo to public
 
 ---
 
 ## Session log
 
 Append new entries at the top. Use the template below.
+
+---
+
+## 2026-04-18 — Session 16: Hardening pass — code fixes, lint clean, test coverage
+
+**Goal for this session:** Fix all errors/inconsistencies found in codebase audit; complete remaining testable TODO.md items across 5b and 5c.
+
+**Code fixes:**
+- `lib/hooks/use-tasks.ts` — removed duplicate `useDeleteTaskSeries()` declaration (build-breaking)
+- `components/app/chat/tool-call-block.tsx` — replaced raw `text-red-400` with semantic `text-danger`
+- `app/(app)/chat/page.tsx` — removed unused `isToolUIPart` import
+- `app/(app)/schedule/page.tsx` — escaped unescaped apostrophe (`won't` → `won&apos;t`)
+- `components/app/quick-create-modal.tsx` — added targeted `eslint-disable` around GCal API color data (false positive for design-token rule)
+- `lib/llm/index.ts` — added `isLLMConfigured()` export (checks provider + key presence)
+- `app/api/chat/route.ts` — returns 400 when LLM provider is not configured
+- `lib/chat/stream.ts` — exported `SYSTEM_PROMPT` constant (was private)
+- `tests/integration/me-theme.test.ts` — fixed pre-existing db mock (missing `select` chain for themeInstalls lookup)
+
+**Tests added:**
+- `tests/unit/chat-tools.test.ts` — 11 new `inputSchema` validation tests (rejects invalid args, accepts valid)
+- `tests/unit/chat-router.test.ts` (NEW) — 7 tests for `createAllTools`/`getAvailableToolNames` + 3 SYSTEM_PROMPT snapshot tests
+- `tests/integration/chat.test.ts` (NEW) — 8 integration tests: auth, LLM-not-configured 400, empty messages 400, streaming response, GET /tools, no-chat-tables schema assertion
+- `tests/unit/services/recurrence.test.ts` (NEW) — 4 unit tests for `resolveSeriesRoot` (root, child, missing, standalone)
+- `tests/integration/tasks.test.ts` — 2 new tests: completing past count, completion enqueues schedule:single-task for spawned instance
+
+**Verification:** 259/259 tests pass. `pnpm tsc --noEmit` clean. `pnpm lint` 0 errors, 4 pre-existing warnings only.
+
+**Files touched:** 13 modified, 4 new
+
+**Next action:**
+1. Manual verification of Phase 5c chat flow (type queries, streaming, tool calls, copy transcript)
+2. Deploy verification: `pnpm db:migrate` production, tag v1.0.0
 
 ---
 
