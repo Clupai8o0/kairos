@@ -15,6 +15,8 @@ const ALLOWED_PATHS = [
   // Docs pages and theme upload — legitimately show color values as code examples
   /app[/\\]\(marketing\)[/\\]docs[/\\]/,
   /settings[/\\]appearance[/\\]custom[/\\]/,
+  // Landing page uses theme-swatch preview colors that are intentionally arbitrary hex
+  /app[/\\]\(marketing\)[/\\]page\.[jt]sx?$/,
 ];
 
 module.exports = {

@@ -10,22 +10,64 @@ import { MODELS, DEFAULT_MODEL_ID } from '@/lib/llm/models';
 import { useAiKeys } from '@/lib/hooks/use-ai-keys';
 import { toast } from 'sonner';
 
-const CORE_TOOLS = [
+const STORAGE_KEY = 'kairos-chat-messages';
+const STORAGE_MODEL_KEY = 'kairos-chat-model';
+
+function loadMessages(): UIMessage[] | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as UIMessage[];
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveMessages(messages: UIMessage[]) {
+  try {
+    if (messages.length === 0) {
+      localStorage.removeItem(STORAGE_KEY);
+    } else {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    }
+  } catch {
+    // localStorage quota exceeded — silently ignore
+  }
+}
+
+const TOOL_CHIPS = [
   'listTasks',
   'createTask',
+  'bulkCreateTasks',
   'updateTask',
+  'bulkUpdateTasks',
   'deleteTask',
   'completeTask',
   'listTags',
   'createTag',
   'listSchedule',
   'runSchedule',
+  'createGCalEvent',
+  'listGCalEvents',
+  'deleteGCalEvent',
 ] as const;
 
 export default function ChatPage() {
-  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID);
+  const [selectedModel, setSelectedModel] = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_MODEL_KEY) || DEFAULT_MODEL_ID;
+    } catch {
+      return DEFAULT_MODEL_ID;
+    }
+  });
   const selectedModelRef = useRef(selectedModel);
   selectedModelRef.current = selectedModel;
+
+  // Persist model choice
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_MODEL_KEY, selectedModel); } catch {}
+  }, [selectedModel]);
 
   const { data: aiKeys } = useAiKeys();
 
@@ -53,8 +95,10 @@ export default function ChatPage() {
 
   const {
     messages,
+    setMessages,
     sendMessage,
     addToolApprovalResponse,
+    stop,
     status,
     error,
   } = useChat({
@@ -80,8 +124,23 @@ export default function ChatPage() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState('');
+  const restoredRef = useRef(false);
 
   const isLoading = status === 'submitted' || status === 'streaming';
+
+  // Restore messages from localStorage on mount (once)
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    const saved = loadMessages();
+    if (saved) setMessages(saved);
+  }, [setMessages]);
+
+  // Persist messages to localStorage on change
+  useEffect(() => {
+    if (!restoredRef.current) return; // don't save before restore
+    saveMessages(messages);
+  }, [messages]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -112,15 +171,28 @@ export default function ChatPage() {
     toast.success('Copied to clipboard');
   }, [messages]);
 
+  const handleClearChat = useCallback(() => {
+    setMessages([]);
+    saveMessages([]);
+  }, [setMessages]);
+
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
       const trimmed = input.trim();
       if (!trimmed || isLoading) return;
+      // Auto-deny any pending approvals so the history is clean before the next turn
+      for (const msg of messages) {
+        for (const part of msg.parts) {
+          if (isStaticToolUIPart(part) && part.state === 'approval-requested') {
+            addToolApprovalResponse({ id: part.toolCallId, approved: false });
+          }
+        }
+      }
       sendMessage({ text: trimmed });
       setInput('');
     },
-    [input, isLoading, sendMessage],
+    [input, isLoading, messages, sendMessage, addToolApprovalResponse],
   );
 
   const handleApprovalResponse = useCallback(
@@ -142,30 +214,27 @@ export default function ChatPage() {
             onSelect={setSelectedModel}
           />
         </div>
-        <button
-          onClick={handleCopyMarkdown}
-          disabled={messages.length === 0}
-          className="text-fg-4 hover:text-fg-2 text-[12px] font-[510] px-2 py-1 rounded-md hover:bg-ghost-2 transition-colors disabled:opacity-40 disabled:pointer-events-none"
-        >
-          Copy as Markdown
-        </button>
-      </div>
-
-      {/* Session warning */}
-      <div className="flex items-center gap-2 px-5 py-1.5 bg-surface-2 border-b border-wire shrink-0">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-fg-4 shrink-0">
-          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-          <line x1="12" y1="9" x2="12" y2="13" />
-          <line x1="12" y1="17" x2="12.01" y2="17" />
-        </svg>
-        <span className="text-fg-4 text-[12px]">
-          Messages are not saved. This chat resets when you navigate away.
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleClearChat}
+            disabled={messages.length === 0}
+            className="text-fg-4 hover:text-fg-2 text-[12px] font-[510] px-2 py-1 rounded-md hover:bg-ghost-2 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+          >
+            New Chat
+          </button>
+          <button
+            onClick={handleCopyMarkdown}
+            disabled={messages.length === 0}
+            className="text-fg-4 hover:text-fg-2 text-[12px] font-[510] px-2 py-1 rounded-md hover:bg-ghost-2 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+          >
+            Copy
+          </button>
+        </div>
       </div>
 
       {/* Tool chips */}
       <div className="flex flex-wrap gap-1.5 px-5 py-2 border-b border-wire shrink-0">
-        {CORE_TOOLS.map((t) => (
+        {TOOL_CHIPS.map((t) => (
           <span
             key={t}
             className="text-fg-3 bg-surface-3 rounded-full px-2 py-0.5 text-[11px] font-[510]"
@@ -186,6 +255,7 @@ export default function ChatPage() {
           input={input}
           onInputChange={setInput}
           onSubmit={handleSubmit}
+          onStop={stop}
           isLoading={isLoading}
         />
       </div>
