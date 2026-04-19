@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { useCalendars, useUpdateCalendar, useSyncCalendars } from '@/lib/hooks/use-calendars';
 import { usePlugins, useTogglePlugin } from '@/lib/hooks/use-plugins';
+import { useAiKeys, useSetAiKey, useDeleteAiKey } from '@/lib/hooks/use-ai-keys';
 import { ScheduleSection } from '@/components/app/schedule-section';
 import { BlackoutsSection } from '@/components/app/blackouts-section';
 import { authClient } from '@/lib/auth/client';
@@ -50,6 +52,9 @@ export default function SettingsPage() {
   const updateCalendar = useUpdateCalendar();
   const syncCalendars = useSyncCalendars();
   const togglePlugin = useTogglePlugin();
+  const { data: aiKeys, isLoading: aiKeysLoading } = useAiKeys();
+  const setAiKey = useSetAiKey();
+  const deleteAiKey = useDeleteAiKey();
   const { data: session } = authClient.useSession();
   const router = useRouter();
 
@@ -267,26 +272,174 @@ export default function SettingsPage() {
         {/* LLM Provider */}
         <Section
           title="AI Provider"
-          description="Configured via environment variables on the server."
+          description="Add API keys so you can use models from different providers in Chat."
         >
-          <div className="px-4 py-4 rounded-lg bg-ghost border border-wire-2 space-y-3">
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <span className="text-fg-4">Provider</span>
-              <span className="text-fg-2 font-mono text-xs">LLM_PROVIDER</span>
-              <span className="text-fg-4">Model</span>
-              <span className="text-fg-2 font-mono text-xs">LLM_MODEL</span>
-              <span className="text-fg-4">API Key</span>
-              <span className="text-fg-2 font-mono text-xs">OPENAI_API_KEY / ANTHROPIC_API_KEY</span>
-            </div>
-            <p className="text-fg-4 text-xs pt-1 border-t border-wire-2">
-              Supports <code className="text-accent">openai</code>,{' '}
-              <code className="text-accent">anthropic</code>, and{' '}
-              <code className="text-accent">ollama</code> (OpenAI-compatible endpoint).
-              Set <code className="text-accent">OLLAMA_URL</code> for a local model.
-            </p>
-          </div>
+          <AiKeyManager
+            aiKeys={aiKeys}
+            isLoading={aiKeysLoading}
+            onSave={(provider, key) =>
+              toast.promise(setAiKey.mutateAsync({ provider, apiKey: key }), {
+                loading: 'Saving key…',
+                success: `${PROVIDER_DISPLAY[provider]} key saved`,
+                error: (e) => e?.message ?? 'Failed to save key',
+              })
+            }
+            onDelete={(provider) =>
+              toast.promise(deleteAiKey.mutateAsync(provider), {
+                loading: 'Removing key…',
+                success: `${PROVIDER_DISPLAY[provider]} key removed`,
+                error: 'Failed to remove key',
+              })
+            }
+            isSaving={setAiKey.isPending}
+          />
         </Section>
       </div>
+    </div>
+  );
+}
+
+// ── AI Key Manager sub-component ─────────────────────────────────────────
+
+const PROVIDER_DISPLAY: Record<string, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google' };
+const PROVIDERS = ['openai', 'anthropic', 'google'] as const;
+const KEY_PLACEHOLDERS: Record<string, string> = {
+  openai: 'sk-…',
+  anthropic: 'sk-ant-…',
+  google: 'AIza…',
+};
+
+interface AiKeysData {
+  keys: { provider: string; hasKey: boolean; updatedAt: string }[];
+  envKeys: Record<string, boolean>;
+}
+
+function AiKeyManager({
+  aiKeys,
+  isLoading,
+  onSave,
+  onDelete,
+  isSaving,
+}: {
+  aiKeys: AiKeysData | undefined;
+  isLoading: boolean;
+  onSave: (provider: string, key: string) => void;
+  onDelete: (provider: string) => void;
+  isSaving: boolean;
+}) {
+  const [editing, setEditing] = useState<string | null>(null);
+  const [keyInput, setKeyInput] = useState('');
+
+  if (isLoading) {
+    return <div className="h-32 bg-ghost rounded-lg animate-pulse" />;
+  }
+
+  return (
+    <div className="space-y-2">
+      {PROVIDERS.map((provider) => {
+        const userKey = aiKeys?.keys.find((k) => k.provider === provider);
+        const envAvailable = aiKeys?.envKeys[provider] ?? false;
+        const isEditing = editing === provider;
+
+        return (
+          <div
+            key={provider}
+            className="px-4 py-3 rounded-lg bg-ghost border border-wire-2"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="text-fg-2 text-sm font-[510]">{PROVIDER_DISPLAY[provider]}</span>
+                {envAvailable && (
+                  <span className="text-[10px] bg-success/10 text-success px-1.5 py-0.5 rounded-full font-medium">
+                    server key
+                  </span>
+                )}
+                {userKey?.hasKey && (
+                  <span className="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-full font-medium">
+                    your key
+                  </span>
+                )}
+                {!envAvailable && !userKey?.hasKey && (
+                  <span className="text-[10px] bg-surface-3 text-fg-4 px-1.5 py-0.5 rounded-full">
+                    not configured
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {userKey?.hasKey && !isEditing && (
+                  <button
+                    onClick={() => onDelete(provider)}
+                    className="text-danger text-[11px] font-[510] hover:text-danger/80 transition-colors"
+                  >
+                    Remove
+                  </button>
+                )}
+                {!isEditing && (
+                  <button
+                    onClick={() => {
+                      setEditing(provider);
+                      setKeyInput('');
+                    }}
+                    className="text-fg-3 text-[11px] font-[510] hover:text-fg-2 transition-colors"
+                  >
+                    {userKey?.hasKey ? 'Update' : 'Add key'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {isEditing && (
+              <div className="mt-2.5 flex gap-2">
+                <input
+                  type="password"
+                  value={keyInput}
+                  onChange={(e) => setKeyInput(e.target.value)}
+                  placeholder={KEY_PLACEHOLDERS[provider] ?? 'API key…'}
+                  className="flex-1 bg-surface-2 border border-wire rounded-md px-3 py-1.5 text-fg text-xs font-mono placeholder:text-fg-4 focus:outline-none focus:border-accent"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && keyInput.length >= 10) {
+                      onSave(provider, keyInput);
+                      setEditing(null);
+                      setKeyInput('');
+                    }
+                    if (e.key === 'Escape') {
+                      setEditing(null);
+                      setKeyInput('');
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    if (keyInput.length >= 10) {
+                      onSave(provider, keyInput);
+                      setEditing(null);
+                      setKeyInput('');
+                    }
+                  }}
+                  disabled={keyInput.length < 10 || isSaving}
+                  className="text-xs font-[510] px-3 py-1.5 rounded-md bg-brand text-white hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    setEditing(null);
+                    setKeyInput('');
+                  }}
+                  className="text-xs font-[510] px-3 py-1.5 rounded-md bg-surface-3 text-fg-3 hover:text-fg-2 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <p className="text-fg-4 text-xs pt-1">
+        Your keys are encrypted at rest. They are only used for chat requests you make.
+        Server-level keys (set via environment variables) are available to all users.
+      </p>
     </div>
   );
 }

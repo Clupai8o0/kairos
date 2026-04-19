@@ -9,22 +9,42 @@ import {
   deleteTask,
   getTask,
 } from '@/lib/services/tasks';
-import { listTags, createTag } from '@/lib/services/tags';
+import { listTags, createTag, type Tag } from '@/lib/services/tags';
 import { enqueueJob } from '@/lib/services/jobs';
 import { spawnNextOccurrence } from '@/lib/services/recurrence';
 import { db } from '@/lib/db/client';
 import { tasks } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 
-export function createCoreTools(userId: string) {
+async function resolveTagNames(userId: string, names: string[]): Promise<string[]> {
+  if (names.length === 0) return [];
+  const existing = await listTags(userId);
+  const byName = new Map(existing.map((t: Tag) => [t.name.toLowerCase(), t.id]));
+  const ids: string[] = [];
+  for (const name of names) {
+    const found = byName.get(name.toLowerCase());
+    if (found) {
+      ids.push(found);
+    } else {
+      const created = await createTag(userId, { name });
+      byName.set(name.toLowerCase(), created.id);
+      ids.push(created.id);
+    }
+  }
+  return ids;
+}
+
+export function createCoreTools(userId: string, opts?: { skipConfirmation?: boolean }) {
+  const needsApproval = !opts?.skipConfirmation;
   return {
     listTasks: tool({
-      description: 'List tasks, optionally filtered by status or tag.',
+      description:
+        'List all tasks for the current user. Always call this WITHOUT filters first when looking for a task by name. Only use status filter when the user explicitly asks for tasks in a specific status.',
       inputSchema: z.object({
         status: z
           .enum(['pending', 'scheduled', 'in_progress', 'done', 'cancelled'])
           .optional()
-          .describe('Filter by task status'),
+          .describe('Filter by task status — omit to list ALL tasks'),
         tagId: z.string().optional().describe('Filter by tag ID'),
       }),
       execute: async (args) => {
@@ -48,6 +68,7 @@ export function createCoreTools(userId: string) {
     createTask: tool({
       description:
         'Create a new task and enqueue it for automatic scheduling.',
+      needsApproval,
       inputSchema: z.object({
         title: z.string().describe('Task title'),
         description: z.string().optional().describe('Task description'),
@@ -56,10 +77,27 @@ export function createCoreTools(userId: string) {
         schedulable: z.boolean().default(true).describe('Whether the task can be auto-scheduled'),
         bufferMins: z.number().int().min(0).default(15).describe('Buffer minutes after the task'),
         isSplittable: z.boolean().default(false).describe('Whether the task can be split into chunks'),
-        tagIds: z.array(z.string()).default([]).describe('Tag IDs to attach'),
+        tags: z.array(z.string()).default([]).describe('Tag names to attach (created automatically if they don\'t exist)'),
         deadline: z.string().optional().describe('ISO 8601 deadline'),
+        force: z.boolean().default(false).describe('Set to true to create even if a task with the same title already exists'),
       }),
       execute: async (args) => {
+        // Duplicate detection: warn if a task with the same title exists
+        if (!args.force) {
+          const existing = await listTasks(userId, {});
+          const duplicate = existing.find(
+            (t) => t.title.toLowerCase() === args.title.toLowerCase() && t.status !== 'done' && t.status !== 'cancelled',
+          );
+          if (duplicate) {
+            return {
+              duplicate: true,
+              existingTask: { id: duplicate.id, title: duplicate.title, status: duplicate.status },
+              message: `A task called "${duplicate.title}" already exists (status: ${duplicate.status}). Ask the user to confirm, then call createTask again with force: true to create it anyway.`,
+            };
+          }
+        }
+
+        const tagIds = await resolveTagNames(userId, args.tags);
         const task = await createTask(userId, {
           title: args.title,
           description: args.description,
@@ -68,7 +106,7 @@ export function createCoreTools(userId: string) {
           schedulable: args.schedulable,
           bufferMins: args.bufferMins,
           isSplittable: args.isSplittable,
-          tagIds: args.tagIds,
+          tagIds,
           deadline: args.deadline,
           dependsOn: [],
         });
@@ -93,6 +131,7 @@ export function createCoreTools(userId: string) {
     bulkCreateTasks: tool({
       description:
         'Create multiple tasks at once from a single prompt. Use this instead of createTask when the user wants to create 2 or more tasks.',
+      needsApproval,
       inputSchema: z.object({
         tasks: z
           .array(
@@ -104,7 +143,7 @@ export function createCoreTools(userId: string) {
               schedulable: z.boolean().default(true).describe('Whether the task can be auto-scheduled'),
               bufferMins: z.number().int().min(0).default(15).describe('Buffer minutes after the task'),
               isSplittable: z.boolean().default(false).describe('Whether the task can be split into chunks'),
-              tagIds: z.array(z.string()).default([]).describe('Tag IDs to attach'),
+              tags: z.array(z.string()).default([]).describe('Tag names to attach (created automatically if they don\'t exist)'),
               deadline: z.string().optional().describe('ISO 8601 deadline'),
             }),
           )
@@ -113,9 +152,18 @@ export function createCoreTools(userId: string) {
           .describe('Array of tasks to create'),
       }),
       execute: async (args) => {
+        const allNames = [...new Set(args.tasks.flatMap((t) => t.tags))];
+        const resolvedMap = new Map<string, string>();
+        const resolvedIds = await resolveTagNames(userId, allNames);
+        allNames.forEach((name, i) => resolvedMap.set(name.toLowerCase(), resolvedIds[i]));
+
         const created = await createTasksBulk(
           userId,
-          args.tasks.map((t) => ({ ...t, dependsOn: [] })),
+          args.tasks.map((t) => ({
+            ...t,
+            tagIds: t.tags.map((n) => resolvedMap.get(n.toLowerCase())!),
+            dependsOn: [],
+          })),
         );
 
         const schedulable = created.filter((t) => t.schedulable);
@@ -140,8 +188,10 @@ export function createCoreTools(userId: string) {
 
     updateTask: tool({
       description: 'Update an existing task by ID.',
+      needsApproval,
       inputSchema: z.object({
         id: z.string().describe('Task ID to update'),
+        taskName: z.string().optional().describe('Current task title (for display in confirmation UI — always include this)'),
         title: z.string().optional(),
         description: z.string().optional(),
         durationMins: z.number().int().positive().optional(),
@@ -149,15 +199,16 @@ export function createCoreTools(userId: string) {
         schedulable: z.boolean().optional(),
         bufferMins: z.number().int().min(0).optional(),
         isSplittable: z.boolean().optional(),
-        tagIds: z.array(z.string()).optional(),
+        tags: z.array(z.string()).optional().describe('Tag names to set (created automatically if they don\'t exist)'),
         deadline: z.string().nullable().optional(),
         status: z
           .enum(['pending', 'scheduled', 'in_progress', 'done', 'cancelled'])
           .optional(),
       }),
       execute: async (args) => {
-        const { id, ...input } = args;
-        const task = await updateTask(userId, id, input);
+        const { id, tags: tagNames, taskName: _taskName, ...rest } = args;
+        const tagIds = tagNames ? await resolveTagNames(userId, tagNames) : undefined;
+        const task = await updateTask(userId, id, { ...rest, tagIds });
         if (!task) return { error: 'Task not found' };
         return { id: task.id, title: task.title, status: task.status };
       },
@@ -165,20 +216,24 @@ export function createCoreTools(userId: string) {
 
     deleteTask: tool({
       description: 'Delete a task by ID.',
+      needsApproval,
       inputSchema: z.object({
         id: z.string().describe('Task ID to delete'),
+        taskName: z.string().optional().describe('Task title (for display in confirmation UI — always include this)'),
       }),
       execute: async (args) => {
         const result = await deleteTask(userId, args.id);
         if (!result) return { error: 'Task not found' };
-        return { deleted: true, id: result.id };
+        return { deleted: true, id: result.id, title: result.title };
       },
     }),
 
     completeTask: tool({
       description: 'Mark a task as done. Spawns the next occurrence for recurring tasks.',
+      needsApproval,
       inputSchema: z.object({
         id: z.string().describe('Task ID to complete'),
+        taskName: z.string().optional().describe('Task title (for display in confirmation UI — always include this)'),
       }),
       execute: async (args) => {
         const task = await getTask(userId, args.id);

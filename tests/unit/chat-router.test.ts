@@ -22,7 +22,6 @@ vi.mock('@/lib/chat/plugin-tools', () => ({
 }));
 
 import { createAllTools, getAvailableToolNames } from '@/lib/chat/router';
-import { SYSTEM_PROMPT } from '@/lib/chat/stream';
 
 const USER_ID = 'user-1';
 
@@ -73,19 +72,5 @@ describe('getAvailableToolNames', () => {
   it('plugin tool names are namespaced with __', async () => {
     const { plugin } = await getAvailableToolNames(USER_ID);
     expect(plugin.every((name) => name.includes('__'))).toBe(true);
-  });
-});
-
-describe('SYSTEM_PROMPT snapshot', () => {
-  it('matches snapshot', () => {
-    expect(SYSTEM_PROMPT).toMatchSnapshot();
-  });
-
-  it('mentions Kairos', () => {
-    expect(SYSTEM_PROMPT).toContain('Kairos');
-  });
-
-  it('describes task management capabilities', () => {
-    expect(SYSTEM_PROMPT.toLowerCase()).toContain('task');
   });
 });

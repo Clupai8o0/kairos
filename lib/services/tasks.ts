@@ -231,10 +231,10 @@ export async function updateTask(
 export async function deleteTask(
   userId: string,
   id: string,
-): Promise<{ id: string; gcalEventId: string | null } | null> {
+): Promise<{ id: string; title: string; gcalEventId: string | null } | null> {
   const [deleted] = await db
     .delete(tasks)
     .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
-    .returning({ id: tasks.id, gcalEventId: tasks.gcalEventId });
+    .returning({ id: tasks.id, title: tasks.title, gcalEventId: tasks.gcalEventId });
   return deleted ?? null;
 }

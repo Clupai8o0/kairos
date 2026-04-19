@@ -2,8 +2,8 @@
 import { createCoreTools } from './tools';
 import { createPluginTools } from './plugin-tools';
 
-export async function createAllTools(userId: string) {
-  const core = createCoreTools(userId);
+export async function createAllTools(userId: string, opts?: { skipConfirmation?: boolean }) {
+  const core = createCoreTools(userId, opts);
   const plugin = await createPluginTools(userId);
   return { ...core, ...plugin };
 }

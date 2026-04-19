@@ -3,12 +3,14 @@
 import { isTextUIPart, isStaticToolUIPart, type UIMessage } from 'ai';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ToolCallBlock } from './tool-call-block';
+import { ChatMarkdown } from './chat-markdown';
 
 interface TranscriptProps {
   messages: UIMessage[];
+  onApprovalResponse?: (approvalId: string, approved: boolean) => void;
 }
 
-export function Transcript({ messages }: TranscriptProps) {
+export function Transcript({ messages, onApprovalResponse }: TranscriptProps) {
   if (messages.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -45,13 +47,14 @@ export function Transcript({ messages }: TranscriptProps) {
                   <ToolCallBlock
                     key={part.toolCallId}
                     toolPart={part}
+                    onApprovalResponse={onApprovalResponse}
                   />
                 ))}
                 {/* Text content */}
                 {message.parts.filter(isTextUIPart).map((part, i) => (
                   part.text && (
-                    <div key={i} className="text-fg-2 text-[13px] leading-relaxed whitespace-pre-wrap">
-                      {part.text}
+                    <div key={i} className="text-fg-2 text-[13px] leading-relaxed">
+                      <ChatMarkdown content={part.text} />
                     </div>
                   )
                 ))}

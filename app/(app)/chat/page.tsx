@@ -1,10 +1,13 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import { isTextUIPart, type UIMessage } from 'ai';
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { DefaultChatTransport, isTextUIPart, isStaticToolUIPart, type UIMessage } from 'ai';
+import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { Transcript } from '@/components/app/chat/transcript';
 import { Composer } from '@/components/app/chat/composer';
+import { ModelSelector } from '@/components/app/chat/model-selector';
+import { MODELS, DEFAULT_MODEL_ID } from '@/lib/llm/models';
+import { useAiKeys } from '@/lib/hooks/use-ai-keys';
 import { toast } from 'sonner';
 
 const CORE_TOOLS = [
@@ -20,12 +23,60 @@ const CORE_TOOLS = [
 ] as const;
 
 export default function ChatPage() {
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID);
+  const selectedModelRef = useRef(selectedModel);
+  selectedModelRef.current = selectedModel;
+
+  const { data: aiKeys } = useAiKeys();
+
+  // Filter models to those the user has keys for (user key or env key)
+  const availableModels = MODELS.filter((m) => {
+    const userHasKey = aiKeys?.keys.some((k) => k.provider === m.provider && k.hasKey);
+    const envHasKey = aiKeys?.envKeys[m.provider];
+    return userHasKey || envHasKey;
+  });
+
+  // If no keys loaded yet, show all models (will validate server-side)
+  const displayModels = availableModels.length > 0 ? availableModels : MODELS;
+
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: '/api/chat',
+        body: () => ({
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          model: selectedModelRef.current,
+        }),
+      }),
+    [],
+  );
+
   const {
     messages,
     sendMessage,
+    addToolApprovalResponse,
     status,
     error,
-  } = useChat();
+  } = useChat({
+    transport,
+    sendAutomaticallyWhen: ({ messages: msgs }) => {
+      const last = msgs.at(-1);
+      if (!last || last.role !== 'assistant') return false;
+      const toolParts = last.parts.filter(isStaticToolUIPart);
+      const pendingApprovals = toolParts.filter(
+        (p) => p.state === 'approval-requested',
+      );
+      if (pendingApprovals.length > 0) return false;
+      const responded = toolParts.filter(
+        (p) => p.state === 'approval-responded',
+      );
+      return responded.some(
+        (p) =>
+          'approval' in p &&
+          (p.approval as { approved: boolean }).approved === true,
+      );
+    },
+  });
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState('');
@@ -72,11 +123,25 @@ export default function ChatPage() {
     [input, isLoading, sendMessage],
   );
 
+  const handleApprovalResponse = useCallback(
+    (approvalId: string, approved: boolean) => {
+      addToolApprovalResponse({ id: approvalId, approved });
+    },
+    [addToolApprovalResponse],
+  );
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between px-5 h-12 border-b border-wire shrink-0">
-        <h1 className="text-fg text-sm font-[510]">Chat</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-fg text-sm font-[510]">Chat</h1>
+          <ModelSelector
+            models={displayModels}
+            selectedModel={selectedModel}
+            onSelect={setSelectedModel}
+          />
+        </div>
         <button
           onClick={handleCopyMarkdown}
           disabled={messages.length === 0}
@@ -112,7 +177,7 @@ export default function ChatPage() {
 
       {/* Transcript */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <Transcript messages={messages} />
+        <Transcript messages={messages} onApprovalResponse={handleApprovalResponse} />
       </div>
 
       {/* Composer */}
