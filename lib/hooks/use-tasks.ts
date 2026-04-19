@@ -87,7 +87,18 @@ export function useDeleteTask() {
   return useMutation({
     mutationFn: (id: string) =>
       apiFetch<void>(`/api/tasks/${id}`, { method: 'DELETE' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: TASKS_KEY }),
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: TASKS_KEY });
+      const previous = qc.getQueriesData<Task[]>({ queryKey: TASKS_KEY });
+      qc.setQueriesData<Task[]>({ queryKey: TASKS_KEY }, (old) =>
+        old?.filter((t) => t.id !== id),
+      );
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      context?.previous.forEach(([key, data]) => qc.setQueryData(key, data));
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: TASKS_KEY }),
   });
 }
 
@@ -105,6 +116,18 @@ export function useDeleteTaskSeries() {
   return useMutation({
     mutationFn: (id: string) =>
       apiFetch<void>(`/api/tasks/${id}?scope=series`, { method: 'DELETE' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: TASKS_KEY }),
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: TASKS_KEY });
+      const previous = qc.getQueriesData<Task[]>({ queryKey: TASKS_KEY });
+      // Remove the target task; server will also delete siblings in the series
+      qc.setQueriesData<Task[]>({ queryKey: TASKS_KEY }, (old) =>
+        old?.filter((t) => t.id !== id),
+      );
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      context?.previous.forEach(([key, data]) => qc.setQueryData(key, data));
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: TASKS_KEY }),
   });
 }

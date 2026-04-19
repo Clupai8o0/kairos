@@ -311,5 +311,46 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
         return { enqueued: true, message: 'Full schedule run enqueued.' };
       },
     }),
+
+    bulkUpdateTasks: tool({
+      description:
+        'Update multiple tasks at once. Use this instead of calling updateTask repeatedly when the user wants to change several tasks simultaneously.',
+      needsApproval,
+      inputSchema: z.object({
+        updates: z
+          .array(
+            z.object({
+              id: z.string().describe('Task ID to update'),
+              taskName: z.string().optional().describe('Current task title (for display in confirmation UI)'),
+              title: z.string().optional(),
+              description: z.string().optional(),
+              durationMins: z.number().int().positive().optional(),
+              priority: z.number().int().min(1).max(4).optional(),
+              schedulable: z.boolean().optional(),
+              bufferMins: z.number().int().min(0).optional(),
+              isSplittable: z.boolean().optional(),
+              tags: z.array(z.string()).optional().describe('Tag names to set'),
+              deadline: z.string().nullable().optional(),
+              status: z.enum(['pending', 'scheduled', 'in_progress', 'done', 'cancelled']).optional(),
+            }),
+          )
+          .min(1)
+          .max(25)
+          .describe('Array of task updates to apply'),
+      }),
+      execute: async (args) => {
+        const results = await Promise.all(
+          args.updates.map(async ({ id, tags: tagNames, taskName: _taskName, ...rest }) => {
+            const tagIds = tagNames ? await resolveTagNames(userId, tagNames) : undefined;
+            const task = await updateTask(userId, id, { ...rest, tagIds });
+            if (!task) return { id, error: 'Task not found' };
+            return { id: task.id, title: task.title, status: task.status };
+          }),
+        );
+        const succeeded = results.filter((r) => !('error' in r)).length;
+        const failed = results.filter((r) => 'error' in r).length;
+        return { updated: succeeded, failed, results };
+      },
+    }),
   };
 }

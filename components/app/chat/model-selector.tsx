@@ -7,6 +7,8 @@ interface ModelEntry {
   provider: 'openai' | 'anthropic' | 'google' | 'ollama';
   label: string;
   contextWindow: string;
+  inputCost?: number;
+  outputCost?: number;
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -91,7 +93,14 @@ export function ModelSelector({ models, selectedModel, onSelect }: ModelSelector
                         {m.label}
                       </span>
                     </div>
-                    <span className="text-fg-4 text-[10px] shrink-0 ml-2">{m.contextWindow}</span>
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      {m.inputCost != null && (
+                        <span className="text-fg-4 text-[10px]" title={`$${m.inputCost.toFixed(2)} in / $${m.outputCost?.toFixed(2)} out per 1M tokens`}>
+                          ${m.inputCost < 1 ? m.inputCost.toFixed(2) : m.inputCost.toFixed(0)}/{m.outputCost != null && (m.outputCost < 1 ? m.outputCost.toFixed(2) : m.outputCost.toFixed(0))}
+                        </span>
+                      )}
+                      <span className="text-fg-4 text-[10px]">{m.contextWindow}</span>
+                    </div>
                   </button>
                 ))}
               </div>

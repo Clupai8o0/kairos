@@ -4,6 +4,14 @@ import { db } from '@/lib/db/client';
 import { taskTags, tags, tasks } from '@/lib/db/schema';
 import { newId } from '@/lib/utils/id';
 
+/** Parse a date string — date-only (YYYY-MM-DD) uses noon UTC to avoid timezone-shift */
+function parseDateSafe(dateStr: string): Date {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return new Date(dateStr + 'T12:00:00Z');
+  }
+  return new Date(dateStr);
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export type TaskWithTags = typeof tasks.$inferSelect & {
@@ -137,7 +145,7 @@ export async function createTask(
     id,
     userId,
     ...rest,
-    deadline: deadline ? new Date(deadline) : undefined,
+    deadline: deadline ? parseDateSafe(deadline) : undefined,
     recurrenceRule: recurrenceRule ?? undefined,
     preferredTemplateId: preferredTemplateId ?? undefined,
     scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
@@ -170,7 +178,7 @@ export async function createTasksBulk(
       id,
       userId,
       ...rest,
-      deadline: deadline ? new Date(deadline) : undefined,
+      deadline: deadline ? parseDateSafe(deadline) : undefined,
       recurrenceRule: recurrenceRule ?? undefined,
       preferredTemplateId: preferredTemplateId ?? undefined,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
@@ -197,7 +205,7 @@ export async function updateTask(
 
   const patch: Partial<typeof tasks.$inferInsert> = { ...rest, updatedAt: new Date() };
   if (deadline !== undefined) {
-    patch.deadline = deadline ? new Date(deadline) : null;
+    patch.deadline = deadline ? parseDateSafe(deadline) : null;
   }
   if (recurrenceRule !== undefined) {
     patch.recurrenceRule = recurrenceRule ?? null;

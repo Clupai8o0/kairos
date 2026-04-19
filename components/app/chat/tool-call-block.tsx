@@ -19,19 +19,24 @@ const TOOL_ICONS: Record<string, string> = {
   createTask: '＋',
   bulkCreateTasks: '＋＋',
   updateTask: '✎',
+  bulkUpdateTasks: '✎✎',
   deleteTask: '✕',
   completeTask: '✓',
   listTasks: '☰',
-  listTags: '⁕',
+  listTags: '⁏',
   createTag: '#',
   listSchedule: '▦',
   runSchedule: '▶',
+  createGCalEvent: '▣',
+  listGCalEvents: '▢',
+  deleteGCalEvent: '✕',
 };
 
 const TOOL_LABELS: Record<string, string> = {
   createTask: 'Create Task',
   bulkCreateTasks: 'Bulk Create',
   updateTask: 'Update Task',
+  bulkUpdateTasks: 'Bulk Update',
   deleteTask: 'Delete Task',
   completeTask: 'Complete Task',
   listTasks: 'List Tasks',
@@ -39,11 +44,23 @@ const TOOL_LABELS: Record<string, string> = {
   createTag: 'Create Tag',
   listSchedule: 'Schedule',
   runSchedule: 'Run Schedule',
+  createGCalEvent: 'Create Event',
+  listGCalEvents: 'List Events',
+  deleteGCalEvent: 'Delete Event',
 };
 
 // ── Detail builders ──────────────────────────────────────────────────────
 
 type Detail = { label: string; value: string; color?: string };
+
+/** Parse a date string safely — date-only (YYYY-MM-DD) is treated as local, not UTC */
+function formatDateSafe(dateStr: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString();
+  }
+  return new Date(dateStr).toLocaleDateString();
+}
 
 function getActionDetails(toolName: string, input: unknown): { title: string; details: Detail[] } {
   const args = input as Record<string, unknown>;
@@ -54,7 +71,7 @@ function getActionDetails(toolName: string, input: unknown): { title: string; de
       if (args.priority && (args.priority as number) !== 3)
         details.push({ label: 'Priority', value: PRIORITY_LABELS[args.priority as number] ?? String(args.priority), color: PRIORITY_COLORS[args.priority as number] });
       if (args.durationMins) details.push({ label: 'Duration', value: `${args.durationMins} min` });
-      if (args.deadline) details.push({ label: 'Deadline', value: new Date(args.deadline as string).toLocaleDateString() });
+      if (args.deadline) details.push({ label: 'Deadline', value: formatDateSafe(args.deadline as string) });
       if (args.tags && (args.tags as string[]).length > 0) details.push({ label: 'Tags', value: (args.tags as string[]).join(', ') });
       if (args.schedulable === false) details.push({ label: 'Schedulable', value: 'No' });
       if (args.isSplittable) details.push({ label: 'Splittable', value: 'Yes' });
@@ -75,7 +92,7 @@ function getActionDetails(toolName: string, input: unknown): { title: string; de
       const details: Detail[] = [];
       if (args.title) details.push({ label: 'Rename', value: String(args.title) });
       if (args.priority) details.push({ label: 'Priority', value: PRIORITY_LABELS[args.priority as number] ?? String(args.priority), color: PRIORITY_COLORS[args.priority as number] });
-      if (args.deadline) details.push({ label: 'Deadline', value: new Date(args.deadline as string).toLocaleDateString() });
+      if (args.deadline) details.push({ label: 'Deadline', value: formatDateSafe(args.deadline as string) });
       if (args.deadline === null) details.push({ label: 'Deadline', value: 'Remove' });
       if (args.status) details.push({ label: 'Status', value: String(args.status) });
       if (args.tags) details.push({ label: 'Tags', value: (args.tags as string[]).join(', ') });
@@ -88,6 +105,24 @@ function getActionDetails(toolName: string, input: unknown): { title: string; de
 
     case 'completeTask':
       return { title: (args.taskName as string) ?? 'Task', details: [] };
+
+    case 'bulkUpdateTasks': {
+      const updates = (args.updates as Array<{ taskName?: string; title?: string; priority?: number; status?: string }>) ?? [];
+      return {
+        title: `${updates.length} task${updates.length === 1 ? '' : 's'}`,
+        details: updates.map((u, i) => ({ label: `#${i + 1}`, value: u.taskName ?? u.title ?? 'Task' })),
+      };
+    }
+
+    case 'createGCalEvent': {
+      const details: Detail[] = [];
+      if (args.start) details.push({ label: 'Start', value: new Date(args.start as string).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) });
+      if (args.end) details.push({ label: 'End', value: new Date(args.end as string).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) });
+      return { title: (args.eventName as string) ?? (args.summary as string) ?? 'Event', details };
+    }
+
+    case 'deleteGCalEvent':
+      return { title: (args.eventName as string) ?? 'Event', details: [] };
 
     default:
       return { title: toolName, details: [] };
@@ -125,6 +160,20 @@ function getResultSummary(toolName: string, result: unknown): { title: string; s
       return { title: 'Schedule run enqueued', variant: 'success' };
     case 'createTag':
       return { title: `Tag "${r.name}" created`, variant: 'success' };
+    case 'bulkUpdateTasks': {
+      const updated = r.updated as number;
+      const failed = r.failed as number;
+      if (failed > 0) return { title: `${updated} updated, ${failed} failed`, variant: 'warning' };
+      return { title: `${updated} task${updated === 1 ? '' : 's'} updated`, variant: 'success' };
+    }
+    case 'createGCalEvent':
+      return r.error ? { title: String(r.error), variant: 'error' } : { title: `"${r.summary}" created`, subtitle: `${new Date(r.start as string).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}`, variant: 'success' };
+    case 'listGCalEvents': {
+      const items = Array.isArray(result) ? result : [];
+      return { title: `${items.length} event${items.length === 1 ? '' : 's'} found`, variant: 'neutral' };
+    }
+    case 'deleteGCalEvent':
+      return r.error ? { title: String(r.error), variant: 'error' } : { title: 'Event deleted', variant: 'success' };
     default:
       return { title: 'Done', variant: 'success' };
   }
@@ -151,7 +200,7 @@ export function ToolCallBlock({ toolPart, onApprovalResponse }: ToolCallBlockPro
   const { state } = toolPart;
   const icon = TOOL_ICONS[toolName] ?? '•';
   const label = TOOL_LABELS[toolName] ?? toolName;
-  const isMutating = ['createTask', 'bulkCreateTasks', 'updateTask', 'deleteTask', 'completeTask'].includes(toolName);
+  const isMutating = ['createTask', 'bulkCreateTasks', 'updateTask', 'bulkUpdateTasks', 'deleteTask', 'completeTask', 'createGCalEvent', 'deleteGCalEvent'].includes(toolName);
 
   // Compact inline pill for read-only tools (list, schedule)
   if (!isMutating) {
@@ -232,14 +281,24 @@ export function ToolCallBlock({ toolPart, onApprovalResponse }: ToolCallBlockPro
       })()}
 
       {/* Body — approved, waiting for result */}
-      {state === 'approval-responded' && !('output' in toolPart) && toolPart.approval.approved && (
-        <div className="px-3 py-2.5">
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-            <p className="text-fg-4 text-xs">Running…</p>
+      {state === 'approval-responded' && !('output' in toolPart) && toolPart.approval.approved && (() => {
+        const { title } = getActionDetails(toolName, toolPart.input);
+        return (
+          <div className="px-3 py-2.5 space-y-1.5">
+            <p className="text-fg-2 text-xs font-medium">{title}</p>
+            <div className="flex items-center gap-2">
+              <span className="flex gap-0.5">
+                <span className="w-1 h-1 rounded-full bg-accent animate-bounce [animation-delay:0ms]" />
+                <span className="w-1 h-1 rounded-full bg-accent animate-bounce [animation-delay:150ms]" />
+                <span className="w-1 h-1 rounded-full bg-accent animate-bounce [animation-delay:300ms]" />
+              </span>
+              <span className="text-fg-4 text-[11px]">
+                {toolName === 'deleteTask' || toolName === 'deleteGCalEvent' ? 'Deleting…' : toolName === 'completeTask' ? 'Completing…' : toolName === 'updateTask' || toolName === 'bulkUpdateTasks' ? 'Updating…' : toolName === 'createGCalEvent' ? 'Creating…' : 'Running…'}
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Body — denied */}
       {state === 'approval-responded' && !('output' in toolPart) && !toolPart.approval.approved && (() => {
