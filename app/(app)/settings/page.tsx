@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useCalendars, useUpdateCalendar, useSyncCalendars } from '@/lib/hooks/use-calendars';
 import { usePlugins, useTogglePlugin } from '@/lib/hooks/use-plugins';
 import { useAiKeys, useSetAiKey, useDeleteAiKey } from '@/lib/hooks/use-ai-keys';
+import { usePreferences, useUpdatePreferences } from '@/lib/hooks/use-preferences';
 import { ScheduleSection } from '@/components/app/schedule-section';
 import { BlackoutsSection } from '@/components/app/blackouts-section';
 import { authClient } from '@/lib/auth/client';
@@ -55,6 +56,8 @@ export default function SettingsPage() {
   const { data: aiKeys, isLoading: aiKeysLoading } = useAiKeys();
   const setAiKey = useSetAiKey();
   const deleteAiKey = useDeleteAiKey();
+  const { data: prefs } = usePreferences();
+  const updatePrefs = useUpdatePreferences();
   const { data: session } = authClient.useSession();
   const router = useRouter();
 
@@ -94,6 +97,86 @@ export default function SettingsPage() {
 
         {/* Blackout blocks */}
         <BlackoutsSection />
+
+        {/* Task defaults */}
+        <Section title="Task defaults" description="Applied when you create a new task.">
+          {prefs ? (
+            <div className="px-4 py-3 rounded-lg bg-ghost border border-wire-2 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-fg-4 text-[10px] font-[510] uppercase tracking-wide mb-1">Buffer (min)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={120}
+                    defaultValue={prefs.defaultBufferMins}
+                    onBlur={(e) => {
+                      const v = Number(e.target.value);
+                      if (!isNaN(v) && v !== prefs.defaultBufferMins) {
+                        const p = updatePrefs.mutateAsync({ defaultBufferMins: v });
+                        toast.promise(p, { loading: 'Saving…', success: 'Saved', error: (e) => (e as Error)?.message ?? 'Failed' });
+                      }
+                    }}
+                    className="w-full bg-surface border border-wire rounded px-2.5 py-1.5 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-fg-4 text-[10px] font-[510] uppercase tracking-wide mb-1">Duration (min)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    defaultValue={prefs.defaultDurationMins ?? ''}
+                    placeholder="None"
+                    onBlur={(e) => {
+                      const raw = e.target.value;
+                      const v = raw ? Number(raw) : null;
+                      if (v !== prefs.defaultDurationMins) {
+                        const p = updatePrefs.mutateAsync({ defaultDurationMins: v });
+                        toast.promise(p, { loading: 'Saving…', success: 'Saved', error: (e) => (e as Error)?.message ?? 'Failed' });
+                      }
+                    }}
+                    className="w-full bg-surface border border-wire rounded px-2.5 py-1.5 text-sm text-fg placeholder:text-fg-4 focus:outline-none focus:border-accent transition-colors"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-fg-4 text-[10px] font-[510] uppercase tracking-wide mb-1">Priority</label>
+                  <select
+                    defaultValue={prefs.defaultPriority}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      if (v !== prefs.defaultPriority) {
+                        const p = updatePrefs.mutateAsync({ defaultPriority: v });
+                        toast.promise(p, { loading: 'Saving…', success: 'Saved', error: (e) => (e as Error)?.message ?? 'Failed' });
+                      }
+                    }}
+                    className="w-full bg-surface border border-wire rounded px-2.5 py-1.5 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
+                  >
+                    <option value={1}>Urgent</option>
+                    <option value={2}>High</option>
+                    <option value={3}>Normal</option>
+                    <option value={4}>Low</option>
+                  </select>
+                </div>
+                <div className="flex items-end pb-1.5">
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <Toggle
+                      checked={prefs.defaultSchedulable}
+                      onChange={(v) => {
+                        const p = updatePrefs.mutateAsync({ defaultSchedulable: v });
+                        toast.promise(p, { loading: 'Saving…', success: 'Saved', error: (e) => (e as Error)?.message ?? 'Failed' });
+                      }}
+                    />
+                    <span className="text-fg-2 text-sm">Auto-schedule by default</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="h-24 bg-ghost rounded-lg animate-pulse" />
+          )}
+        </Section>
 
         {/* Account */}
         <Section title="Account">
@@ -203,6 +286,28 @@ export default function SettingsPage() {
                       disabled={updateCalendar.isPending || !cal.selected}
                     />
                   </label>
+                  <button
+                    onClick={() =>
+                      !cal.isWriteCalendar &&
+                      toast.promise(
+                        updateCalendar.mutateAsync({ id: cal.id, isWriteCalendar: true }),
+                        {
+                          loading: 'Updating…',
+                          success: `Events will be created in ${cal.name}`,
+                          error: 'Failed to update',
+                        },
+                      )
+                    }
+                    disabled={updateCalendar.isPending || cal.isWriteCalendar}
+                    className={[
+                      'text-[11px] font-[510] px-2 py-0.5 rounded border transition-colors',
+                      cal.isWriteCalendar
+                        ? 'border-accent text-accent cursor-default'
+                        : 'border-wire text-fg-4 hover:border-accent hover:text-accent',
+                    ].join(' ')}
+                  >
+                    {cal.isWriteCalendar ? 'Write ✓' : 'Write'}
+                  </button>
                 </div>
               </div>
             ))

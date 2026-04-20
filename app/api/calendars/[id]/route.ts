@@ -7,7 +7,8 @@ import { updateCalendar } from '@/lib/services/calendars';
 const PatchCalendarSchema = z.object({
   selected: z.boolean().optional(),
   showAsBusy: z.boolean().optional(),
-}).refine((d) => d.selected !== undefined || d.showAsBusy !== undefined, {
+  isWriteCalendar: z.boolean().optional(),
+}).refine((d) => d.selected !== undefined || d.showAsBusy !== undefined || d.isWriteCalendar !== undefined, {
   message: 'Provide at least one field to update',
 });
 

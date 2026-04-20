@@ -30,6 +30,11 @@ export type GCalAdapter = {
     chunk: PlacedChunk,
     existingEventId?: string | null,
   ): Promise<string>; // returns gcalEventId
+
+  deleteEvent(
+    calendarId: string,
+    eventId: string,
+  ): Promise<void>;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -104,6 +109,12 @@ export async function scheduleSingleTask(
   const doneSet = buildDoneSet(userTasks);
   if (target.dependsOn.some((depId) => !doneSet.has(depId))) return null;
 
+  // Delete the task's existing GCal event BEFORE querying free/busy so its old slot
+  // doesn't appear as occupied and the scheduler can freely place the task anywhere.
+  if (gcal && target.gcalEventId) {
+    await gcal.deleteEvent('primary', target.gcalEventId).catch(() => {});
+  }
+
   // Fetch busy intervals (or empty if GCal not available)
   // Also treat other users' locked tasks as busy so we don't schedule into their time
   const lockedBusy: BusyInterval[] = userTasks
@@ -136,9 +147,10 @@ export async function scheduleSingleTask(
   const durationMs = Date.now() - start;
 
   if (placed) {
-    let gcalEventId: string | null = target.gcalEventId ?? null;
+    // Old event was already deleted above — always insert a fresh one
+    let gcalEventId: string | null = null;
     if (gcal) {
-      gcalEventId = await gcal.upsertEvent('primary', target, placed, gcalEventId);
+      gcalEventId = await gcal.upsertEvent('primary', target, placed, null);
     }
 
     await db
@@ -150,6 +162,12 @@ export async function scheduleSingleTask(
         gcalEventId: gcalEventId ?? undefined,
         updatedAt: new Date(),
       })
+      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+  } else {
+    // No slot found — clear any stale DB state (GCal event already deleted above)
+    await db
+      .update(tasks)
+      .set({ status: 'pending', scheduledAt: null, scheduledEnd: null, gcalEventId: null, updatedAt: new Date() })
       .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
   }
 
@@ -185,9 +203,11 @@ export async function scheduleFullRunChunk(
 
   const { userTasks: rawTasks, windows, blackouts, templates } = await loadContext(userId);
 
-  // Unlock tasks whose locked time has passed so the auto-scheduler can reclaim them
+  // Unlock tasks whose deadline has been exceeded — the user missed the window, so
+  // the scheduler reclaims the slot. Tasks without a deadline stay locked until the
+  // user explicitly unlocks them via the UI or chat.
   const pastLockedIds = rawTasks
-    .filter((t) => t.timeLocked && t.scheduledAt && t.scheduledAt < now)
+    .filter((t) => t.timeLocked && t.deadline && t.deadline < now)
     .map((t) => t.id);
 
   if (pastLockedIds.length > 0) {
@@ -206,6 +226,18 @@ export async function scheduleFullRunChunk(
 
   const doneSet = buildDoneSet(userTasks);
   const candidates = selectCandidates(userTasks, doneSet, now).slice(0, CHUNK_SIZE);
+
+  // Delete existing GCal events for all candidates BEFORE querying free/busy.
+  // This prevents their old slots from appearing occupied and lets the scheduler
+  // place everything fresh from the current time.
+  if (gcal) {
+    const toDelete = candidates.filter((t) => t.gcalEventId);
+    if (toDelete.length > 0) {
+      await Promise.allSettled(
+        toDelete.map((t) => gcal.deleteEvent('primary', t.gcalEventId!)),
+      );
+    }
+  }
 
   // Treat still-locked tasks as busy so free-slot computation respects them
   const lockedBusy: BusyInterval[] = userTasks
@@ -229,6 +261,7 @@ export async function scheduleFullRunChunk(
 
   const scheduledIds: string[] = [];
   const gcalUpdates: Array<{ id: string; gcalEventId: string | null; start: Date; end: Date }> = [];
+  const unplacedIds: string[] = [];
 
   for (const task of candidates) {
     const rankedSlots = rankSlotsForTask(freeSlots, task, tmpl);
@@ -239,11 +272,16 @@ export async function scheduleFullRunChunk(
       placed = chunks?.[0] ?? null;
     }
 
-    if (!placed) continue;
+    if (!placed) {
+      // GCal event already deleted above — just track for DB reset
+      if (task.status === 'scheduled') unplacedIds.push(task.id);
+      continue;
+    }
 
-    let gcalEventId: string | null = task.gcalEventId ?? null;
+    // Old event was pre-deleted — always create a fresh one
+    let gcalEventId: string | null = null;
     if (gcal) {
-      gcalEventId = await gcal.upsertEvent('primary', task, placed, gcalEventId);
+      gcalEventId = await gcal.upsertEvent('primary', task, placed, null);
     }
 
     const consumed = placementConsumedRange(task, placed);
@@ -254,7 +292,6 @@ export async function scheduleFullRunChunk(
   }
 
   if (scheduledIds.length > 0) {
-    // Batch-update scheduled tasks
     await Promise.all(
       gcalUpdates.map(({ id, gcalEventId, start, end }) =>
         db
@@ -269,6 +306,14 @@ export async function scheduleFullRunChunk(
           .where(and(eq(tasks.id, id), eq(tasks.userId, userId))),
       ),
     );
+  }
+
+  // Reset tasks that couldn't be placed — GCal events already deleted above
+  if (unplacedIds.length > 0) {
+    await db
+      .update(tasks)
+      .set({ status: 'pending', scheduledAt: null, scheduledEnd: null, gcalEventId: null, updatedAt: new Date() })
+      .where(and(inArray(tasks.id, unplacedIds), eq(tasks.userId, userId)));
   }
 
   const remaining = candidates.length - scheduledIds.length;

@@ -31,6 +31,59 @@ function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+function computeColumnLayout(
+  items: Array<{ id: string; startMins: number; endMins: number }>,
+): Map<string, { col: number; totalCols: number }> {
+  if (items.length === 0) return new Map();
+
+  const sorted = [...items].sort((a, b) => a.startMins - b.startMins);
+  const colEnds: number[] = [];
+  const itemCols = new Map<string, number>();
+
+  for (const item of sorted) {
+    let placed = false;
+    for (let c = 0; c < colEnds.length; c++) {
+      if (colEnds[c] <= item.startMins) {
+        colEnds[c] = item.endMins;
+        itemCols.set(item.id, c);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      itemCols.set(item.id, colEnds.length);
+      colEnds.push(item.endMins);
+    }
+  }
+
+  // BFS to find transitively overlapping groups and assign totalCols
+  const result = new Map<string, { col: number; totalCols: number }>();
+  const visited = new Set<string>();
+
+  for (const item of sorted) {
+    if (visited.has(item.id)) continue;
+    const group: typeof sorted = [];
+    const queue = [item];
+    while (queue.length > 0) {
+      const curr = queue.pop()!;
+      if (visited.has(curr.id)) continue;
+      visited.add(curr.id);
+      group.push(curr);
+      for (const other of sorted) {
+        if (!visited.has(other.id) && other.startMins < curr.endMins && other.endMins > curr.startMins) {
+          queue.push(other);
+        }
+      }
+    }
+    const totalCols = Math.max(...group.map((i) => itemCols.get(i.id) ?? 0)) + 1;
+    for (const i of group) {
+      result.set(i.id, { col: itemCols.get(i.id) ?? 0, totalCols });
+    }
+  }
+
+  return result;
+}
+
 interface EventBlockProps {
   top: number;
   height: number;
@@ -41,12 +94,16 @@ interface EventBlockProps {
   isDragging?: boolean;
   onClick?: () => void;
   onPointerDown?: (e: React.PointerEvent) => void;
+  col?: number;
+  totalCols?: number;
 }
 
-function EventBlock({ top, height, label, sublabel, color, isTask, isDragging, onClick, onPointerDown }: EventBlockProps) {
+function EventBlock({ top, height, label, sublabel, color, isTask, isDragging, onClick, onPointerDown, col = 0, totalCols = 1 }: EventBlockProps) {
   const h = Math.max(18, height);
+  const leftStyle: React.CSSProperties['left'] = col === 0 ? 2 : `calc(${(col / totalCols) * 100}% + 1px)`;
+  const rightStyle: React.CSSProperties['right'] = col === totalCols - 1 ? 2 : `calc(${((totalCols - col - 1) / totalCols) * 100}% + 1px)`;
   const style: React.CSSProperties = {
-    position: 'absolute', top, height: h, left: 2, right: 2,
+    position: 'absolute', top, height: h, left: leftStyle, right: rightStyle,
     opacity: isDragging ? 0.5 : 1,
     backgroundColor: isTask ? 'var(--color-task-event-bg)' : color,
     borderLeft: isTask ? `3px ${isDragging ? 'dashed' : 'solid'} var(--color-accent)` : undefined,
@@ -193,6 +250,20 @@ export function CalendarWeek({
               return s >= dayStart && s <= dayEnd;
             });
 
+            const colLayout = computeColumnLayout([
+              ...dayEvents.map((e) => {
+                const s = new Date(e.start);
+                const startMins = toMins(s);
+                const durationMins = Math.max(15, Math.round((new Date(e.end).getTime() - s.getTime()) / 60000));
+                return { id: e.id, startMins, endMins: startMins + durationMins };
+              }),
+              ...dayTasks.map((t) => {
+                const s = new Date(t.scheduledAt!);
+                const startMins = toMins(s);
+                return { id: t.id, startMins, endMins: startMins + (t.durationMins ?? 30) };
+              }),
+            ]);
+
             const showGhost = dragState
               && (dragState.mode === 'move' || dragState.mode === 'create')
               && dragState.dayIndex === dayIdx;
@@ -219,6 +290,7 @@ export function CalendarWeek({
                   const isSource = dragState?.sourceId === event.id;
                   const effectiveEnd = isSource && dragState?.mode === 'resize'
                     ? dragState.endMins : startMins + durationMins;
+                  const layout = colLayout.get(event.id);
                   return (
                     <EventBlock
                       key={event.id}
@@ -230,6 +302,8 @@ export function CalendarWeek({
                       isDragging={isSource && dragState?.mode === 'move'}
                       onClick={onEventClick ? () => onEventClick(event) : undefined}
                       onPointerDown={(ev) => handleBlockPointerDown(ev, event.id, 'event', dayIdx, startMins, startMins + durationMins)}
+                      col={layout?.col}
+                      totalCols={layout?.totalCols}
                     />
                   );
                 })}
@@ -241,6 +315,7 @@ export function CalendarWeek({
                   const isSource = dragState?.sourceId === task.id;
                   const effectiveEnd = isSource && dragState?.mode === 'resize'
                     ? dragState.endMins : startMins + durationMins;
+                  const layout = colLayout.get(task.id);
                   return (
                     <EventBlock
                       key={task.id}
@@ -252,6 +327,8 @@ export function CalendarWeek({
                       isDragging={isSource && dragState?.mode === 'move'}
                       onClick={onTaskClick ? () => onTaskClick(task) : undefined}
                       onPointerDown={(ev) => handleBlockPointerDown(ev, task.id, 'task', dayIdx, startMins, startMins + durationMins)}
+                      col={layout?.col}
+                      totalCols={layout?.totalCols}
                     />
                   );
                 })}

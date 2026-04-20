@@ -5,6 +5,10 @@ import { requireAuth } from '@/lib/auth/helpers';
 import { getTask, updateTask } from '@/lib/services/tasks';
 import { deleteInstance, deleteSeries } from '@/lib/services/recurrence';
 import { enqueueJob } from '@/lib/services/jobs';
+import { db } from '@/lib/db/client';
+import { tasks } from '@/lib/db/schema';
+import { and, eq } from 'drizzle-orm';
+import { getWriteCalendarId } from '@/lib/gcal/calendars';
 
 const UpdateTaskSchema = z.object({
   title: z.string().min(1).max(500).optional(),
@@ -51,6 +55,21 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const task = await updateTask(userId, id, parsed.data);
   if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  // GCal cleanup: when a task becomes non-schedulable or terminal, remove its calendar event
+  const becomesNonSchedulable = parsed.data.schedulable === false;
+  const becomesTerminal = parsed.data.status === 'done' || parsed.data.status === 'cancelled';
+  if ((becomesNonSchedulable || becomesTerminal) && task.gcalEventId) {
+    const gcalEventId = task.gcalEventId;
+    // Clear scheduled fields synchronously, delete the GCal event fire-and-forget
+    await db
+      .update(tasks)
+      .set({ scheduledAt: null, scheduledEnd: null, gcalEventId: null, updatedAt: new Date() })
+      .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+    Promise.all([import('@/lib/gcal/events'), getWriteCalendarId(userId)])
+      .then(([{ deleteEvent }, calId]) => deleteEvent(userId, calId, gcalEventId))
+      .catch(() => {});
+  }
 
   // Re-schedule logic: manual placement vs auto-schedule
   const isManualPlacement = 'scheduledAt' in parsed.data && parsed.data.scheduledAt !== null;
@@ -110,23 +129,21 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     // Fire-and-forget: remove the associated GCal event if one exists
     if (deleted.gcalEventId) {
       const gcalEventId = deleted.gcalEventId;
-      import('@/lib/gcal/events')
-        .then(({ deleteEvent }) => deleteEvent(userId, 'primary', gcalEventId))
+      Promise.all([import('@/lib/gcal/events'), getWriteCalendarId(userId)])
+        .then(([{ deleteEvent }, calId]) => deleteEvent(userId, calId, gcalEventId))
         .catch(() => {});
     }
   } else {
-    // Delete entire series
     const result = await deleteSeries(userId, id);
     if (result.deletedIds.length === 0) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
-    // Fire-and-forget: remove all associated GCal events
     if (result.gcalEventIds.length > 0) {
-      import('@/lib/gcal/events')
-        .then(({ deleteEvent }) => {
-          result.gcalEventIds.forEach(gcalEventId => 
-            deleteEvent(userId, 'primary', gcalEventId).catch(() => {})
+      Promise.all([import('@/lib/gcal/events'), getWriteCalendarId(userId)])
+        .then(([{ deleteEvent }, calId]) => {
+          result.gcalEventIds.forEach((gcalEventId) =>
+            deleteEvent(userId, calId, gcalEventId).catch(() => {}),
           );
         })
         .catch(() => {});

@@ -6,7 +6,19 @@ const BASE_PROMPT = `You are Kairos, an AI scheduling assistant. You help users 
 
 You have access to tools for managing tasks, tags, scheduling, and Google Calendar events. Use them when the user asks to create, update, delete, or query their tasks, schedule, or calendar events.
 
-TASKS vs EVENTS: Use createTask for schedulable work items (things that need to be done). Use createGCalEvent for calendar events like meetings, appointments, blocked time, or anything that lives on the calendar at a fixed time. When the user says "schedule a meeting" or "block time" or "add an event", use createGCalEvent. When they say "add a task" or "I need to do X", use createTask.
+TASKS vs EVENTS:
+- Use createTask for work items (things that need to be done). This includes cases where the user wants to schedule a task at a specific time — use createTask with timeLocked: true, scheduledAt, and scheduledEnd.
+- Use createGCalEvent ONLY for non-task calendar entries: external meetings, appointments, or personal events that are NOT work items.
+- "Block off time for [task]", "schedule [task] for [time]", "lock [task] to [time]" → createTask with timeLocked: true. NOT createGCalEvent.
+- "Add a meeting", "block a slot for a call", "I have a dentist appointment" → createGCalEvent.
+
+TIME-LOCKED TASKS: When the user pins a task to a specific time, use createTask with:
+  - timeLocked: true
+  - scheduledAt: ISO 8601 with timezone offset (e.g. "2026-04-27T09:00:00+01:00") — NEVER a bare datetime without offset
+  - scheduledEnd: scheduledAt + durationMins
+The task will appear on the calendar and won't be moved by the auto-scheduler.
+
+DATETIME FORMAT: Always include the timezone offset in scheduledAt/scheduledEnd (e.g. "+01:00", "+00:00", "-05:00"). Never pass bare datetimes like "2026-04-27T09:00:00" — always include the offset derived from the current timezone in the system prompt.
 
 When creating or updating tasks, use sensible defaults for any fields the user does not specify. Never ask the user for optional details like priority, duration, buffer, splittability, or deadline — just use the defaults and act immediately. Only ask clarifying questions when the request is genuinely ambiguous (e.g. which of several tasks to delete).
 
@@ -16,7 +28,9 @@ When calling updateTask, deleteTask, or completeTask, always include the taskNam
 
 BULK OPERATIONS: When the user wants to update multiple tasks at once, use bulkUpdateTasks instead of calling updateTask repeatedly. When creating multiple tasks, use bulkCreateTasks.
 
-Be concise and helpful. When you create or modify tasks or events, confirm what you did.`;
+Be concise and helpful. When you create or modify tasks or events, confirm what you did.
+
+You can also answer general questions, explain concepts, help with writing, or assist with anything else the user asks — you are not limited to scheduling tasks.`;
 
 function buildSystemPrompt(timezone?: string): string {
   const tz = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -32,7 +46,12 @@ function buildSystemPrompt(timezone?: string): string {
     hour12: true,
   });
   const iso = now.toLocaleDateString('en-CA', { timeZone: tz }); // YYYY-MM-DD
-  return `${BASE_PROMPT}\n\nCurrent date and time: ${human} (${iso}, ${tz}). When the user says "next Monday", "tomorrow", etc., compute the exact date from this anchor. "Next Monday" means the coming Monday — if today is Sunday, that is tomorrow.\n\nIMPORTANT: For deadline and date fields in tool calls, always use YYYY-MM-DD format (e.g. "2026-04-27"), NOT a full ISO datetime. This avoids timezone-shifting bugs.`;
+  const offsetMins = -now.getTimezoneOffset();
+  const sign = offsetMins >= 0 ? '+' : '-';
+  const hh = String(Math.floor(Math.abs(offsetMins) / 60)).padStart(2, '0');
+  const mm = String(Math.abs(offsetMins) % 60).padStart(2, '0');
+  const tzOffset = `${sign}${hh}:${mm}`;
+  return `${BASE_PROMPT}\n\nCurrent date and time: ${human} (${iso}, ${tz}, UTC offset ${tzOffset}). When the user says "next Monday", "tomorrow", etc., compute the exact date from this anchor. "Next Monday" means the coming Monday — if today is Sunday, that is tomorrow.\n\nFor deadline/date fields use YYYY-MM-DD. For scheduledAt/scheduledEnd always use full ISO 8601 with offset (e.g. "2026-04-27T09:00:00${tzOffset}").`;
 }
 
 export function createChatStream(

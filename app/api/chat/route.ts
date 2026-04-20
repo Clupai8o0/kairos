@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   );
 
   const modelMessages = await convertToModelMessages(uiMessages);
-  const tools = await createAllTools(userId, { skipConfirmation });
+  const tools = await createAllTools(userId, { skipConfirmation, timezone });
   const result = createChatStream(modelMessages, tools, { timezone, modelId: requestedModel, apiKey });
   return result.toUIMessageStreamResponse();
 }

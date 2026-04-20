@@ -86,6 +86,12 @@ export async function syncCalendars(userId: string) {
           return updated!;
         }
 
+        // Set as write calendar if it's primary and no write calendar is set yet
+        const [existingWrite] = await db
+          .select({ id: googleCalendars.id })
+          .from(googleCalendars)
+          .where(and(eq(googleCalendars.userId, userId), eq(googleCalendars.isWriteCalendar, true)));
+
         const [inserted] = await db
           .insert(googleCalendars)
           .values({
@@ -96,6 +102,7 @@ export async function syncCalendars(userId: string) {
             name: item.summary ?? '',
             color: item.backgroundColor ?? null,
             isPrimary: item.primary ?? false,
+            isWriteCalendar: (item.primary ?? false) && !existingWrite,
           })
           .returning();
         return inserted!;
@@ -103,4 +110,13 @@ export async function syncCalendars(userId: string) {
   );
 
   return upserted;
+}
+
+export async function getWriteCalendarId(userId: string): Promise<string> {
+  const [row] = await db
+    .select({ calendarId: googleCalendars.calendarId })
+    .from(googleCalendars)
+    .where(and(eq(googleCalendars.userId, userId), eq(googleCalendars.isWriteCalendar, true)))
+    .limit(1);
+  return row?.calendarId ?? 'primary';
 }

@@ -119,6 +119,7 @@ export interface CreateEventInput {
   start: string; // ISO datetime
   end: string;   // ISO datetime
   colorId?: string; // GCal event color "1"–"11"
+  timeZone?: string; // IANA timezone (e.g. "Europe/London")
 }
 
 export async function createEvent(
@@ -134,8 +135,8 @@ export async function createEvent(
       requestBody: {
         summary: input.summary,
         description: input.description,
-        start: { dateTime: input.start },
-        end: { dateTime: input.end },
+        start: { dateTime: input.start, timeZone: input.timeZone },
+        end: { dateTime: input.end, timeZone: input.timeZone },
         ...(input.colorId ? { colorId: input.colorId } : {}),
       },
     });

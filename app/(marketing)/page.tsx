@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, Fragment } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -430,6 +432,7 @@ export default function LandingPage() {
   const heroRotRef = useRef<HTMLElement>(null);
   const statsRef  = useRef<HTMLDivElement>(null);
   const auroraRef = useRef<HTMLDivElement>(null);
+  const pageRef   = useRef<HTMLDivElement>(null);
 
   // Nav scroll state
   useEffect(() => {
@@ -489,6 +492,98 @@ export default function LandingPage() {
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Scroll reveal animations
+  useLayoutEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+
+    const ctx = gsap.context(() => {
+      // ── Initial hidden states (runs before first paint) ──────────────────
+      gsap.set('.section-head h2',   { opacity: 0, y: 44 });
+      gsap.set('.section-head .meta',{ opacity: 0, y: 26 });
+      gsap.set('.step',              { opacity: 0, y: 60 });
+      gsap.set('#feat-bento .cell',  { opacity: 0, y: 52, scale: 0.96 });
+      gsap.set('#hero-bento .cell',  { opacity: 0, y: 52 });
+      gsap.set('.stats .s',          { opacity: 0, y: 36 });
+      gsap.set('.deploy > div',      { opacity: 0, y: 44 });
+      gsap.set('.stack',             { opacity: 0, y: 22 });
+      gsap.set('.beta',              { opacity: 0, y: 48 });
+      gsap.set('.cols > div',        { opacity: 0, y: 34 });
+      gsap.set('.legal',             { opacity: 0 });
+
+      // ── Section headings (h2 then .meta, offset overlap) ─────────────────
+      gsap.utils.toArray<HTMLElement>('.section-head').forEach((el) => {
+        const h2   = el.querySelector('h2');
+        const meta = el.querySelector('.meta');
+        const tl = gsap.timeline({
+          scrollTrigger: { trigger: el, start: 'top 82%', once: true },
+        });
+        if (h2)   tl.to(h2,   { opacity: 1, y: 0, duration: 0.8,  ease: 'power3.out' });
+        if (meta) tl.to(meta, { opacity: 1, y: 0, duration: 0.65, ease: 'power2.out' }, '-=0.5');
+      });
+
+      // ── Hero bento cells ─────────────────────────────────────────────────
+      ScrollTrigger.batch('#hero-bento .cell', {
+        onEnter: (els) => gsap.to(els, { opacity: 1, y: 0, stagger: 0.2, duration: 0.9, ease: 'power3.out' }),
+        start: 'top 90%',
+        once: true,
+      });
+
+      // ── How it works steps ───────────────────────────────────────────────
+      ScrollTrigger.batch('.step', {
+        onEnter: (els) => gsap.to(els, { opacity: 1, y: 0, stagger: 0.18, duration: 0.85, ease: 'power3.out' }),
+        start: 'top 85%',
+        once: true,
+      });
+
+      // ── Feature bento cells ──────────────────────────────────────────────
+      ScrollTrigger.batch('#feat-bento .cell', {
+        onEnter: (els) => gsap.to(els, { opacity: 1, y: 0, scale: 1, stagger: 0.11, duration: 0.8, ease: 'power3.out' }),
+        start: 'top 90%',
+        once: true,
+      });
+
+      // ── Stats ─────────────────────────────────────────────────────────────
+      ScrollTrigger.batch('.stats .s', {
+        onEnter: (els) => gsap.to(els, { opacity: 1, y: 0, stagger: 0.14, duration: 0.75, ease: 'power2.out' }),
+        start: 'top 85%',
+        once: true,
+      });
+
+      // ── Deploy terminals ──────────────────────────────────────────────────
+      ScrollTrigger.batch('.deploy > div', {
+        onEnter: (els) => gsap.to(els, { opacity: 1, y: 0, stagger: 0.24, duration: 0.9, ease: 'power3.out' }),
+        start: 'top 85%',
+        once: true,
+      });
+
+      // ── Stack chips ───────────────────────────────────────────────────────
+      gsap.to('.stack', {
+        opacity: 1, y: 0, duration: 0.7, ease: 'power2.out',
+        scrollTrigger: { trigger: '.stack', start: 'top 88%', once: true },
+      });
+
+      // ── Beta form ─────────────────────────────────────────────────────────
+      gsap.to('.beta', {
+        opacity: 1, y: 0, duration: 1, ease: 'power3.out',
+        scrollTrigger: { trigger: '.beta', start: 'top 82%', once: true },
+      });
+
+      // ── Footer columns ────────────────────────────────────────────────────
+      ScrollTrigger.batch('.cols > div', {
+        onEnter: (els) => gsap.to(els, { opacity: 1, y: 0, stagger: 0.13, duration: 0.7, ease: 'power2.out' }),
+        start: 'top 92%',
+        once: true,
+      });
+
+      gsap.to('.legal', {
+        opacity: 1, duration: 0.6, ease: 'power1.out',
+        scrollTrigger: { trigger: '.legal', start: 'top 95%', once: true },
+      });
+    }, pageRef);
+
+    return () => ctx.revert();
   }, []);
 
   // Stats count-up
@@ -551,7 +646,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="landing">
+    <div className="landing" ref={pageRef}>
       {/* Background */}
       <div className="aurora" ref={auroraRef}>
         <div className="orb o1" /><div className="orb o2" /><div className="orb o3" />

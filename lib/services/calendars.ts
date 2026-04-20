@@ -12,8 +12,15 @@ export async function listCalendars(userId: string): Promise<GoogleCalendar[]> {
 export async function updateCalendar(
   userId: string,
   id: string,
-  patch: { selected?: boolean; showAsBusy?: boolean },
+  patch: { selected?: boolean; showAsBusy?: boolean; isWriteCalendar?: boolean },
 ): Promise<GoogleCalendar | null> {
+  // isWriteCalendar is exclusive — clear all others first
+  if (patch.isWriteCalendar) {
+    await db
+      .update(googleCalendars)
+      .set({ isWriteCalendar: false, updatedAt: new Date() })
+      .where(eq(googleCalendars.userId, userId));
+  }
   const [row] = await db
     .update(googleCalendars)
     .set({ ...patch, updatedAt: new Date() })

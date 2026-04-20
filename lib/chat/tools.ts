@@ -12,6 +12,7 @@ import {
 import { listTags, createTag, type Tag } from '@/lib/services/tags';
 import { enqueueJob } from '@/lib/services/jobs';
 import { spawnNextOccurrence } from '@/lib/services/recurrence';
+import { getWriteCalendarId } from '@/lib/gcal/calendars';
 import { db } from '@/lib/db/client';
 import { tasks } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
@@ -78,7 +79,10 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
         bufferMins: z.number().int().min(0).default(15).describe('Buffer minutes after the task'),
         isSplittable: z.boolean().default(false).describe('Whether the task can be split into chunks'),
         tags: z.array(z.string()).default([]).describe('Tag names to attach (created automatically if they don\'t exist)'),
-        deadline: z.string().optional().describe('ISO 8601 deadline'),
+        deadline: z.string().optional().describe('ISO 8601 deadline date (YYYY-MM-DD)'),
+        timeLocked: z.boolean().default(false).describe('Pin the task to a specific time — the auto-scheduler will not move it'),
+        scheduledAt: z.string().optional().describe('ISO 8601 datetime WITH timezone offset (e.g. 2026-04-27T09:00:00+01:00). Required when timeLocked is true.'),
+        scheduledEnd: z.string().optional().describe('ISO 8601 datetime WITH timezone offset. Required when timeLocked is true.'),
         force: z.boolean().default(false).describe('Set to true to create even if a task with the same title already exists'),
       }),
       execute: async (args) => {
@@ -98,6 +102,7 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
         }
 
         const tagIds = await resolveTagNames(userId, args.tags);
+        const isLocked = args.timeLocked && !!args.scheduledAt;
         const task = await createTask(userId, {
           title: args.title,
           description: args.description,
@@ -108,10 +113,37 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
           isSplittable: args.isSplittable,
           tagIds,
           deadline: args.deadline,
+          timeLocked: isLocked,
+          scheduledAt: args.scheduledAt,
+          scheduledEnd: args.scheduledEnd,
+          status: isLocked ? 'scheduled' : 'pending',
           dependsOn: [],
         });
 
-        if (task.schedulable) {
+        if (isLocked && args.scheduledAt && args.scheduledEnd) {
+          // Create GCal event for the locked task fire-and-forget
+          import('@/lib/gcal/events').then(async ({ createEvent }) => {
+            const { db: dbClient } = await import('@/lib/db/client');
+            const { eq: dbEq } = await import('drizzle-orm');
+            const calendarId = await getWriteCalendarId(userId);
+            const event = await createEvent(userId, calendarId, {
+              summary: task.title,
+              description: task.description ?? undefined,
+              start: args.scheduledAt!,
+              end: args.scheduledEnd!,
+            });
+            await dbClient
+              .update(tasks)
+              .set({ gcalEventId: event.id })
+              .where(and(dbEq(tasks.id, task.id), dbEq(tasks.userId, userId)));
+          }).catch(() => {});
+
+          // Re-schedule other tasks around the newly locked slot
+          await enqueueJob('schedule:full-run', {
+            userId,
+            idempotencyKey: `schedule:full-run:${userId}:${Date.now()}`,
+          });
+        } else if (task.schedulable) {
           await enqueueJob('schedule:single-task', {
             userId,
             payload: { taskId: task.id },
@@ -124,6 +156,8 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
           title: task.title,
           status: task.status,
           schedulable: task.schedulable,
+          timeLocked: task.timeLocked,
+          scheduledAt: task.scheduledAt,
         };
       },
     }),
@@ -197,6 +231,7 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
         durationMins: z.number().int().positive().optional(),
         priority: z.number().int().min(1).max(4).optional(),
         schedulable: z.boolean().optional(),
+        timeLocked: z.boolean().optional().describe('Set false to unlock the task so the auto-scheduler can move it'),
         bufferMins: z.number().int().min(0).optional(),
         isSplittable: z.boolean().optional(),
         tags: z.array(z.string()).optional().describe('Tag names to set (created automatically if they don\'t exist)'),
@@ -210,6 +245,16 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
         const tagIds = tagNames ? await resolveTagNames(userId, tagNames) : undefined;
         const task = await updateTask(userId, id, { ...rest, tagIds });
         if (!task) return { error: 'Task not found' };
+
+        const becomesTerminal = rest.status === 'done' || rest.status === 'cancelled';
+        const becomesNonSchedulable = rest.schedulable === false;
+        if ((becomesTerminal || becomesNonSchedulable) && task.gcalEventId) {
+          const gcalEventId = task.gcalEventId;
+          Promise.all([import('@/lib/gcal/events'), getWriteCalendarId(userId)])
+            .then(([{ deleteEvent }, calId]) => deleteEvent(userId, calId, gcalEventId))
+            .catch(() => {});
+        }
+
         return { id: task.id, title: task.title, status: task.status };
       },
     }),
@@ -224,6 +269,12 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
       execute: async (args) => {
         const result = await deleteTask(userId, args.id);
         if (!result) return { error: 'Task not found' };
+        if (result.gcalEventId) {
+          const gcalEventId = result.gcalEventId;
+          Promise.all([import('@/lib/gcal/events'), getWriteCalendarId(userId)])
+            .then(([{ deleteEvent }, calId]) => deleteEvent(userId, calId, gcalEventId))
+            .catch(() => {});
+        }
         return { deleted: true, id: result.id, title: result.title };
       },
     }),
@@ -241,8 +292,15 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
         if (task.status === 'done') return { id: task.id, title: task.title, status: 'done' as const, alreadyDone: true };
 
         const now = new Date();
-        await db.update(tasks).set({ status: 'done', completedAt: now, updatedAt: now })
+        await db.update(tasks).set({ status: 'done', completedAt: now, updatedAt: now, gcalEventId: null })
           .where(and(eq(tasks.id, args.id), eq(tasks.userId, userId)));
+
+        if (task.gcalEventId) {
+          const gcalEventId = task.gcalEventId;
+          Promise.all([import('@/lib/gcal/events'), getWriteCalendarId(userId)])
+            .then(([{ deleteEvent }, calId]) => deleteEvent(userId, calId, gcalEventId))
+            .catch(() => {});
+        }
 
         if (task.recurrenceRule) {
           const newTaskId = await spawnNextOccurrence(userId, args.id, now);

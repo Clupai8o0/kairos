@@ -9,3 +9,4 @@ export * from './jobs';
 export * from './scratchpad';
 export * from './themes';
 export * from './ai-keys';
+export * from './preferences';

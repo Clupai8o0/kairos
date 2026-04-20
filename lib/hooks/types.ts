@@ -79,6 +79,7 @@ export interface GoogleCalendar {
   color: string | null;
   selected: boolean;
   showAsBusy: boolean;
+  isWriteCalendar: boolean;
   createdAt: string;
   updatedAt: string;
 }

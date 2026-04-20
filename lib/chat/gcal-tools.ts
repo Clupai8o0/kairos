@@ -5,8 +5,9 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { googleCalendars } from '@/lib/db/schema';
 import { createEvent, listEvents, deleteEvent } from '@/lib/gcal/events';
+import { getWriteCalendarId } from '@/lib/gcal/calendars';
 
-async function getSelectedCalendarId(userId: string): Promise<string | null> {
+async function getReadCalendarId(userId: string): Promise<string | null> {
   const [row] = await db
     .select({ calendarId: googleCalendars.calendarId })
     .from(googleCalendars)
@@ -15,31 +16,30 @@ async function getSelectedCalendarId(userId: string): Promise<string | null> {
   return row?.calendarId ?? null;
 }
 
-export function createGCalTools(userId: string, opts?: { skipConfirmation?: boolean }) {
+export function createGCalTools(userId: string, opts?: { skipConfirmation?: boolean; timezone?: string }) {
   const needsApproval = !opts?.skipConfirmation;
+  const timezone = opts?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return {
     createGCalEvent: tool({
       description:
-        'Create a Google Calendar event (not a task). Use this for meetings, appointments, blocked time, or any event that is NOT a schedulable task. Requires the user to have a connected Google Calendar.',
+        'Create a Google Calendar event (not a task). Use ONLY for meetings, appointments, or events that are NOT work tasks. For scheduling a task at a specific time, use createTask with timeLocked: true instead.',
       needsApproval,
       inputSchema: z.object({
         summary: z.string().describe('Event title'),
         description: z.string().optional().describe('Event description'),
-        start: z.string().describe('Start time as ISO 8601 datetime (e.g. 2026-04-27T09:00:00)'),
-        end: z.string().describe('End time as ISO 8601 datetime (e.g. 2026-04-27T10:00:00)'),
+        start: z.string().describe('Start time as ISO 8601 datetime WITH timezone offset (e.g. 2026-04-27T09:00:00+01:00)'),
+        end: z.string().describe('End time as ISO 8601 datetime WITH timezone offset'),
         eventName: z.string().optional().describe('Event title (for display in confirmation UI — always include this)'),
       }),
       execute: async (args) => {
-        const calendarId = await getSelectedCalendarId(userId);
-        if (!calendarId) {
-          return { error: 'No Google Calendar connected. Go to Settings → Calendar to connect one.' };
-        }
+        const calendarId = await getWriteCalendarId(userId);
         const event = await createEvent(userId, calendarId, {
           summary: args.summary,
           description: args.description,
           start: args.start,
           end: args.end,
+          timeZone: timezone,
         });
         return { id: event.id, summary: event.summary, start: event.start, end: event.end };
       },
@@ -53,7 +53,7 @@ export function createGCalTools(userId: string, opts?: { skipConfirmation?: bool
         endDate: z.string().optional().describe('End of range as ISO 8601 date or datetime'),
       }),
       execute: async (args) => {
-        const calendarId = await getSelectedCalendarId(userId);
+        const calendarId = await getReadCalendarId(userId);
         if (!calendarId) {
           return { error: 'No Google Calendar connected.' };
         }
@@ -81,10 +81,7 @@ export function createGCalTools(userId: string, opts?: { skipConfirmation?: bool
         eventName: z.string().optional().describe('Event title (for display in confirmation UI)'),
       }),
       execute: async (args) => {
-        const calendarId = await getSelectedCalendarId(userId);
-        if (!calendarId) {
-          return { error: 'No Google Calendar connected.' };
-        }
+        const calendarId = await getWriteCalendarId(userId);
         await deleteEvent(userId, calendarId, args.eventId);
         return { deleted: true, eventId: args.eventId };
       },

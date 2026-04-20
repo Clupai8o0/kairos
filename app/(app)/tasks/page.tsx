@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTasks, useCreateTask, useUpdateTask, useDeleteTask, useCompleteTask } from '@/lib/hooks/use-tasks';
 import { useTags } from '@/lib/hooks/use-tags';
+import { usePreferences } from '@/lib/hooks/use-preferences';
 import type { Task, TaskStatus } from '@/lib/hooks/types';
 
 // ── Schema ─────────────────────────────────────────────────────────────────
@@ -19,6 +20,7 @@ const taskSchema = z.object({
   deadline: z.string().optional(),
   schedulable: z.boolean(),
   durationMins: z.number().int().positive().optional(),
+  bufferMins: z.number().int().min(0),
   tagIds: z.array(z.string()),
 });
 
@@ -79,6 +81,7 @@ function TaskModal({
   onClose: () => void;
 }) {
   const { data: tags } = useTags();
+  const { data: prefs } = usePreferences();
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
 
@@ -92,11 +95,14 @@ function TaskModal({
           deadline: task.deadline ? task.deadline.split('T')[0] : undefined,
           schedulable: task.schedulable,
           durationMins: task.durationMins ?? undefined,
+          bufferMins: task.bufferMins ?? 15,
           tagIds: task.tags.map((t) => t.id),
         }
       : {
-          priority: 3,
-          schedulable: true,
+          priority: prefs?.defaultPriority ?? 3,
+          schedulable: prefs?.defaultSchedulable ?? true,
+          bufferMins: prefs?.defaultBufferMins ?? 15,
+          durationMins: prefs?.defaultDurationMins ?? undefined,
           tagIds: [],
         },
   });
@@ -116,6 +122,7 @@ function TaskModal({
           deadline: deadline ?? null,
           schedulable: values.schedulable,
           durationMins: values.durationMins,
+          bufferMins: values.bufferMins,
           tagIds: values.tagIds,
         })
       : createTask.mutateAsync({
@@ -125,7 +132,7 @@ function TaskModal({
           deadline,
           schedulable: values.schedulable,
           durationMins: values.durationMins,
-          bufferMins: 15,
+          bufferMins: values.bufferMins,
           isSplittable: false,
           dependsOn: [],
           tagIds: values.tagIds,
@@ -223,17 +230,29 @@ function TaskModal({
               <span className="text-fg-2 text-sm">Auto-schedule this task</span>
             </label>
 
-            {/* Duration (shown when schedulable) */}
+            {/* Duration + Buffer (shown when schedulable) */}
             {schedulable && (
-              <div>
-                <label className="block text-fg-4 text-[11px] font-[510] uppercase tracking-wide mb-1">Duration (minutes)</label>
-                <input
-                  type="number"
-                  {...form.register('durationMins', { valueAsNumber: true })}
-                  placeholder="e.g. 60"
-                  min={1}
-                  className="w-full bg-ghost border border-wire rounded-md px-3 py-2 text-sm text-fg placeholder:text-fg-4 focus:outline-none focus:ring-1 focus:ring-accent/30"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-fg-4 text-[11px] font-[510] uppercase tracking-wide mb-1">Duration (min)</label>
+                  <input
+                    type="number"
+                    {...form.register('durationMins', { valueAsNumber: true })}
+                    placeholder="e.g. 60"
+                    min={1}
+                    className="w-full bg-ghost border border-wire rounded-md px-3 py-2 text-sm text-fg placeholder:text-fg-4 focus:outline-none focus:ring-1 focus:ring-accent/30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-fg-4 text-[11px] font-[510] uppercase tracking-wide mb-1">Buffer (min)</label>
+                  <input
+                    type="number"
+                    {...form.register('bufferMins', { valueAsNumber: true })}
+                    placeholder="e.g. 15"
+                    min={0}
+                    className="w-full bg-ghost border border-wire rounded-md px-3 py-2 text-sm text-fg placeholder:text-fg-4 focus:outline-none focus:ring-1 focus:ring-accent/30"
+                  />
+                </div>
               </div>
             )}
 

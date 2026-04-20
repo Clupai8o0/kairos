@@ -125,8 +125,32 @@ export default function ChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState('');
   const restoredRef = useRef(false);
+  const pendingMsgRef = useRef<string | null>(null);
 
   const isLoading = status === 'submitted' || status === 'streaming';
+
+  // Collect approval IDs of any tool calls still awaiting approval.
+  // Must use part.approval.id (not part.toolCallId) — addToolApprovalResponse matches by approval.id.
+  const pendingApprovalIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const msg of messages) {
+      for (const part of msg.parts) {
+        if (isStaticToolUIPart(part) && part.state === 'approval-requested') {
+          ids.push(part.approval.id);
+        }
+      }
+    }
+    return ids;
+  }, [messages]);
+
+  // Once denials have flushed through state, send the queued follow-up
+  useEffect(() => {
+    if (pendingApprovalIds.length === 0 && pendingMsgRef.current) {
+      const text = pendingMsgRef.current;
+      pendingMsgRef.current = null;
+      sendMessage({ text });
+    }
+  }, [pendingApprovalIds, sendMessage]);
 
   // Restore messages from localStorage on mount (once)
   useEffect(() => {
@@ -181,18 +205,16 @@ export default function ChatPage() {
       e.preventDefault();
       const trimmed = input.trim();
       if (!trimmed || isLoading) return;
-      // Auto-deny any pending approvals so the history is clean before the next turn
-      for (const msg of messages) {
-        for (const part of msg.parts) {
-          if (isStaticToolUIPart(part) && part.state === 'approval-requested') {
-            addToolApprovalResponse({ id: part.toolCallId, approved: false });
-          }
-        }
-      }
-      sendMessage({ text: trimmed });
       setInput('');
+      if (pendingApprovalIds.length > 0) {
+        // Queue the message; it will be sent once the denials flush through state
+        pendingMsgRef.current = trimmed;
+        pendingApprovalIds.forEach((id) => addToolApprovalResponse({ id, approved: false }));
+      } else {
+        sendMessage({ text: trimmed });
+      }
     },
-    [input, isLoading, messages, sendMessage, addToolApprovalResponse],
+    [input, isLoading, pendingApprovalIds, sendMessage, addToolApprovalResponse],
   );
 
   const handleApprovalResponse = useCallback(

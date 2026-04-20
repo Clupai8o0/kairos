@@ -49,6 +49,7 @@ export interface UpdateTaskInput {
   schedulable?: boolean;
   timeLocked?: boolean;
   durationMins?: number;
+  bufferMins?: number;
   scheduledAt?: string | null;
   scheduledEnd?: string | null;
   tagIds?: string[];

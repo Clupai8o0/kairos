@@ -64,7 +64,7 @@ export function useUpdateCalendarEvent() {
 export function useUpdateCalendar() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...patch }: { id: string; selected?: boolean; showAsBusy?: boolean }) =>
+    mutationFn: ({ id, ...patch }: { id: string; selected?: boolean; showAsBusy?: boolean; isWriteCalendar?: boolean }) =>
       apiFetch<GoogleCalendar>(`/api/calendars/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },

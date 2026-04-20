@@ -1,5 +1,5 @@
 'use client';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, init);
@@ -9,8 +9,13 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function useRunSchedule() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: () =>
       apiFetch<{ scheduled: number; remaining: number }>('/api/schedule/run', { method: 'POST' }),
+    onSuccess: () => Promise.all([
+      qc.invalidateQueries({ queryKey: ['tasks'] }),
+      qc.invalidateQueries({ queryKey: ['calendar-events'] }),
+    ]),
   });
 }

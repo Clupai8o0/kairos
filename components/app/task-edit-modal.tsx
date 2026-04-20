@@ -25,8 +25,10 @@ export function TaskEditModal({ task, onClose }: Props) {
   const [priority, setPriority] = useState(String(task.priority));
   const [status, setStatus] = useState(task.status);
   const [durationMins, setDurationMins] = useState(task.durationMins ? String(task.durationMins) : '');
+  const [bufferMins, setBufferMins] = useState(String(task.bufferMins ?? 15));
   const [deadline, setDeadline] = useState(task.deadline ? toLocal(task.deadline) : '');
   const [schedulable, setSchedulable] = useState(task.schedulable);
+  const [timeLocked, setTimeLocked] = useState(task.timeLocked ?? false);
   const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(
     new Set(task.tags.map((t) => t.id)),
   );
@@ -68,8 +70,10 @@ export function TaskEditModal({ task, onClose }: Props) {
       priority: Number(priority),
       status,
       durationMins: durationMins ? Number(durationMins) : undefined,
+      bufferMins: Number(bufferMins),
       deadline: deadline ? new Date(deadline).toISOString() : null,
       schedulable,
+      timeLocked,
       tagIds: [...selectedTagIds],
       preferredTemplateId: preferredTemplateId || null,
       recurrenceRule: recurrenceEnabled
@@ -189,29 +193,58 @@ export function TaskEditModal({ task, onClose }: Props) {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-[510] uppercase tracking-wide text-fg-3 mb-1">Deadline</label>
+                <label className="block text-[10px] font-[510] uppercase tracking-wide text-fg-3 mb-1">Buffer (min)</label>
                 <input
-                  type="datetime-local"
-                  className="w-full bg-surface border border-wire rounded px-2.5 py-1.5 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
-                  value={deadline}
-                  onChange={(e) => setDeadline(e.target.value)}
+                  type="number"
+                  min={0}
+                  className="w-full bg-surface border border-wire rounded px-2.5 py-1.5 text-sm text-fg placeholder:text-fg-4 focus:outline-none focus:border-accent transition-colors"
+                  value={bufferMins}
+                  onChange={(e) => setBufferMins(e.target.value)}
+                  placeholder="15"
                 />
               </div>
             </div>
+            <div>
+              <label className="block text-[10px] font-[510] uppercase tracking-wide text-fg-3 mb-1">Deadline</label>
+              <input
+                type="datetime-local"
+                className="w-full bg-surface border border-wire rounded px-2.5 py-1.5 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+              />
+            </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={schedulable}
-                onClick={() => setSchedulable((s) => !s)}
-                className={`relative w-8 h-4 rounded-full transition-colors ${schedulable ? 'bg-accent' : 'bg-surface-3'}`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-fg transition-transform ${schedulable ? 'translate-x-4' : ''}`}
-                />
-              </button>
-              <span className="text-sm text-fg-2">Auto-schedule</span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={schedulable}
+                  onClick={() => setSchedulable((s) => !s)}
+                  className={`relative w-8 h-4 rounded-full transition-colors ${schedulable ? 'bg-accent' : 'bg-surface-3'}`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-fg transition-transform ${schedulable ? 'translate-x-4' : ''}`}
+                  />
+                </button>
+                <span className="text-sm text-fg-2">Auto-schedule</span>
+              </div>
+              {task.scheduledAt && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={timeLocked}
+                    onClick={() => setTimeLocked((l) => !l)}
+                    className={`relative w-8 h-4 rounded-full transition-colors ${timeLocked ? 'bg-warning' : 'bg-surface-3'}`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-fg transition-transform ${timeLocked ? 'translate-x-4' : ''}`}
+                    />
+                  </button>
+                  <span className="text-sm text-fg-2">{timeLocked ? 'Time locked' : 'Time unlocked'}</span>
+                </div>
+              )}
             </div>
 
             {schedulable && templates.length > 0 && (
