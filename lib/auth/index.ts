@@ -2,6 +2,8 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { db } from '@/lib/db/client';
+import { sendEmail } from '@/lib/email/send';
+import { VerificationEmail } from '@/lib/email/templates/VerificationEmail';
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -21,6 +23,18 @@ export const auth = betterAuth({
       // Offline access ensures we receive a refresh token so the GCal
       // layer can call the API on the user's behalf between sessions.
       accessType: 'offline',
+    },
+  },
+  emailVerification: {
+    sendVerificationEmail: async ({ user, url }) => {
+      await sendEmail({
+        to: user.email,
+        subject: 'Verify your Kairos email',
+        react: VerificationEmail({
+          userName: user.name ?? user.email,
+          verificationUrl: url,
+        }),
+      });
     },
   },
   trustedOrigins: [process.env.BETTER_AUTH_URL ?? 'http://localhost:3000'],
