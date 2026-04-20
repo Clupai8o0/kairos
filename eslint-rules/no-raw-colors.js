@@ -17,6 +17,8 @@ const ALLOWED_PATHS = [
   /settings[/\\]appearance[/\\]custom[/\\]/,
   // Landing page uses theme-swatch preview colors that are intentionally arbitrary hex
   /app[/\\]\(marketing\)[/\\]page\.[jt]sx?$/,
+  // Email templates use raw colors for plain HTML emails (not React components)
+  /lib[/\\]email[/\\]templates[/\\]/,
 ];
 
 module.exports = {
