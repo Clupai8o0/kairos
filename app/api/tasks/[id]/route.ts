@@ -122,16 +122,15 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   }
 
   if (scope === 'instance') {
-    // Delete single instance
     const deleted = await deleteInstance(userId, id);
     if (!deleted) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    // Fire-and-forget: remove the associated GCal event if one exists
     if (deleted.gcalEventId) {
-      const gcalEventId = deleted.gcalEventId;
-      Promise.all([import('@/lib/gcal/events'), getWriteCalendarId(userId)])
-        .then(([{ deleteEvent }, calId]) => deleteEvent(userId, calId, gcalEventId))
-        .catch(() => {});
+      const [{ deleteEvent }, calId] = await Promise.all([
+        import('@/lib/gcal/events'),
+        getWriteCalendarId(userId),
+      ]);
+      await deleteEvent(userId, calId, deleted.gcalEventId).catch(() => {});
     }
   } else {
     const result = await deleteSeries(userId, id);
@@ -140,13 +139,15 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     }
 
     if (result.gcalEventIds.length > 0) {
-      Promise.all([import('@/lib/gcal/events'), getWriteCalendarId(userId)])
-        .then(([{ deleteEvent }, calId]) => {
-          result.gcalEventIds.forEach((gcalEventId) =>
-            deleteEvent(userId, calId, gcalEventId).catch(() => {}),
-          );
-        })
-        .catch(() => {});
+      const [{ deleteEvent }, calId] = await Promise.all([
+        import('@/lib/gcal/events'),
+        getWriteCalendarId(userId),
+      ]);
+      await Promise.all(
+        result.gcalEventIds.map((gcalEventId) =>
+          deleteEvent(userId, calId, gcalEventId).catch(() => {}),
+        ),
+      );
     }
   }
 

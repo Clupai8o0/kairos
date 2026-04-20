@@ -129,6 +129,8 @@ export function useCalendarDrag(options: UseCalendarDragOptions): UseCalendarDra
     setDragState(state);
     target.setPointerCapture(e.pointerId);
 
+    let latestBlock = { dayIndex, startMins, endMins };
+
     const onMove = (ev: globalThis.PointerEvent) => {
       if (!hasDragged) {
         const dx = ev.clientX - initClientX;
@@ -146,10 +148,12 @@ export function useCalendarDrag(options: UseCalendarDragOptions): UseCalendarDra
         const newStart = clampMins(snapMins(startMins + deltaMins));
         const newEnd = clampMins(newStart + duration);
         const newDay = pxToDayIndex(ev.clientX, gridRect);
-        setDragState(s => s ? { ...s, dayIndex: newDay, startMins: newStart, endMins: newEnd } : s);
+        latestBlock = { dayIndex: newDay, startMins: newStart, endMins: newEnd };
+        setDragState(s => s ? { ...s, ...latestBlock } : s);
       } else {
-        const newEnd = clampMins(pxToMins(curY));
-        setDragState(s => s ? { ...s, endMins: Math.max(newEnd, startMins + MIN_DURATION_MINS) } : s);
+        const newEnd = clampMins(Math.max(pxToMins(curY), startMins + MIN_DURATION_MINS));
+        latestBlock = { dayIndex, startMins, endMins: newEnd };
+        setDragState(s => s ? { ...s, endMins: newEnd } : s);
       }
     };
 
@@ -157,17 +161,15 @@ export function useCalendarDrag(options: UseCalendarDragOptions): UseCalendarDra
       target.removeEventListener('pointermove', onMove);
       target.removeEventListener('pointerup', onUp);
       target.removeEventListener('pointercancel', onUp);
-      setDragState(current => {
-        if (!current || !hasDragged) return null;
-        const moved = current.dayIndex !== current.originalDayIndex
-          || current.startMins !== current.originalStartMins
-          || current.endMins !== current.originalEndMins;
-        if (!moved) return null;
-        const result: DragResult = { dayIndex: current.dayIndex, startMins: current.startMins, endMins: current.endMins };
-        if (mode === 'move') onMoveEnd?.(id, type, result);
-        else onResizeEnd?.(id, type, result);
-        return null;
-      });
+      setDragState(null);
+      if (!hasDragged) return;
+      const moved = latestBlock.dayIndex !== dayIndex
+        || latestBlock.startMins !== startMins
+        || latestBlock.endMins !== endMins;
+      if (!moved) return;
+      const result: DragResult = latestBlock;
+      if (mode === 'move') onMoveEnd?.(id, type, result);
+      else onResizeEnd?.(id, type, result);
     };
 
     target.addEventListener('pointermove', onMove);
@@ -190,6 +192,8 @@ export function useCalendarDrag(options: UseCalendarDragOptions): UseCalendarDra
     });
     target.setPointerCapture(e.pointerId);
 
+    let latestCreate = { dayIndex, startMins: clickMins, endMins: clampMins(clickMins + DEFAULT_CREATE_MINS) };
+
     const onMove = (ev: globalThis.PointerEvent) => {
       autoScroll(ev.clientY);
       const curMins = clampMins(pxToMins(getGridY(ev.clientY)));
@@ -197,24 +201,18 @@ export function useCalendarDrag(options: UseCalendarDragOptions): UseCalendarDra
       const end = Math.max(initMins, curMins);
       const gridR = getGridRect();
       const day = gridR ? pxToDayIndex(ev.clientX, gridR) : dayIndex;
-      setDragState(s => s ? {
-        ...s, dayIndex: day,
-        startMins: start,
-        endMins: Math.max(end, start + MIN_DURATION_MINS),
-      } : s);
+      latestCreate = { dayIndex: day, startMins: start, endMins: Math.max(end, start + MIN_DURATION_MINS) };
+      setDragState(s => s ? { ...s, ...latestCreate } : s);
     };
 
     const onUp = () => {
       target.removeEventListener('pointermove', onMove);
       target.removeEventListener('pointerup', onUp);
       target.removeEventListener('pointercancel', onUp);
-      setDragState(current => {
-        if (!current) return null;
-        if (current.endMins - current.startMins >= MIN_DURATION_MINS) {
-          onCreateEnd?.({ dayIndex: current.dayIndex, startMins: current.startMins, endMins: current.endMins });
-        }
-        return null;
-      });
+      setDragState(null);
+      if (latestCreate.endMins - latestCreate.startMins >= MIN_DURATION_MINS) {
+        onCreateEnd?.(latestCreate);
+      }
     };
 
     target.addEventListener('pointermove', onMove);
