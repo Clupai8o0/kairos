@@ -103,6 +103,12 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 - **ADR-R18:** Flexible recurrence — spawn-on-complete, per-instance edits, series deletion
 - **ADR-R19:** Session-scoped chat — core + plugin tools, no persistence (softens ADR-R8)
 
+### What's built (session 17 additions)
+- [x] Beta gate: shared-password access control (`middleware.ts`, `/beta-gate` page, `/api/beta-gate` route, `betaGateAttempts` table, migration `0009`)
+- [x] Resend email abstraction: `lib/email/` (client, send, VerificationEmail template), wired into Better Auth email verification hook
+- [x] `no-resend-imports` ESLint rule; email templates exempted from `no-raw-colors`
+- [x] `references/email-setup.md` — Resend + Cloudflare DNS setup docs
+
 ### Known issues / blockers
 - Lighthouse perf score not yet measured (needs live deploy)
 - `vercel.json` cron still set to daily at midnight UTC (hobby plan limitation)
@@ -110,17 +116,69 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 - `v1.0.0` tag not yet applied (pending deploy verification)
 - 5c integration tests for "LLM tool calls produce real DB mutations" and "HTTP plugin tool invocation over HMAC" deferred (require live LLM mocking)
 - 5b integration tests for "spawned instance field inheritance" and "GCal event cleanup on series delete" deferred (require DB-level test infrastructure)
+- Beta gate + email env vars not yet set on Vercel (`BETA_PASSWORD`, `BETA_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`)
 
 ### Next concrete action
-1. Manual verification of Phase 5c chat flow (live deploy)
-2. Deploy: `pnpm db:migrate` production, `git tag v1.0.0 && git push origin v1.0.0`
-3. Set GitHub repo to public
+1. Deploy: `pnpm db:migrate` production (applies `0009_beta_gate_attempts.sql`)
+2. Set `BETA_PASSWORD`, `BETA_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM` on Vercel
+3. Verify beta gate on live deploy
+4. Manual verification of Phase 5c chat flow (live deploy)
+5. `git tag v1.0.0 && git push origin v1.0.0`
+6. Set GitHub repo to public
 
 ---
 
 ## Session log
 
 Append new entries at the top. Use the template below.
+
+---
+
+## 2026-04-20 — Session 17: Bug fixes + Beta gate + Resend email
+
+**Goal for this session:** Fix GCal delete bug and React setState render error; implement beta-gate shared-password access control and Resend transactional email.
+
+**Bug fixes:**
+- `app/api/tasks/[id]/route.ts` — GCal deletion was fire-and-forget; Vercel tore down the function before the Promise resolved. Converted to awaited `Promise.all` for both instance and series delete paths. Also switched static `import { getWriteCalendarId }` to dynamic import to avoid eager DB initialisation breaking integration tests.
+- `lib/hooks/use-calendar-drag.ts` — `onCreateEnd`/`onMoveEnd`/`onResizeEnd` callbacks were called inside `setDragState` updater functions, triggering "Cannot update a component while rendering a different component" React error. Fixed by tracking latest drag state in closure variables (`latestBlock`, `latestCreate`) and calling callbacks after `setDragState(null)` as separate statements.
+
+**Beta gate (Part 1):**
+- `lib/db/schema/beta-gate.ts` + `drizzle/0009_beta_gate_attempts.sql` — `betaGateAttempts` table for IP-based rate limiting
+- `lib/beta-gate/index.ts` — HMAC-SHA256 JWT cookie (jose), 30-day expiry, `signBetaCookie` / `verifyBetaCookie`
+- `middleware.ts` — Node.js middleware; public path list; redirect to `/beta-gate?next=<path>` when cookie invalid; `sanitizeNext` prevents open redirect
+- `next.config.ts` — `experimental.nodeMiddleware: true`
+- `app/api/beta-gate/route.ts` — POST handler: Zod parse, DB rate limit (10/IP/15 min), `crypto.timingSafeEqual` password compare, set HttpOnly cookie
+- `app/(marketing)/beta-gate/page.tsx` + `BetaGateForm.tsx` — Server + Client Components for the gate UI
+- `tests/unit/beta-gate.test.ts` — 5 unit tests for JWT sign/verify
+- `tests/integration/beta-gate-api.test.ts` — 7 integration tests (200+cookie, 401, 400, 429, open-redirect sanitisation)
+
+**Resend email (Part 2):**
+- `lib/email/client.ts` — singleton Resend client; `KAIROS_MODE=self-hosted-no-email` bypass
+- `lib/email/send.ts` — `sendEmail()` renders React template to HTML+text, never throws, returns `{ ok, id|error }`
+- `lib/email/templates/VerificationEmail.tsx` — React Email dark-theme template
+- `lib/auth/index.ts` — wired `emailVerification.sendVerificationEmail` hook to `sendEmail()`
+- `eslint-rules/no-resend-imports.js` — bans `resend` imports outside `lib/email/`; exempts email templates from `no-raw-colors`
+- `.env.example` + `references/email-setup.md` — Resend + Cloudflare DNS setup docs
+
+**Test fixes (pre-existing breakage from earlier calendar/chat work this session):**
+- `tests/integration/tasks.test.ts` — added db/schema/drizzle-orm/gcal mocks to `setupRouteModule` helper
+- `tests/integration/chat.test.ts` — added `@/lib/services/ai-keys` mock (eager db import chain)
+- `tests/unit/chat-router.test.ts` — added `@/lib/chat/gcal-tools` mock
+- `tests/unit/chat-tools.test.ts` — `tagIds` → `tags` (schema renamed), added `listTasks` mock for duplicate-check path
+- `tests/unit/scheduler/splitting.test.ts` — set `bufferMins: 0` on chunk-size tests (buffer-inclusive minRequired is intentional)
+
+**Verification:** 278/278 tests pass. `pnpm tsc --noEmit` clean. ESLint 0 errors.
+
+**Files touched:** ~25 new/modified
+
+**ADRs promoted:** None new — beta gate and email are infrastructure, not architectural decisions.
+
+**Next action:**
+1. Deploy: run `pnpm db:migrate` on production to apply `0009_beta_gate_attempts.sql`
+2. Set `BETA_PASSWORD`, `BETA_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM` env vars on Vercel
+3. Verify beta gate works on live deploy
+4. Manual verification of Phase 5c chat flow (live deploy)
+5. Tag `v1.0.0` when deploy verified
 
 ---
 
