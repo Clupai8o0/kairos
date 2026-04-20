@@ -8,7 +8,6 @@ import { enqueueJob } from '@/lib/services/jobs';
 import { db } from '@/lib/db/client';
 import { tasks } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { getWriteCalendarId } from '@/lib/gcal/calendars';
 
 const UpdateTaskSchema = z.object({
   title: z.string().min(1).max(500).optional(),
@@ -66,7 +65,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       .update(tasks)
       .set({ scheduledAt: null, scheduledEnd: null, gcalEventId: null, updatedAt: new Date() })
       .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
-    Promise.all([import('@/lib/gcal/events'), getWriteCalendarId(userId)])
+    Promise.all([import('@/lib/gcal/events'), import('@/lib/gcal/calendars').then(m => m.getWriteCalendarId(userId))])
       .then(([{ deleteEvent }, calId]) => deleteEvent(userId, calId, gcalEventId))
       .catch(() => {});
   }
@@ -128,7 +127,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     if (deleted.gcalEventId) {
       const [{ deleteEvent }, calId] = await Promise.all([
         import('@/lib/gcal/events'),
-        getWriteCalendarId(userId),
+        import('@/lib/gcal/calendars').then(m => m.getWriteCalendarId(userId)),
       ]);
       await deleteEvent(userId, calId, deleted.gcalEventId).catch(() => {});
     }
@@ -141,7 +140,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     if (result.gcalEventIds.length > 0) {
       const [{ deleteEvent }, calId] = await Promise.all([
         import('@/lib/gcal/events'),
-        getWriteCalendarId(userId),
+        import('@/lib/gcal/calendars').then(m => m.getWriteCalendarId(userId)),
       ]);
       await Promise.all(
         result.gcalEventIds.map((gcalEventId) =>

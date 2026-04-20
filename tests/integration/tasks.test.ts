@@ -60,6 +60,20 @@ async function setupRouteModule(
   }));
   vi.doMock('@/lib/services/tasks', () => tasksMock);
   vi.doMock('@/lib/services/jobs', () => ({ enqueueJob: vi.fn().mockResolvedValue(null) }));
+  vi.doMock('@/lib/db/client', () => ({
+    db: {
+      update: vi.fn().mockReturnThis(),
+      set: vi.fn().mockReturnThis(),
+      where: vi.fn().mockResolvedValue(undefined),
+    },
+  }));
+  vi.doMock('@/lib/db/schema', () => ({ tasks: {}, googleCalendars: {}, googleAccounts: {}, user: {}, account: {} }));
+  vi.doMock('drizzle-orm', async (importOriginal) => {
+    const orig = await importOriginal<typeof import('drizzle-orm')>();
+    return { ...orig, and: vi.fn(), eq: vi.fn() };
+  });
+  vi.doMock('@/lib/gcal/events', () => ({ deleteEvent: vi.fn().mockResolvedValue(undefined) }));
+  vi.doMock('@/lib/gcal/calendars', () => ({ getWriteCalendarId: vi.fn().mockResolvedValue('cal-id') }));
   if (recurrenceMock) {
     vi.doMock('@/lib/services/recurrence', () => recurrenceMock);
   }

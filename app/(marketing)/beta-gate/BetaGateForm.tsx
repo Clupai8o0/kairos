@@ -123,7 +123,7 @@ export function BetaGateForm({ next }: { next?: string }) {
           background: 'var(--color-accent)',
           border: 'none',
           borderRadius: '6px',
-          color: '#ffffff',
+          color: 'var(--color-fg)',
           fontSize: '14px',
           fontWeight: '500',
           cursor: loading ? 'not-allowed' : 'pointer',

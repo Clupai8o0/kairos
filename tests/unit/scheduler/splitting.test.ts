@@ -110,7 +110,7 @@ describe('splitTask', () => {
   });
 
   it('skips slots smaller than minChunkMins', () => {
-    const task = scored({ durationMins: 60, minChunkMins: 20 });
+    const task = scored({ durationMins: 60, minChunkMins: 20, bufferMins: 0 });
     const slots = [
       slot(0, mins(10)),          // 10 min — too small, skipped
       slot(mins(30), mins(60)),   // 30 min chunk
@@ -122,7 +122,7 @@ describe('splitTask', () => {
   });
 
   it('chunk indices are sequential from 0', () => {
-    const task = scored({ durationMins: 60, minChunkMins: 15 });
+    const task = scored({ durationMins: 60, minChunkMins: 15, bufferMins: 0 });
     const slots = [
       slot(0, mins(20)),
       slot(mins(30), mins(50)),
@@ -133,7 +133,7 @@ describe('splitTask', () => {
   });
 
   it('uses minChunkMins default of 15 when null', () => {
-    const task = scored({ durationMins: 60, minChunkMins: null });
+    const task = scored({ durationMins: 60, minChunkMins: null, bufferMins: 0 });
     // Slot of 14 min should be skipped (below 15 min default)
     const slots = [
       slot(0, mins(14)),

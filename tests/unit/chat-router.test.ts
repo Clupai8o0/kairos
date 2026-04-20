@@ -21,6 +21,13 @@ vi.mock('@/lib/chat/plugin-tools', () => ({
   })),
 }));
 
+vi.mock('@/lib/chat/gcal-tools', () => ({
+  createGCalTools: vi.fn(() => ({
+    listCalendarEvents: { description: 'List events', inputSchema: {}, execute: vi.fn() },
+    createCalendarEvent: { description: 'Create event', inputSchema: {}, execute: vi.fn() },
+  })),
+}));
+
 import { createAllTools, getAvailableToolNames } from '@/lib/chat/router';
 
 const USER_ID = 'user-1';

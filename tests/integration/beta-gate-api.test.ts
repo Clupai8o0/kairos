@@ -15,6 +15,13 @@ vi.mock('@/lib/db/client', () => ({
   },
 }));
 
+// Helper: the mock makes db.select().from() return db, so db.where is the chained target
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mockWhere(db: unknown, value: unknown[]) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked((db as any).where).mockResolvedValue(value);
+}
+
 vi.mock('@/lib/db/schema', () => ({
   betaGateAttempts: { ip: 'ip', attemptedAt: 'attempted_at' },
 }));
@@ -45,7 +52,7 @@ describe('POST /api/beta-gate', () => {
 
   it('returns 200 and sets cookie on correct password', async () => {
     const { db } = await import('@/lib/db/client');
-    vi.mocked(db.select().from().where).mockResolvedValue([{ count: 0 }]);
+    mockWhere(db, [{ count: 0 }]);
 
     const { POST } = await import('@/app/api/beta-gate/route');
     const res = await POST(jsonRequest({ password: 'correct-password' }));
@@ -57,7 +64,7 @@ describe('POST /api/beta-gate', () => {
 
   it('returns 401 on wrong password', async () => {
     const { db } = await import('@/lib/db/client');
-    vi.mocked(db.select().from().where).mockResolvedValue([{ count: 0 }]);
+    mockWhere(db, [{ count: 0 }]);
 
     const { POST } = await import('@/app/api/beta-gate/route');
     const res = await POST(jsonRequest({ password: 'wrong-password' }));
@@ -80,7 +87,7 @@ describe('POST /api/beta-gate', () => {
 
   it('returns 429 when rate limit exceeded', async () => {
     const { db } = await import('@/lib/db/client');
-    vi.mocked(db.select().from().where).mockResolvedValue([{ count: 10 }]);
+    mockWhere(db, [{ count: 10 }]);
 
     const { POST } = await import('@/app/api/beta-gate/route');
     const res = await POST(jsonRequest({ password: 'correct-password' }));
@@ -89,7 +96,7 @@ describe('POST /api/beta-gate', () => {
 
   it('sanitises a dangerous next param — absolute URL falls back to /login', async () => {
     const { db } = await import('@/lib/db/client');
-    vi.mocked(db.select().from().where).mockResolvedValue([{ count: 0 }]);
+    mockWhere(db, [{ count: 0 }]);
 
     const { POST } = await import('@/app/api/beta-gate/route');
     const res = await POST(jsonRequest({ password: 'correct-password', next: 'http://evil.com' }));
@@ -100,7 +107,7 @@ describe('POST /api/beta-gate', () => {
 
   it('sanitises a protocol-relative next param — falls back to /login', async () => {
     const { db } = await import('@/lib/db/client');
-    vi.mocked(db.select().from().where).mockResolvedValue([{ count: 0 }]);
+    mockWhere(db, [{ count: 0 }]);
 
     const { POST } = await import('@/app/api/beta-gate/route');
     const res = await POST(jsonRequest({ password: 'correct-password', next: '//evil.com' }));
@@ -111,7 +118,7 @@ describe('POST /api/beta-gate', () => {
 
   it('allows a valid relative next param through', async () => {
     const { db } = await import('@/lib/db/client');
-    vi.mocked(db.select().from().where).mockResolvedValue([{ count: 0 }]);
+    mockWhere(db, [{ count: 0 }]);
 
     const { POST } = await import('@/app/api/beta-gate/route');
     const res = await POST(jsonRequest({ password: 'correct-password', next: '/app/dashboard' }));

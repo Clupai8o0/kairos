@@ -60,7 +60,8 @@ describe('createCoreTools', () => {
     } as never);
     vi.mocked(enqueueJob).mockResolvedValue(undefined as never);
 
-    const result = await exec(tools.createTask, { title: 'Do thing', priority: 3, schedulable: true, bufferMins: 15, isSplittable: false, tagIds: [] });
+    vi.mocked(listTasks).mockResolvedValue([]);
+    const result = await exec(tools.createTask, { title: 'Do thing', priority: 3, schedulable: true, bufferMins: 15, isSplittable: false, tags: [] });
     expect(createTask).toHaveBeenCalledWith(USER_ID, expect.objectContaining({ title: 'Do thing' }));
     expect(enqueueJob).toHaveBeenCalledWith('schedule:single-task', expect.objectContaining({ userId: USER_ID }));
     expect(result).toEqual(expect.objectContaining({ id: 't1', schedulable: true }));
@@ -71,7 +72,8 @@ describe('createCoreTools', () => {
       id: 't2', title: 'Note', status: 'pending', schedulable: false,
     } as never);
 
-    await exec(tools.createTask, { title: 'Note', priority: 3, schedulable: false, bufferMins: 0, isSplittable: false, tagIds: [] });
+    vi.mocked(listTasks).mockResolvedValue([]);
+    await exec(tools.createTask, { title: 'Note', priority: 3, schedulable: false, bufferMins: 0, isSplittable: false, tags: [] });
     expect(enqueueJob).not.toHaveBeenCalled();
   });
 

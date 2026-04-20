@@ -43,6 +43,9 @@ function setupChatMocks(opts: {
     createAllTools: vi.fn().mockResolvedValue({}),
     getAvailableToolNames: vi.fn().mockResolvedValue({ core: ['listTasks'], plugin: [] }),
   }));
+  vi.doMock('@/lib/services/ai-keys', () => ({
+    getUserKey: vi.fn().mockResolvedValue(null),
+  }));
   // Mock convertToModelMessages from 'ai'
   vi.doMock('ai', async (importOriginal) => {
     const actual = await importOriginal() as Record<string, unknown>;
