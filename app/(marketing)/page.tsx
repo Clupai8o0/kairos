@@ -433,6 +433,7 @@ export default function LandingPage() {
   const statsRef  = useRef<HTMLDivElement>(null);
   const auroraRef = useRef<HTMLDivElement>(null);
   const pageRef   = useRef<HTMLDivElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Nav scroll state
   useEffect(() => {
@@ -658,8 +659,8 @@ export default function LandingPage() {
       <nav className="top" ref={navRef}>
         <div className="wrap inner">
           <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-            <a href="#" className="brandmark"><span className="logo" /><span>Kairos</span></a>
-            <span className="clupai-chip">a Clupai studio app</span>
+            <a href="#" className="brandmark"><span>Kairos</span></a>
+            <span className="clupai-chip nav-desktop-chip">a Clupai studio app</span>
           </div>
           <div className="navlinks" style={{ marginLeft: 'auto' }}>
             <a href="#how">How it works</a>
@@ -667,13 +668,31 @@ export default function LandingPage() {
             <a href="#deploy">Deploy</a>
             <a href="#beta">Beta</a>
             <a href="/docs">Docs</a>
-            <a href="https://github.com/kairos-app/kairos" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+            <a href="https://github.com/clupai8o0/kairos" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
           </div>
           <div className="nav-right">
             <span className="pill-beta">● BETA 0.3.1</span>
-            <a href="#beta" className="btn btn-primary" onMouseMove={onMagMove} onMouseLeave={onMagLeave}>Join beta</a>
+            <a href="#beta" className="btn btn-primary nav-desktop-cta" onMouseMove={onMagMove} onMouseLeave={onMagLeave}>Join beta</a>
+            <button
+              className={`nav-hamburger${menuOpen ? ' open' : ''}`}
+              onClick={() => setMenuOpen(o => !o)}
+              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            >
+              <span /><span /><span />
+            </button>
           </div>
         </div>
+        {menuOpen && (
+          <div className="mobile-nav-panel">
+            <a href="#how"      className="mobile-nav-link" onClick={() => setMenuOpen(false)}>How it works</a>
+            <a href="#features" className="mobile-nav-link" onClick={() => setMenuOpen(false)}>Features</a>
+            <a href="#deploy"   className="mobile-nav-link" onClick={() => setMenuOpen(false)}>Deploy</a>
+            <a href="#beta"     className="mobile-nav-link" onClick={() => setMenuOpen(false)}>Beta</a>
+            <a href="/docs"     className="mobile-nav-link" onClick={() => setMenuOpen(false)}>Docs</a>
+            <a href="https://github.com/clupai8o0/kairos" target="_blank" rel="noopener noreferrer" className="mobile-nav-link" onClick={() => setMenuOpen(false)}>GitHub ↗</a>
+            <a href="#beta" className="btn btn-primary mobile-nav-cta" onClick={() => setMenuOpen(false)}>Join beta →</a>
+          </div>
+        )}
       </nav>
 
       {/* ── Hero ─────────────────────────────────────────────────── */}
@@ -974,7 +993,7 @@ export default function LandingPage() {
         <div className="wrap">
           <div className="cols">
             <div>
-              <div className="brandmark" style={{ marginBottom: 10 }}><span className="logo"/><span>Kairos</span></div>
+              <div className="brandmark" style={{ marginBottom: 10 }}><span>Kairos</span></div>
               <p style={{ maxWidth: 360, margin: 0, lineHeight: 1.5 }}>
                 A scheduling app that treats your calendar as a constraint problem, not a list. Built by{' '}
                 <a href="#" style={{ color: 'var(--text2)', borderBottom: '1px solid var(--b-def)' }}>Clupai</a>.
@@ -991,7 +1010,7 @@ export default function LandingPage() {
             </div>
             <div>
               <h5>Open source</h5>
-              <a href="https://github.com/kairos-app/kairos" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+              <a href="https://github.com/clupai8o0/kairos" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
               <a href="#">MIT license</a>
               <a href="/docs">Contributing</a>
               <a href="#">Plugin SDK</a>
