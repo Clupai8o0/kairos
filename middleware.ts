@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyBetaCookie, COOKIE_NAME } from '@/lib/beta-gate';
 
-const PUBLIC_PREFIXES = ['/beta-gate', '/api/beta-gate', '/docs', '/_next'];
+const PUBLIC_PREFIXES = ['/beta-gate', '/api/beta-gate', '/sign-in', '/api/auth', '/docs', '/_next'];
 
 function isPublic(pathname: string): boolean {
   if (pathname === '/') return true;

@@ -16,7 +16,7 @@ const schema = z.object({
 });
 
 function sanitizeNext(next?: string): string {
-  if (!next) return '/login';
+  if (!next) return '/sign-in';
   if (!next.startsWith('/') || next.startsWith('//')) return '/login';
   return next;
 }
