@@ -118,8 +118,12 @@ function CreateCollectionModal({ onClose }: { onClose: () => void }) {
       success: 'Collection created',
       error: (err) => err?.message ?? 'Failed to create collection',
     });
-    await p.catch(() => {});
-    onClose();
+    try {
+      await p;
+      onClose();
+    } catch {
+      // toast shows the error; keep modal open so user can retry
+    }
   }
 
   // eslint-disable-next-line kairos/no-raw-colors -- user-facing color pickers are not design tokens
