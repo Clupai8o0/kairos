@@ -1,10 +1,13 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Geist } from 'next/font/google';
 import { headers } from 'next/headers';
 import './globals.css';
 import { Providers } from '@/components/providers';
 import { auth } from '@/lib/auth';
 import { resolveUserTheme } from '@/lib/themes/runtime';
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const inter = Inter({
   subsets: ['latin'],
@@ -37,7 +40,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <html lang="en" className={inter.variable} data-theme={themeId}>
+    <html lang="en" className={cn("font-sans", geist.variable)} data-theme={themeId}>
       <head>
         {marketplaceCssUrl && (
           <link rel="stylesheet" href={marketplaceCssUrl} />

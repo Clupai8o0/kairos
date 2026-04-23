@@ -201,7 +201,7 @@ function TaskModal({
             />
 
             {/* Priority + Deadline */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-fg-4 text-[11px] font-[510] uppercase tracking-wide mb-1">Priority</label>
                 <select
@@ -232,7 +232,7 @@ function TaskModal({
 
             {/* Duration + Buffer (shown when schedulable) */}
             {schedulable && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-fg-4 text-[11px] font-[510] uppercase tracking-wide mb-1">Duration (min)</label>
                   <input
@@ -359,8 +359,8 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
         <span className="text-fg-4 text-[10px] shrink-0" title="Recurring task">↻</span>
       )}
 
-      {/* Meta */}
-      <div className="flex items-center gap-2 shrink-0 opacity-0 group-hover:opacity-100 sm:opacity-100 transition-opacity">
+      {/* Meta — always visible */}
+      <div className="hidden sm:flex items-center gap-2 shrink-0">
         {task.tags.map((tag) => (
           <span
             key={tag.id}
@@ -384,8 +384,15 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
         )}
       </div>
 
-      {/* Actions (hover) */}
-      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Deadline on mobile (compact) */}
+      {deadline && (
+        <span className={`sm:hidden text-xs shrink-0 ${deadline.overdue ? 'text-danger' : 'text-fg-4'}`}>
+          {deadline.label}
+        </span>
+      )}
+
+      {/* Actions — always visible on mobile, hover-reveal on desktop */}
+      <div className="flex items-center gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
         <button
           onClick={() => onEdit(task)}
           className="p-1 text-fg-4 hover:text-fg-2 transition-colors"
@@ -432,7 +439,7 @@ export default function TasksPage() {
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-surface border-b border-wire px-6 h-12 flex items-center justify-between">
+      <header className="sticky top-0 z-10 bg-surface border-b border-wire px-4 sm:px-6 h-12 flex items-center justify-between">
         <h1 className="text-fg text-sm font-[510]">
           Tasks
           {pendingCount > 0 && (
@@ -450,9 +457,9 @@ export default function TasksPage() {
         </button>
       </header>
 
-      <div className="px-6 py-4">
+      <div className="px-3 sm:px-6 py-3 sm:py-4">
         {/* Filter tabs */}
-        <div className="flex items-center gap-1 mb-4">
+        <div className="flex items-center gap-1 mb-4 overflow-x-auto pb-0.5 scrollbar-none">
           {STATUS_TABS.map((tab) => (
             <button
               key={tab.value}

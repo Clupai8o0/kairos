@@ -43,11 +43,11 @@ export default function DashboardPage() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <header className="sticky top-0 z-10 bg-surface border-b border-wire px-6 h-12 flex items-center">
+      <header className="sticky top-0 z-10 bg-surface border-b border-wire px-4 sm:px-6 h-12 flex items-center">
         <h1 className="text-fg text-sm font-[510]">Dashboard</h1>
       </header>
 
-      <div className="px-6 py-6 max-w-3xl">
+      <div className="px-4 sm:px-6 py-4 sm:py-6 max-w-3xl">
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
           <StatCard label="Pending" value={pending} />
@@ -72,23 +72,25 @@ export default function DashboardPage() {
               {upcoming.map((task) => (
                 <li
                   key={task.id}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-ghost border border-wire-2 hover:bg-ghost-2 transition-colors"
+                  className="flex items-start gap-3 px-3 py-2.5 rounded-lg bg-ghost border border-wire-2 hover:bg-ghost-2 transition-colors"
                 >
-                  <span className={`text-[10px] font-[510] ${STATUS_COLOR[task.status]}`}>
+                  <span className={`text-[10px] font-[510] mt-0.5 shrink-0 ${STATUS_COLOR[task.status]}`}>
                     {task.status === 'done' ? '✓' : task.status === 'in_progress' ? '●' : '○'}
                   </span>
-                  <span className="flex-1 text-fg-2 text-sm truncate">{task.title}</span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {task.tags.map((tag) => (
-                      <span
-                        key={tag.id}
-                        className="text-[11px] font-[510] text-fg-3 border border-wire px-1.5 py-0.5 rounded-full"
-                        style={tag.color ? { color: tag.color, borderColor: tag.color + '40' } : {}}
-                      >
-                        {tag.name}
-                      </span>
-                    ))}
-                    <span className="text-fg-4 text-xs">{formatDate(task.deadline)}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="block text-fg-2 text-sm truncate">{task.title}</span>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {task.tags.map((tag) => (
+                        <span
+                          key={tag.id}
+                          className="text-[11px] font-[510] text-fg-3 border border-wire px-1.5 py-0.5 rounded-full"
+                          style={tag.color ? { color: tag.color, borderColor: tag.color + '40' } : {}}
+                        >
+                          {tag.name}
+                        </span>
+                      ))}
+                      <span className="text-fg-4 text-xs">{formatDate(task.deadline)}</span>
+                    </div>
                   </div>
                 </li>
               ))}

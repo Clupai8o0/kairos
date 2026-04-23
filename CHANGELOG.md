@@ -134,6 +134,33 @@ Append new entries at the top. Use the template below.
 
 ---
 
+## 2026-04-23 — Mobile-friendly dashboard + shadcn setup
+
+**Goal:** Make all dashboard UI screens mobile-responsive; introduce shadcn components.
+
+**Built:**
+- Initialized shadcn (Tailwind v4 compatible) — `components.json`, `lib/utils.ts`, `@base-ui/react`, `lucide-react` added
+- Added shadcn components: `sheet`, `button`, `badge`, `tabs`, `input`, `label`, `select`
+- `components/app/mobile-nav.tsx` — mobile top bar (hamburger + logo) with `Sheet` left-side drawer containing full navigation + sign-out; visible only on `< md`
+- `app/(app)/layout.tsx` — mounts `<MobileNav />` above page content; sidebar unchanged on desktop
+- `components/app/sidebar.tsx` — `hidden md:flex` added to `<aside>` so it's desktop-only
+- `app/(app)/tasks/page.tsx` — task card meta always visible on mobile (`hidden sm:flex` + compact deadline for xs); actions always shown on mobile (`opacity-100 sm:opacity-0 sm:group-hover:opacity-100`); modal `grid-cols-2` → `grid-cols-1 sm:grid-cols-2`; header/content padding responsive; filter tabs `overflow-x-auto`
+- `app/(app)/dashboard/page.tsx` — deadline list items reflow to two-line layout (title + tags+date on second line) for narrow viewports; responsive padding
+- `app/globals.css` — removed `--color-accent: var(--accent)` from shadcn `@theme inline` block to prevent overriding our brand indigo token
+
+**Decisions made:**
+- shadcn components styled by overriding `className` with our design tokens (e.g. `bg-surface border-wire` on SheetContent) — shadcn's own `:root` vars coexist but don't conflict
+- Mobile sidebar: Sheet drawer pattern, not a bottom tab bar — consistent with desktop nav mental model
+- Task actions (edit/delete) always visible on mobile; desktop hover-reveal preserved
+
+**Tests:** 278/278 passing. `pnpm tsc --noEmit` clean. Build clean.
+
+**Files touched:** 7 new/modified
+
+**Next action:** Same as before — deploy migration + env vars + v1.0.0 tag
+
+---
+
 ## 2026-04-20 — Session 17: Bug fixes + Beta gate + Resend email
 
 **Goal for this session:** Fix GCal delete bug and React setState render error; implement beta-gate shared-password access control and Resend transactional email.
