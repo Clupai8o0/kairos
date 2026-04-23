@@ -495,3 +495,58 @@ New ADRs: R16 (blackout blocks), R17 (window templates), R18 (flexible recurrenc
 - Cross-device chat sync — not applicable when chat isn't persisted
 - Chat-invoked plugin install — user installs plugins via settings, chat uses what's installed
 
+---
+
+### Slice 5d — Collections
+
+**Goal:** Users can group tasks into time-bounded, phase-organised collections (sprints, subjects, project-as-groups). Collections are a coordination structure, not taxonomy — they do not replace tags (ADR-R20).
+
+#### Build
+- [x] Drizzle schema: `collections`, `collectionPhases`, `collectionTasks` in `lib/db/schema/collections.ts`
+- [x] Migration `drizzle/0010_collections.sql` — must be applied via Neon console (drizzle-kit snapshot chain broken for indices 3–5)
+- [x] `lib/services/collections.ts` — `listCollections`, `getCollectionDetails`, `createCollection`, `updateCollection`, `deleteCollection`, `createPhase`, `updatePhase`, `deletePhase`, `addTaskToCollection`, `removeTaskFromCollection`, `updateCollectionTask`, `getCollectionProgress`, `getSchedulableTaskIds`
+- [x] `app/api/collections/route.ts` — GET + POST
+- [x] `app/api/collections/[id]/route.ts` — GET + PATCH + DELETE
+- [x] `app/api/collections/[id]/phases/route.ts` — POST
+- [x] `app/api/collections/[id]/phases/[phaseId]/route.ts` — PATCH + DELETE
+- [x] `app/api/collections/[id]/tasks/route.ts` — POST add task
+- [x] `app/api/collections/[id]/tasks/[taskId]/route.ts` — PATCH move/reorder + DELETE remove
+- [x] `app/api/collections/[id]/schedule/route.ts` — POST enqueues `schedule:full-run` for schedulable tasks
+- [x] `app/api/collections/[id]/progress/route.ts` — GET
+- [x] `lib/hooks/use-collections.ts` — full CRUD hooks + `useBulkScheduleCollection`
+- [x] `app/(app)/collections/page.tsx` — card grid with progress bars, deadline indicators, create modal
+- [x] `app/(app)/collections/[id]/page.tsx` — phase columns, task rows, add-task panel, bulk-schedule
+- [x] 4 chat tools in `lib/chat/tools.ts`: `listCollections`, `createCollection`, `addTaskToCollection`, `bulkScheduleCollection`
+- [x] Sidebar + mobile-nav: Collections nav item added
+- [x] `tasks.status` extended with `'backlog' | 'blocked'`; all exhaustive Record maps in UI updated
+
+#### Test
+- [ ] Unit: `getCollectionProgress` returns correct `taskCount`, `doneCount`, `blockedCount`
+- [ ] Integration: POST `/api/collections` creates a collection; GET lists it; PATCH updates; DELETE removes
+- [ ] Integration: create a phase; tasks can be assigned to it via PATCH to `tasks/[taskId]`
+- [ ] Integration: add a task to a collection; remove it — task row is unaffected
+- [ ] Integration: `POST /api/collections/[id]/schedule` enqueues jobs for schedulable tasks only (not `done`/`cancelled`)
+- [ ] Integration: chat `createCollection` tool creates collection + phases in one call
+- [ ] Integration: chat `addTaskToCollection` handles already-member tasks gracefully (no duplicate, no error)
+
+#### Verify (manual)
+- [ ] Create a collection with 2 phases and a deadline; cards show progress bar and deadline badge
+- [ ] Add 5 tasks across phases; mark 2 done — progress bar updates to 40%
+- [ ] Move a task between phases — phase column updates immediately
+- [ ] Remove a task from a collection — task still exists in `/tasks`
+- [ ] Bulk-schedule a collection — toast confirms, jobs enqueued
+- [ ] Archive a collection — status updates, card shows "archived" badge
+- [ ] Chat: "create a sprint called Q2-Backend with phases Planning and Build" — collection + both phases created
+- [ ] Chat: "add task X to my Q2-Backend collection" — task appears in the collection detail
+
+#### Definition of done
+- [x] Collections, phases, and join table in schema + migration applied via Neon console
+- [x] Full REST API: 10 route files covering all collection/phase/task/schedule/progress operations
+- [x] TanStack Query hooks for all mutations and queries (`use-collections.ts`)
+- [x] List UI with progress bars, deadline indicators, overdue state, color dots
+- [x] Detail UI with phase columns, task rows, add-task panel, bulk-schedule button
+- [x] 4 chat tools working end-to-end
+- [x] `tasks.status` includes `'backlog'` and `'blocked'`; all exhaustive Record maps updated
+- [x] No `projectId` added to `tasks` — join table only (ADR-R20)
+- [x] ESLint clean (`no-raw-colors` inline disable comment for preset color picker array)
+

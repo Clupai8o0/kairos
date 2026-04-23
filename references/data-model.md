@@ -2,25 +2,32 @@
 
 The slimmed-down entity set for the rewrite, expressed as Drizzle schema. Decisions about *which* fields exist and *why* are language-independent — the shape carries forward from the old build's `data-model.md`. The expression is now TypeScript.
 
-## Entities (rewrite v1)
+## Entities (current)
 - `users`
 - `tasks`
 - `tags` (+ `taskTags` join table)
 - `views` (saved filters)
-- `blackoutDays`
-- `scheduleLogs`
+- `blackoutBlocks` *(replaced `blackoutDays` in migration 0006 — supports datetime-range and recurrence)*
 - `scheduleWindows`
+- `windowTemplates` *(added Phase 5a — named groups of windows; each window references a template)*
+- `scheduleLogs`
 - `jobs` (background work — see ADR-R9)
 - `googleAccounts`
 - `googleCalendars`
 - `scratchpads`
 - `scratchpadPluginConfigs` *(per-user per-plugin config + memory + rulesets)*
 - `pluginInstalls` *(installed plugins, version, enabled flag)*
+- `themeInstalls` *(installed theme marketplace packs — compiled CSS, source, metadata)*
+- `betaGateAttempts` *(rate-limit tracking for the beta password gate)*
+- `collections` *(Phase 5d — coordination groups with optional deadline and color)*
+- `collectionPhases` *(ordered phases within a collection)*
+- `collectionTasks` *(many-to-many join: task ↔ collection, with optional phase assignment)*
 - Better Auth tables: `sessions`, `accounts`, `verificationTokens` (managed by Better Auth's Drizzle adapter)
 
 ## Entities removed from the old build
 - ❌ `projects` — replaced by tags
-- ❌ `chatSessions` — chat is post-v1
+- ❌ `chatSessions` — chat is session-scoped (ADR-R19), no persistence
+- ❌ `blackoutDays` — superseded by `blackoutBlocks` (migration 0006)
 
 ## Schema overview (Drizzle)
 
@@ -41,7 +48,7 @@ Note: actual Drizzle schema goes in `db/schema/*.ts`. This is the conceptual sha
   // Scheduling inputs
   deadline: timestamp | null
   priority: integer (1=urgent .. 4=low)
-  status: text ('pending' | 'scheduled' | 'in_progress' | 'done' | 'cancelled')
+  status: text ('pending' | 'scheduled' | 'in_progress' | 'done' | 'cancelled' | 'backlog' | 'blocked')
   schedulable: boolean (default true)
 
   // GCal reference (the only time-related fields)
@@ -183,7 +190,99 @@ Unique constraint on `(userId, pluginName)`.
 ```
 Unique partial index on `idempotencyKey` where not null.
 
-### googleAccounts, googleCalendars, blackoutDays, scheduleWindows, scheduleLogs, views
+### windowTemplates (Phase 5a)
+```typescript
+{
+  id: text (cuid, primary key)
+  userId: text (FK -> users.id)
+  name: text
+  isDefault: boolean (default false)
+  createdAt: timestamp
+  updatedAt: timestamp
+}
+```
+Unique constraint on `(userId, name)`. Each `scheduleWindow` row references a `templateId`. A seeded "Default" template is created for new users on first sign-in or first window creation.
+
+### blackoutBlocks (Phase 5a — replaces blackoutDays)
+```typescript
+{
+  id: text (cuid, primary key)
+  userId: text (FK -> users.id)
+  label: text | null
+  startAt: timestamp
+  endAt: timestamp
+  recurrenceRule: jsonb | null  // same RecurrenceRule shape as tasks
+  createdAt: timestamp
+  updatedAt: timestamp
+}
+```
+Supports single datetime-range blocks and recurring blocks (e.g. "every Friday 9–5"). The scheduler's `computeFreeSlots` expands recurrence over the lookahead window before filtering slots.
+
+### themeInstalls (Phase 4)
+```typescript
+{
+  id: text (cuid, primary key)
+  userId: text (FK -> users.id)
+  slug: text
+  name: text
+  source: text  // 'marketplace' | 'custom-upload' | 'plugin'
+  manifestJson: jsonb
+  compiledCss: text
+  installedAt: timestamp
+  updatedAt: timestamp
+}
+```
+Unique constraint on `(userId, slug)`. Served via `/api/themes/[installId]/css` with cache headers.
+
+### betaGateAttempts (Phase 5)
+```typescript
+{
+  id: text (cuid, primary key)
+  ip: text
+  attemptedAt: timestamp (default now)
+}
+```
+Used by the beta password gate route to rate-limit failed attempts per IP. No FK to `users` — attempts are recorded before authentication.
+
+### collections (Phase 5d)
+```typescript
+{
+  id: text (cuid, primary key)
+  userId: text (FK -> users.id, cascade delete)
+  title: text
+  description: text | null
+  deadline: timestamp | null
+  status: text  // 'active' | 'completed' | 'archived'
+  color: text | null  // hex string chosen by user
+  createdAt: timestamp
+  updatedAt: timestamp
+}
+```
+
+### collectionPhases (Phase 5d)
+```typescript
+{
+  id: text (cuid, primary key)
+  collectionId: text (FK -> collections.id, cascade delete)
+  title: text
+  order: integer (default 0)
+  createdAt: timestamp
+}
+```
+
+### collectionTasks (Phase 5d)
+```typescript
+{
+  // composite primary key (collectionId, taskId)
+  collectionId: text (FK -> collections.id, cascade delete)
+  taskId: text (FK -> tasks.id, cascade delete)
+  phaseId: text | null (FK -> collectionPhases.id, set null on phase delete)
+  order: integer (default 0)
+}
+```
+Index on `taskId` for reverse lookups. A task may belong to multiple collections (many-to-many). There is no `collectionId` column on `tasks` — the join table is the only link (ADR-R20).
+
+### googleAccounts, googleCalendars, scheduleWindows, scheduleLogs, views
 Carry forward from the old `data-model.md` with the same fields, translated to camelCase TypeScript identifiers and Drizzle column types.
 
 ## Why Drizzle and not Prisma

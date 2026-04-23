@@ -8,121 +8,94 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 
 ## Current State
 
-**Phase:** 5c in progress. Phase 5 planned (3 slices: 5a scheduling completion ✓, 5b recurrence ✓, 5c chat — build complete, integration tests remaining).
+**Phase:** Phase 5d (Collections) complete. All five slices shipped: 5a scheduling ✓, 5b recurrence ✓, 5c chat ✓, 5d collections ✓. Mobile-responsive UI ✓. Beta gate + email ✓. Pending: production DB migration for 0009 + 0010, env vars, v1.0.0 tag.
 
-### What's built (phases 1–5a)
+### What's built (all phases)
+
+**Phases 1–2 — Core**
 - [x] Full backend: scheduler pipeline, GCal layer, plugin host, scratchpad, jobs queue
-- [x] Full frontend: all 7 app routes wired to real APIs via TanStack Query
+- [x] Full frontend: all app routes wired to real APIs via TanStack Query
 - [x] Theme system: 2 built-in packs, server-side `data-theme` injection (no FOUC), Cmd+K palette switcher, Settings→Appearance picker
-- [x] `no-raw-colors` ESLint rule active — 0 errors, 3 pre-existing warnings (RHF/React Compiler, test unused var)
-- [x] `compileManifest` snapshot test + 16 theme unit+integration tests
-- [x] Phase 3: MIT license, CONTRIBUTING.md, CODE_OF_CONDUCT.md, issue/PR templates, Vercel deploy button, Docker self-host, landing page (GSAP)
-- [x] Phase 3: `packages/plugin-sdk/` — `@kairos/plugin-sdk` npm package (types, helpers, testing mock)
-- [x] Phase 3: `examples/plugins/` — 4 reference plugins (instagram, twitter, readwise, voice)
-- [x] Phase 3: `app/(marketing)/docs/` — overview, plugin guide, theme authoring guide, API reference
-- [x] Phase 4: `themeInstalls` schema + migration (`0003_theme_installs.sql`)
-- [x] Phase 4: `lib/themes/safety.ts` — CSS injection, font allowlist, size limit, ID uniqueness checks
-- [x] Phase 4: `lib/themes/install.ts` — install from registry URL or raw manifest, upsert to DB
-- [x] Phase 4: `lib/themes/compile.ts` — `scope` param added (`'@theme'` | `'selector'`) — backwards compatible
-- [x] Phase 4: `lib/themes/runtime.ts` — resolves marketplace installs; `ResolvedTheme` includes `id` in both union members
-- [x] Phase 4: theme API routes (install, uninstall, css serve, list installed)
-- [x] Phase 4: `public/theme-registry/` — 5 community themes (nord-dark, dracula, catppuccin-mocha, solarized-light, tokyo-night)
-- [x] Phase 4: `app/(app)/settings/marketplace/page.tsx` — tabbed Plugins | Themes marketplace UI
-- [x] Phase 4: `app/(app)/settings/appearance/custom/page.tsx` — custom manifest upload
-- [x] Phase 4: appearance page shows installed marketplace themes + links
-- [x] Phase 4b: `packages/plugin-sdk/src/manifest.ts` — `PluginManifestSchema` Zod schema + type
-- [x] Phase 4b: `lib/plugins/manifest-types.ts` — in-lib re-export of manifest schema
-- [x] Phase 4b: `lib/plugins/safety.ts` — plugin safety checks (size, ID, HTTPS, DNS rebinding)
-- [x] Phase 4b: `lib/plugins/install.ts` — install/uninstall/rollback/list for plugins
-- [x] Phase 4b: `lib/plugins/http-adapter.ts` — HTTP adapter with circuit breaker + HMAC signing
-- [x] Phase 4b: `lib/plugins/updates.ts` — check installed plugins against registry for updates
-- [x] Phase 4b: updated `lib/plugins/host.ts` — loads HTTP plugins alongside bundled
-- [x] Phase 4b: `app/api/plugins/install/route.ts` — POST install (URL or raw manifest)
-- [x] Phase 4b: `app/api/plugins/[name]/uninstall/route.ts` — DELETE uninstall
-- [x] Phase 4b: `drizzle/0004_plugin_install_fields.sql` — extended `pluginInstalls` schema
-- [x] Phase 4b: `public/plugin-registry/` — 10 plugin manifests + registry index
-- [x] Phase 4b: `packages/validator-core/` — shared validation core (types, fs, output)
-- [x] Phase 4b: `packages/plugin-validator/` — CLI for plugin manifest validation
-- [x] Phase 4b: `packages/theme-validator/` — CLI for theme manifest validation
-- [x] Phase 4b: `.github/workflows/validate-registry.yml` — CI for manifest validation
-- [x] Phase 4b: updated marketplace UI — full plugin browse/install/uninstall/toggle
-- [x] Phase 4b: updated `lib/hooks/use-plugins.ts` — registry, install, uninstall, updates hooks
-- [x] Phase 4b: updated `CONTRIBUTING.md` — plugin development guide
-- [x] Phase 5a: `drizzle/0006_schedule_types.sql` — drop `blackout_days`, create `blackout_blocks` + `window_templates`, add `template_id` FK to `schedule_windows`, add `preferred_template_id` to `tasks`
-- [x] Phase 5a: `lib/scheduler/types.ts` — added `BlackoutBlock`, `WindowTemplate` types, `templateId` on `ScheduleWindow`/`TimeSlot`
-- [x] Phase 5a: `lib/scheduler/slots.ts` — replaced `blackoutDates: Date[]` with `blackoutBlocks: BlackoutBlock[]`, recurring expansion via `generateOccurrences`, templateId propagation
-- [x] Phase 5a: `lib/scheduler/placement.ts` — added `rankSlotsForTask()` for preferred-template slot ranking
-- [x] Phase 5a: `lib/scheduler/runner.ts` — updated to load `blackoutBlocks`/`windowTemplates`, pass through pipeline
-- [x] Phase 5a: `lib/services/blackouts.ts` — full CRUD service
-- [x] Phase 5a: `lib/services/window-templates.ts` — full CRUD + `ensureDefaultTemplate()`
-- [x] Phase 5a: updated `lib/services/schedule-windows.ts` — `templateId` on `WindowInput`
-- [x] Phase 5a: updated `lib/services/tasks.ts` — `preferredTemplateId` on input types
-- [x] Phase 5a: `app/api/blackouts/route.ts` + `app/api/blackouts/[id]/route.ts` — full REST endpoints
-- [x] Phase 5a: `app/api/window-templates/route.ts` + `app/api/window-templates/[id]/route.ts` — full REST endpoints
-- [x] Phase 5a: updated task API routes — `preferredTemplateId` in create/update schemas
-- [x] Phase 5a: `lib/hooks/use-blackouts.ts` + `lib/hooks/use-window-templates.ts` — TanStack Query hooks
-- [x] Phase 5a: updated `lib/hooks/types.ts` — `BlackoutBlock`, `WindowTemplate` types, `preferredTemplateId` on `Task`
-- [x] Phase 5a: updated settings page — auto-creates default template, threads `templateId` through schedule editor
-- [x] Phase 5a: `components/app/schedule-section.tsx` — template CRUD (create/rename/delete/set-default), collapsible per-template day editors, preserves cross-template windows on save
-- [x] Phase 5a: `components/app/blackouts-section.tsx` — blackout block CRUD with datetime-range picker, recurrence toggle, inline edit/delete
-- [x] Phase 5a: `components/app/task-edit-modal.tsx` — preferred-template dropdown (shown when schedulable, loads templates)
-- [x] Phase 5a: `lib/hooks/use-tasks.ts` — `preferredTemplateId` added to `CreateTaskInput` + `UpdateTaskInput`
-- [x] Phase 5a: 73 unit tests passing (6 new for slots blackout blocks + templateId, 4 new for `rankSlotsForTask`)
-- [x] Phase 5a: 21 new integration tests (blackouts + window-templates routes)
-- [x] Phase 5b: `RecurrenceRule.mode` — `'fixed' | 'after-complete'` added to scheduler types
-- [x] Phase 5b: `nextOccurrenceAfterComplete()` — pure function in `lib/scheduler/recurrence.ts`
-- [x] Phase 5b: `lib/services/recurrence.ts` — resolveSeriesRoot, spawnNextOccurrence, deleteInstance, deleteSeries
-- [x] Phase 5b: `POST /api/tasks/:id/complete` — idempotent complete + spawn-on-complete for recurring tasks
-- [x] Phase 5b: `DELETE /api/tasks/:id?scope=series` — delete entire recurring series
-- [x] Phase 5b: Frontend — recurrence editor (mode/freq/interval), series delete (instance vs whole), ↻ glyph, useCompleteTask hook
-- [x] Phase 5b: 9 new unit tests (nextOccurrenceAfterComplete + back-compat), 9 new integration tests (complete + series delete)
-- [x] Phase 5c: `lib/chat/tools.ts` — 9 core tools (listTasks, createTask, updateTask, deleteTask, completeTask, listTags, createTag, listSchedule, runSchedule) using AI SDK v6 `tool()` with `inputSchema`
-- [x] Phase 5c: `lib/chat/plugin-tools.ts` — aggregates tools from installed plugins, namespaces as `pluginName__toolName`, skips disabled/non-implementing plugins
-- [x] Phase 5c: `lib/chat/router.ts` — merges core + plugin tools via `createAllTools(userId)` + `getAvailableToolNames(userId)`
-- [x] Phase 5c: `lib/chat/stream.ts` — `streamText` wrapper using `lib/llm/resolveModel()`, system prompt, `stopWhen: stepCountIs(5)`
-- [x] Phase 5c: `lib/plugins/types.ts` — `ToolDefinition` type + `ScratchpadPlugin.tools?` / `.invokeTool?` added
-- [x] Phase 5c: `packages/plugin-sdk/src/manifest.ts` — `PluginManifestSchema.tools?` added
-- [x] Phase 5c: `lib/plugins/manifest-types.ts` — tools schema added, z.record fixed for Zod v4
-- [x] Phase 5c: `app/api/chat/route.ts` — POST streaming endpoint, `convertToModelMessages()` + `toUIMessageStreamResponse()`
-- [x] Phase 5c: `app/api/chat/tools/route.ts` — GET available tool names
-- [x] Phase 5c: `app/(app)/chat/page.tsx` — useChat v6 hook, local input state, sendMessage/status API, parts-based rendering
-- [x] Phase 5c: `components/app/chat/transcript.tsx` — AnimatePresence message list, `isStaticToolUIPart` / `isTextUIPart` filters
-- [x] Phase 5c: `components/app/chat/composer.tsx` — auto-growing textarea, Enter-to-send, Shift+Enter for newline
-- [x] Phase 5c: `components/app/chat/tool-call-block.tsx` — type-differentiated tool call renderers with v6 states
-- [x] Phase 5c: sidebar + command palette — "Chat" nav item + "Open chat" in Cmd-K
-- [x] Phase 5c: 18 unit tests (13 core tools + 5 plugin tools) — all passing
-- [x] Phase 5c: `@ai-sdk/react@3.0.170` installed as new dependency
+- [x] `no-raw-colors` ESLint rule active
+
+**Phase 3 — Open source**
+- [x] MIT license, CONTRIBUTING.md, CODE_OF_CONDUCT.md, issue/PR templates, Vercel deploy button, Docker self-host, landing page (GSAP)
+- [x] `packages/plugin-sdk/` — `@kairos/plugin-sdk` npm package (types, helpers, testing mock)
+- [x] `examples/plugins/` — 4 reference plugins (instagram, twitter, readwise, voice)
+- [x] `app/(marketing)/docs/` — overview, plugin guide, theme authoring guide, API reference
+
+**Phase 4 — Theme marketplace**
+- [x] `themeInstalls` schema + migration; install/uninstall/compile/serve pipeline
+- [x] `public/theme-registry/` — 5 community themes
+- [x] Marketplace UI: tabbed Plugins | Themes; custom manifest upload
+
+**Phase 4b — Plugin marketplace**
+- [x] Plugin manifest schema + safety checks + install/uninstall/rollback
+- [x] HTTP plugin runtime: circuit breaker, HMAC signing, 5s timeout
+- [x] `public/plugin-registry/` — 10 plugin manifests
+- [x] `@kairos/plugin-validator` + `@kairos/theme-validator` CLIs; CI manifest validation
+
+**Phase 5a — Scheduling completion**
+- [x] Blackout blocks (ranges, partial-day, recurrence) replace blackout days
+- [x] Window templates with soft-ranked task placement
+- [x] Full settings UI: template CRUD, blackout CRUD, preferred-template picker on tasks
+
+**Phase 5b — Flexible recurrence**
+- [x] `mode: 'fixed' | 'after-complete'` on `RecurrenceRule`
+- [x] `POST /api/tasks/:id/complete` — spawns next occurrence for recurring tasks
+- [x] `DELETE /api/tasks/:id?scope=instance|series`
+- [x] UI: recurrence editor, series delete modal, ↻ glyph
+
+**Phase 5c — Chat**
+- [x] `lib/chat/` — tools, plugin-tools, router, stream
+- [x] 13 core tools: listTasks, createTask, bulkCreateTasks, updateTask, bulkUpdateTasks, deleteTask, completeTask, listTags, createTag, listSchedule, runSchedule, listCollections, createCollection, addTaskToCollection, bulkScheduleCollection
+- [x] Plugin-exposed tools aggregated and namespaced
+- [x] `POST /api/chat` streaming + `GET /api/chat/tools`
+- [x] `/chat` page: transcript, composer, tool-call blocks, copy transcript
+
+**Phase 5d — Collections (ADR-R20)**
+- [x] `collections`, `collectionPhases`, `collectionTasks` schema + migration `0010_collections.sql`
+- [x] Task `status` extended: `'backlog' | 'blocked'` (TypeScript-only)
+- [x] `lib/services/collections.ts` — full CRUD + phase management + task membership + progress + bulk-schedule
+- [x] Full REST API: 10 route files covering collections, phases, task membership, schedule, progress
+- [x] `lib/hooks/use-collections.ts` — 13 TanStack Query hooks
+- [x] `/collections` — card grid with progress bars, create modal (deadline + color picker)
+- [x] `/collections/[id]` — phase columns, task rows with status chips + phase selector, add-task search, bulk-schedule, archive
+- [x] 4 chat tools: `listCollections`, `createCollection`, `addTaskToCollection`, `bulkScheduleCollection`
+- [x] Collections nav item in sidebar + mobile nav
+
+**Infrastructure**
+- [x] Beta gate: shared-password access + IP rate limiting (`betaGateAttempts` table, migration `0009`)
+- [x] Resend email: `lib/email/` abstraction, VerificationEmail template, Better Auth hook
+- [x] Mobile-responsive UI: Sheet drawer nav, responsive task cards, responsive dashboard
+- [x] shadcn components installed (button, badge, sheet, tabs, input, label, select)
 
 ### Active decisions (promoted to ADRs)
 - Default pack tokens in `@theme {}` (Tailwind-native); marketplace/custom packs compiled under `[data-theme="id"] {}` (selector scope)
 - `ResolvedTheme.id` exposed in both union members so layout can set `data-theme` regardless of theme kind
 - Theme registry served as static JSON from `public/theme-registry/` — no external service for v1
-- **ADR-R15:** Hybrid plugin distribution — built-in plugins bundled, community plugins over HTTP, self-hosters can optionally bundle at build time
+- **ADR-R15:** Hybrid plugin distribution — built-in plugins bundled, community plugins over HTTP
 - **ADR-R16:** Blackout blocks replace blackout days — ranges, partial-day, recurrence support
 - **ADR-R17:** Window templates — user-defined time intents, soft-ranked placement
 - **ADR-R18:** Flexible recurrence — spawn-on-complete, per-instance edits, series deletion
 - **ADR-R19:** Session-scoped chat — core + plugin tools, no persistence (softens ADR-R8)
-
-### What's built (session 17 additions)
-- [x] Beta gate: shared-password access control (`middleware.ts`, `/beta-gate` page, `/api/beta-gate` route, `betaGateAttempts` table, migration `0009`)
-- [x] Resend email abstraction: `lib/email/` (client, send, VerificationEmail template), wired into Better Auth email verification hook
-- [x] `no-resend-imports` ESLint rule; email templates exempted from `no-raw-colors`
-- [x] `references/email-setup.md` — Resend + Cloudflare DNS setup docs
+- **ADR-R20:** Collections — coordination/grouping for tasks, many-to-many via join table, no projectId
 
 ### Known issues / blockers
 - Lighthouse perf score not yet measured (needs live deploy)
 - `vercel.json` cron still set to daily at midnight UTC (hobby plan limitation)
 - GitHub repo not yet set to public (manual step)
 - `v1.0.0` tag not yet applied (pending deploy verification)
-- 5c integration tests for "LLM tool calls produce real DB mutations" and "HTTP plugin tool invocation over HMAC" deferred (require live LLM mocking)
-- 5b integration tests for "spawned instance field inheritance" and "GCal event cleanup on series delete" deferred (require DB-level test infrastructure)
+- 5c integration tests for "LLM tool calls produce real DB mutations" and "HTTP plugin tool invocation over HMAC" deferred
+- 5b integration tests for "spawned instance field inheritance" and "GCal event cleanup on series delete" deferred
 - Beta gate + email env vars not yet set on Vercel (`BETA_PASSWORD`, `BETA_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`)
+- `drizzle-kit migrate` broken due to missing meta snapshots for indices 3–5 — apply migrations 0007–0010 via psql/Neon console directly
 
 ### Next concrete action
-1. Deploy: `pnpm db:migrate` production (applies `0009_beta_gate_attempts.sql`)
+1. Apply pending migrations via Neon console: `0007_user_preferences.sql`, `0008_write_calendar.sql`, `0009_beta_gate_attempts.sql`, `0010_collections.sql`
 2. Set `BETA_PASSWORD`, `BETA_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM` on Vercel
-3. Verify beta gate on live deploy
-4. Manual verification of Phase 5c chat flow (live deploy)
+3. Verify beta gate + collections on live deploy
+4. Manual verification of chat + collections flow (live)
 5. `git tag v1.0.0 && git push origin v1.0.0`
 6. Set GitHub repo to public
 
