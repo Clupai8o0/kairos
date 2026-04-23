@@ -19,6 +19,7 @@ export type { Collection, CollectionPhase, CollectionTask };
 export type TaskSummary = {
   id: string;
   title: string;
+  description: string | null;
   status: string;
   priority: number;
   durationMins: number | null;
@@ -84,6 +85,7 @@ async function attachTagsToTasks(taskRows: (typeof tasks.$inferSelect)[]): Promi
   return taskRows.map((t) => ({
     id: t.id,
     title: t.title,
+    description: t.description,
     status: t.status,
     priority: t.priority,
     durationMins: t.durationMins,

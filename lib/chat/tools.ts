@@ -14,6 +14,7 @@ import { enqueueJob } from '@/lib/services/jobs';
 import { spawnNextOccurrence } from '@/lib/services/recurrence';
 import {
   listCollections,
+  getCollectionDetails,
   createCollection,
   createPhase,
   addTaskToCollection,
@@ -50,7 +51,7 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
         'List all tasks for the current user. Always call this WITHOUT filters first when looking for a task by name. Only use status filter when the user explicitly asks for tasks in a specific status.',
       inputSchema: z.object({
         status: z
-          .enum(['pending', 'scheduled', 'in_progress', 'done', 'cancelled'])
+          .enum(['pending', 'scheduled', 'in_progress', 'done', 'cancelled', 'backlog', 'blocked'])
           .optional()
           .describe('Filter by task status — omit to list ALL tasks'),
         tagId: z.string().optional().describe('Filter by tag ID'),
@@ -63,6 +64,7 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
         return result.map((t) => ({
           id: t.id,
           title: t.title,
+          description: t.description,
           status: t.status,
           priority: t.priority,
           durationMins: t.durationMins,
@@ -244,7 +246,7 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
         tags: z.array(z.string()).optional().describe('Tag names to set (created automatically if they don\'t exist)'),
         deadline: z.string().nullable().optional(),
         status: z
-          .enum(['pending', 'scheduled', 'in_progress', 'done', 'cancelled'])
+          .enum(['pending', 'scheduled', 'in_progress', 'done', 'cancelled', 'backlog', 'blocked'])
           .optional(),
       }),
       execute: async (args) => {
@@ -377,6 +379,102 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
       },
     }),
 
+    getTask: tool({
+      description:
+        'Get full details of a single task by ID — including description, recurrence rule, and all scheduling fields. ' +
+        'Use this when the user asks for complete information about a specific task, or wants to share task details with another tool or assistant.',
+      inputSchema: z.object({
+        id: z.string().describe('Task ID'),
+      }),
+      execute: async (args) => {
+        const task = await getTask(userId, args.id);
+        if (!task) return { error: 'Task not found' };
+        return {
+          id: task.id,
+          title: task.title,
+          description: task.description,
+          status: task.status,
+          priority: task.priority,
+          durationMins: task.durationMins,
+          schedulable: task.schedulable,
+          timeLocked: task.timeLocked,
+          bufferMins: task.bufferMins,
+          isSplittable: task.isSplittable,
+          minChunkMins: task.minChunkMins,
+          deadline: task.deadline,
+          scheduledAt: task.scheduledAt,
+          scheduledEnd: task.scheduledEnd,
+          recurrenceRule: task.recurrenceRule,
+          parentTaskId: task.parentTaskId,
+          dependsOn: task.dependsOn,
+          source: task.source,
+          tags: task.tags.map((t) => ({ id: t.id, name: t.name, color: t.color })),
+          createdAt: task.createdAt,
+          updatedAt: task.updatedAt,
+          completedAt: task.completedAt,
+        };
+      },
+    }),
+
+    getCollectionDetails: tool({
+      description:
+        'Get full details of a collection — including all phases and every task in the collection with its description and scheduling info. ' +
+        'Use this when the user asks what is in a collection, wants a breakdown by phase, or wants to export/share the collection contents.',
+      inputSchema: z.object({
+        collectionId: z.string().describe('Collection ID'),
+      }),
+      execute: async (args) => {
+        const result = await getCollectionDetails(userId, args.collectionId);
+        if (!result) return { error: 'Collection not found' };
+
+        const tasksByPhase: Record<string, { id: string; title: string; description: string | null; status: string; priority: number; durationMins: number | null; deadline: Date | null; scheduledAt: Date | null; tags: string[] }[]> = {};
+        const unphased: typeof tasksByPhase[string] = [];
+
+        for (const entry of result.tasks) {
+          const t = entry.task;
+          const row = {
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            status: t.status,
+            priority: t.priority,
+            durationMins: t.durationMins,
+            deadline: t.deadline,
+            scheduledAt: t.scheduledAt,
+            tags: t.tags.map((tag) => tag.name),
+          };
+          if (entry.phaseId) {
+            tasksByPhase[entry.phaseId] = [...(tasksByPhase[entry.phaseId] ?? []), row];
+          } else {
+            unphased.push(row);
+          }
+        }
+
+        return {
+          id: result.id,
+          title: result.title,
+          description: result.description,
+          status: result.status,
+          deadline: result.deadline,
+          color: result.color,
+          phases: result.phases.map((p) => ({
+            id: p.id,
+            title: p.title,
+            order: p.order,
+            tasks: tasksByPhase[p.id] ?? [],
+          })),
+          unphasedTasks: unphased,
+          stats: {
+            total: result.tasks.length,
+            done: result.tasks.filter((e) => e.task.status === 'done').length,
+            inProgress: result.tasks.filter((e) => e.task.status === 'in_progress').length,
+            blocked: result.tasks.filter((e) => e.task.status === 'blocked').length,
+            backlog: result.tasks.filter((e) => e.task.status === 'backlog').length,
+          },
+        };
+      },
+    }),
+
     listCollections: tool({
       description: 'List all collections for the current user.',
       inputSchema: z.object({}),
@@ -489,7 +587,7 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
               isSplittable: z.boolean().optional(),
               tags: z.array(z.string()).optional().describe('Tag names to set'),
               deadline: z.string().nullable().optional(),
-              status: z.enum(['pending', 'scheduled', 'in_progress', 'done', 'cancelled']).optional(),
+              status: z.enum(['pending', 'scheduled', 'in_progress', 'done', 'cancelled', 'backlog', 'blocked']).optional(),
             }),
           )
           .min(1)
