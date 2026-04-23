@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import type { Task, CalendarEvent } from '@/lib/hooks/types';
 
 const DAY_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -22,6 +22,8 @@ function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+const SWIPE_THRESHOLD = 60;
+
 interface Props {
   monthStart: Date;
   tasks: Task[];
@@ -29,17 +31,54 @@ interface Props {
   isLoading?: boolean;
   onTaskClick?: (task: Task) => void;
   onEventClick?: (event: CalendarEvent) => void;
+  onNavigate?: (dir: 'prev' | 'next') => void;
 }
 
-export function CalendarMonth({ monthStart, tasks, events, isLoading, onTaskClick, onEventClick }: Props) {
+export function CalendarMonth({ monthStart, tasks, events, isLoading, onTaskClick, onEventClick, onNavigate }: Props) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
   const month = monthStart.getMonth();
   const days = useMemo(() => getMonthGrid(monthStart), [monthStart]);
+  const [swipeDx, setSwipeDx] = useState(0);
+  const [swiping, setSwiping] = useState(false);
+
+  const handleHeaderPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    target.setPointerCapture(e.pointerId);
+    const x0 = e.clientX;
+    setSwiping(true);
+
+    const onMove = (ev: globalThis.PointerEvent) => setSwipeDx(ev.clientX - x0);
+
+    const onUp = (ev: globalThis.PointerEvent) => {
+      target.removeEventListener('pointermove', onMove);
+      target.removeEventListener('pointerup', onUp);
+      target.removeEventListener('pointercancel', onUp);
+      const dx = ev.clientX - x0;
+      setSwiping(false);
+      setSwipeDx(0);
+      if (dx < -SWIPE_THRESHOLD) onNavigate?.('next');
+      else if (dx > SWIPE_THRESHOLD) onNavigate?.('prev');
+    };
+
+    target.addEventListener('pointermove', onMove);
+    target.addEventListener('pointerup', onUp);
+    target.addEventListener('pointercancel', onUp);
+  }, [onNavigate]);
 
   return (
-    <div className="flex flex-col min-h-0 flex-1 overflow-auto">
-      {/* Day-of-week headers */}
-      <div className="grid grid-cols-7 border-b border-wire bg-surface shrink-0">
+    <div
+      className="flex flex-col min-h-0 flex-1 overflow-auto"
+      style={{
+        transform: swipeDx !== 0 ? `translateX(${swipeDx}px)` : undefined,
+        transition: swiping ? 'none' : 'transform 0.2s ease',
+      }}
+    >
+      {/* Day-of-week headers — drag horizontally to navigate months */}
+      <div
+        className="grid grid-cols-7 border-b border-wire bg-surface shrink-0 select-none"
+        style={{ cursor: swiping ? 'grabbing' : 'grab' }}
+        onPointerDown={handleHeaderPointerDown}
+      >
         {DAY_HEADERS.map((d) => (
           <div key={d} className="text-center py-2 text-[10px] font-[510] uppercase tracking-wide text-fg-3">
             <span className="hidden sm:inline">{d}</span>

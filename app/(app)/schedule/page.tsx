@@ -320,6 +320,7 @@ export default function SchedulePage() {
           isLoading={eventsLoading}
           onTaskClick={setSelectedTask}
           onEventClick={setSelectedEvent}
+          onNavigate={(dir) => (dir === 'next' ? nextPeriod() : prevPeriod())}
         />
       ) : (
         <CalendarWeek
@@ -334,6 +335,7 @@ export default function SchedulePage() {
           onEventMove={handleEventMove}
           onEventResize={handleEventResize}
           onCreateEvent={handleCreateEvent}
+          onNavigate={(dir) => (dir === 'next' ? nextPeriod() : prevPeriod())}
         />
       )}
 

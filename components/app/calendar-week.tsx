@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { Task, CalendarEvent } from '@/lib/hooks/types';
 import { useCalendarDrag, HOUR_PX } from '@/lib/hooks/use-calendar-drag';
 import type { DragResult } from '@/lib/hooks/use-calendar-drag';
@@ -138,6 +138,8 @@ const SKELETON_SLOTS = [
   [],
 ] as const;
 
+const SWIPE_THRESHOLD = 60;
+
 interface Props {
   weekStart: Date;
   dayCount?: number;
@@ -150,15 +152,42 @@ interface Props {
   onEventMove?: (eventId: string, result: DragResult) => void;
   onEventResize?: (eventId: string, result: DragResult) => void;
   onCreateEvent?: (result: DragResult) => void;
+  onNavigate?: (dir: 'prev' | 'next') => void;
 }
 
 export function CalendarWeek({
   weekStart, dayCount = 7, tasks, events, isLoading = false,
   onTaskClick, onEventClick,
-  onTaskMove, onEventMove, onEventResize, onCreateEvent,
+  onTaskMove, onEventMove, onEventResize, onCreateEvent, onNavigate,
 }: Props) {
   const [now, setNow] = useState(() => new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [swipeDx, setSwipeDx] = useState(0);
+  const [swiping, setSwiping] = useState(false);
+
+  const handleHeaderPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    target.setPointerCapture(e.pointerId);
+    const x0 = e.clientX;
+    setSwiping(true);
+
+    const onMove = (ev: globalThis.PointerEvent) => setSwipeDx(ev.clientX - x0);
+
+    const onUp = (ev: globalThis.PointerEvent) => {
+      target.removeEventListener('pointermove', onMove);
+      target.removeEventListener('pointerup', onUp);
+      target.removeEventListener('pointercancel', onUp);
+      const dx = ev.clientX - x0;
+      setSwiping(false);
+      setSwipeDx(0);
+      if (dx < -SWIPE_THRESHOLD) onNavigate?.('next');
+      else if (dx > SWIPE_THRESHOLD) onNavigate?.('prev');
+    };
+
+    target.addEventListener('pointermove', onMove);
+    target.addEventListener('pointerup', onUp);
+    target.addEventListener('pointercancel', onUp);
+  }, [onNavigate]);
 
   const { dragState, handleBlockPointerDown, handleGridPointerDown } = useCalendarDrag({
     gridRef: scrollRef,
@@ -203,9 +232,19 @@ export function CalendarWeek({
   const nowTop = nowMins * PX_PER_MIN;
 
   return (
-    <div className="flex flex-col min-h-0 flex-1">
-      {/* Day header */}
-      <div className="grid border-b border-wire bg-surface z-10 shrink-0" style={{ gridTemplateColumns: `52px repeat(${dayCount}, 1fr)` }}>
+    <div
+      className="flex flex-col min-h-0 flex-1"
+      style={{
+        transform: swipeDx !== 0 ? `translateX(${swipeDx}px)` : undefined,
+        transition: swiping ? 'none' : 'transform 0.2s ease',
+      }}
+    >
+      {/* Day header — drag horizontally to navigate periods */}
+      <div
+        className="grid border-b border-wire bg-surface z-10 shrink-0 select-none"
+        style={{ gridTemplateColumns: `52px repeat(${dayCount}, 1fr)`, cursor: swiping ? 'grabbing' : 'grab' }}
+        onPointerDown={handleHeaderPointerDown}
+      >
         <div className="border-r border-wire" />
         {days.map((day, i) => {
           const isToday = isSameDay(day, today);

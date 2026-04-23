@@ -207,7 +207,10 @@ export async function scheduleFullRunChunk(
   // the scheduler reclaims the slot. Tasks without a deadline stay locked until the
   // user explicitly unlocks them via the UI or chat.
   const pastLockedIds = rawTasks
-    .filter((t) => t.timeLocked && t.deadline && t.deadline < now)
+    .filter((t) => t.timeLocked && (
+      (t.deadline && t.deadline < now) ||
+      (t.scheduledEnd && t.scheduledEnd < now)
+    ))
     .map((t) => t.id);
 
   if (pastLockedIds.length > 0) {
