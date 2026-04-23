@@ -36,6 +36,7 @@ export interface DragResult {
 
 export interface UseCalendarDragOptions {
   gridRef: RefObject<HTMLDivElement | null>;
+  dayCount: number;
   onMoveEnd?: (sourceId: string, sourceType: 'task' | 'event', result: DragResult) => void;
   onResizeEnd?: (sourceId: string, sourceType: 'task' | 'event', result: DragResult) => void;
   onCreateEnd?: (result: DragResult) => void;
@@ -63,11 +64,11 @@ function pxToMins(px: number): number {
   return snapMins((px / HOUR_PX) * 60);
 }
 
-function pxToDayIndex(clientX: number, gridRect: DOMRect): number {
+function pxToDayIndex(clientX: number, gridRect: DOMRect, dayCount: number): number {
   const dayAreaWidth = gridRect.width - TIME_COL_PX;
   const rel = clientX - gridRect.left - TIME_COL_PX;
-  const idx = Math.floor((rel / dayAreaWidth) * 7);
-  return Math.max(0, Math.min(6, idx));
+  const idx = Math.floor((rel / dayAreaWidth) * dayCount);
+  return Math.max(0, Math.min(dayCount - 1, idx));
 }
 
 function clampMins(mins: number): number {
@@ -76,7 +77,7 @@ function clampMins(mins: number): number {
 
 // --- Hook ---
 export function useCalendarDrag(options: UseCalendarDragOptions): UseCalendarDragReturn {
-  const { gridRef, onMoveEnd, onResizeEnd, onCreateEnd } = options;
+  const { gridRef, dayCount, onMoveEnd, onResizeEnd, onCreateEnd } = options;
   const [dragState, setDragState] = useState<DragState | null>(null);
 
   const autoScroll = useCallback((clientY: number) => {
@@ -147,7 +148,7 @@ export function useCalendarDrag(options: UseCalendarDragOptions): UseCalendarDra
         const deltaMins = pxToMins(curY - initY);
         const newStart = clampMins(snapMins(startMins + deltaMins));
         const newEnd = clampMins(newStart + duration);
-        const newDay = pxToDayIndex(ev.clientX, gridRect);
+        const newDay = pxToDayIndex(ev.clientX, gridRect, dayCount);
         latestBlock = { dayIndex: newDay, startMins: newStart, endMins: newEnd };
         setDragState(s => s ? { ...s, ...latestBlock } : s);
       } else {
@@ -175,13 +176,13 @@ export function useCalendarDrag(options: UseCalendarDragOptions): UseCalendarDra
     target.addEventListener('pointermove', onMove);
     target.addEventListener('pointerup', onUp);
     target.addEventListener('pointercancel', onUp);
-  }, [autoScroll, getGridY, getGridRect, onMoveEnd, onResizeEnd]);
+  }, [autoScroll, getGridY, getGridRect, dayCount, onMoveEnd, onResizeEnd]);
 
   const handleGridPointerDown = useCallback((e: PointerEvent) => {
     const gridRect = getGridRect();
     if (!gridRect) return;
     const y = getGridY(e.clientY);
-    const dayIndex = pxToDayIndex(e.clientX, gridRect);
+    const dayIndex = pxToDayIndex(e.clientX, gridRect, dayCount);
     const clickMins = clampMins(pxToMins(y));
     const initMins = clickMins;
     const target = e.currentTarget as HTMLElement;
@@ -200,7 +201,7 @@ export function useCalendarDrag(options: UseCalendarDragOptions): UseCalendarDra
       const start = Math.min(initMins, curMins);
       const end = Math.max(initMins, curMins);
       const gridR = getGridRect();
-      const day = gridR ? pxToDayIndex(ev.clientX, gridR) : dayIndex;
+      const day = gridR ? pxToDayIndex(ev.clientX, gridR, dayCount) : dayIndex;
       latestCreate = { dayIndex: day, startMins: start, endMins: Math.max(end, start + MIN_DURATION_MINS) };
       setDragState(s => s ? { ...s, ...latestCreate } : s);
     };
@@ -218,7 +219,7 @@ export function useCalendarDrag(options: UseCalendarDragOptions): UseCalendarDra
     target.addEventListener('pointermove', onMove);
     target.addEventListener('pointerup', onUp);
     target.addEventListener('pointercancel', onUp);
-  }, [autoScroll, getGridY, getGridRect, onCreateEnd]);
+  }, [autoScroll, getGridY, getGridRect, dayCount, onCreateEnd]);
 
   return { dragState, handleBlockPointerDown, handleGridPointerDown };
 }

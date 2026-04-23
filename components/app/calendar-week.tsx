@@ -5,7 +5,6 @@ import type { Task, CalendarEvent } from '@/lib/hooks/types';
 import { useCalendarDrag, HOUR_PX } from '@/lib/hooks/use-calendar-drag';
 import type { DragResult } from '@/lib/hooks/use-calendar-drag';
 
-const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const PX_PER_MIN = HOUR_PX / 60;
 
@@ -141,6 +140,7 @@ const SKELETON_SLOTS = [
 
 interface Props {
   weekStart: Date;
+  dayCount?: number;
   tasks: Task[];
   events: CalendarEvent[];
   isLoading?: boolean;
@@ -153,7 +153,7 @@ interface Props {
 }
 
 export function CalendarWeek({
-  weekStart, tasks, events, isLoading = false,
+  weekStart, dayCount = 7, tasks, events, isLoading = false,
   onTaskClick, onEventClick,
   onTaskMove, onEventMove, onEventResize, onCreateEvent,
 }: Props) {
@@ -162,6 +162,7 @@ export function CalendarWeek({
 
   const { dragState, handleBlockPointerDown, handleGridPointerDown } = useCalendarDrag({
     gridRef: scrollRef,
+    dayCount,
     onMoveEnd: (id, type, result) => {
       if (type === 'task') onTaskMove?.(id, result);
       else onEventMove?.(id, result);
@@ -185,7 +186,7 @@ export function CalendarWeek({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const days = Array.from({ length: 7 }, (_, i) => {
+  const days = Array.from({ length: dayCount }, (_, i) => {
     const d = new Date(weekStart);
     d.setDate(d.getDate() + i);
     return d;
@@ -204,13 +205,13 @@ export function CalendarWeek({
   return (
     <div className="flex flex-col min-h-0 flex-1">
       {/* Day header */}
-      <div className="grid border-b border-wire bg-surface z-10 shrink-0" style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
+      <div className="grid border-b border-wire bg-surface z-10 shrink-0" style={{ gridTemplateColumns: `52px repeat(${dayCount}, 1fr)` }}>
         <div className="border-r border-wire" />
         {days.map((day, i) => {
           const isToday = isSameDay(day, today);
           return (
             <div key={i} className={`text-center py-2 border-r border-wire last:border-r-0 ${isToday ? 'text-accent' : 'text-fg-3'}`}>
-              <p className="text-[10px] font-[510] uppercase tracking-wide">{DAY_NAMES[i]}</p>
+              <p className="text-[10px] font-[510] uppercase tracking-wide">{day.toLocaleDateString('en-US', { weekday: 'short' })}</p>
               <div className={`w-6 h-6 rounded-full flex items-center justify-center mx-auto mt-0.5 text-xs font-[510] ${isToday ? 'bg-accent text-canvas' : 'text-fg-2'}`}>
                 {day.getDate()}
               </div>
@@ -221,7 +222,7 @@ export function CalendarWeek({
 
       {/* Scrollable time grid */}
       <div ref={scrollRef} className="overflow-y-auto flex-1">
-        <div className="relative grid" style={{ gridTemplateColumns: '52px repeat(7, 1fr)', height: HOUR_PX * 24 }}>
+        <div className="relative grid" style={{ gridTemplateColumns: `52px repeat(${dayCount}, 1fr)`, height: HOUR_PX * 24 }}>
           {/* Time labels */}
           <div className="relative border-r border-wire">
             {HOURS.map((h) => (
