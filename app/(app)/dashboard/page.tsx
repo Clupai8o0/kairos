@@ -10,6 +10,8 @@ const STATUS_COLOR: Record<Task['status'], string> = {
   in_progress: 'text-success',
   done: 'text-emerald',
   cancelled: 'text-fg-4',
+  backlog: 'text-fg-4',
+  blocked: 'text-warning',
 };
 
 function formatDate(iso: string | null) {

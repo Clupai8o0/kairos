@@ -15,7 +15,7 @@ const UpdateTaskSchema = z.object({
   durationMins: z.number().int().positive().optional(),
   deadline: z.string().datetime({ offset: true }).nullable().optional(),
   priority: z.number().int().min(1).max(4).optional(),
-  status: z.enum(['pending', 'scheduled', 'in_progress', 'done', 'cancelled']).optional(),
+  status: z.enum(['pending', 'scheduled', 'in_progress', 'done', 'cancelled', 'backlog', 'blocked']).optional(),
   schedulable: z.boolean().optional(),
   timeLocked: z.boolean().optional(),
   bufferMins: z.number().int().min(0).optional(),

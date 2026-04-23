@@ -30,7 +30,7 @@ export const tasks = pgTable(
     deadline: timestamp('deadline'),
     priority: integer('priority').notNull().default(3), // 1=urgent..4=low
     status: text('status')
-      .$type<'pending' | 'scheduled' | 'in_progress' | 'done' | 'cancelled'>()
+      .$type<'pending' | 'scheduled' | 'in_progress' | 'done' | 'cancelled' | 'backlog' | 'blocked'>()
       .notNull()
       .default('pending'),
     schedulable: boolean('schedulable').notNull().default(true),

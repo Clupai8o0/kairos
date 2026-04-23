@@ -24,7 +24,7 @@ export type CreateTaskInput = {
   durationMins?: number;
   deadline?: string; // ISO 8601 string
   priority: number;
-  status?: 'pending' | 'scheduled' | 'in_progress' | 'done' | 'cancelled';
+  status?: 'pending' | 'scheduled' | 'in_progress' | 'done' | 'cancelled' | 'backlog' | 'blocked';
   schedulable: boolean;
   timeLocked?: boolean;
   scheduledAt?: string; // ISO — set when creating with a locked time
@@ -44,7 +44,7 @@ export type UpdateTaskInput = {
   durationMins?: number;
   deadline?: string | null;
   priority?: number;
-  status?: 'pending' | 'scheduled' | 'in_progress' | 'done' | 'cancelled';
+  status?: 'pending' | 'scheduled' | 'in_progress' | 'done' | 'cancelled' | 'backlog' | 'blocked';
   schedulable?: boolean;
   timeLocked?: boolean;
   bufferMins?: number;

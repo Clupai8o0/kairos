@@ -25,7 +25,7 @@ const CreateTaskSchema = z.object({
 });
 
 const ListTasksSchema = z.object({
-  status: z.enum(['pending', 'scheduled', 'in_progress', 'done', 'cancelled']).optional(),
+  status: z.enum(['pending', 'scheduled', 'in_progress', 'done', 'cancelled', 'backlog', 'blocked']).optional(),
   priority: z.coerce.number().int().min(1).max(4).optional(),
   tagId: z.string().optional(),
 });

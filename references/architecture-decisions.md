@@ -257,3 +257,17 @@ These are not ADRs — they're the v1 boundary. Anything outside this list is no
 - Chat UI is a single `/chat` route with a transcript pane + input. Command palette gets "Open chat" entry.
 - Tool execution permissions: core tools always available; plugin tools require the plugin to be installed and enabled.
 - No streaming to persistence. No retrieval of prior chats.
+
+### ADR-R20: Collection replaces the banned Project concept
+**Decision:** A `Collection` is a coordination and grouping structure — not a taxonomy (tags), not a time store (GCal). It groups tasks, organises them into phases, tracks aggregate progress, and supports bulk scheduling. ADR-R7's ban on `Project`/`projectId` is extended to cover lint detection, but `Collection`/`collectionId` are explicitly permitted.
+**Context:** ADR-004 and ADR-R7 banned projects entirely, correctly, but left no first-class concept for multi-task coordination — collecting related tasks, tracking phase-by-phase progress, and bulk-scheduling toward a deadline. Users need this. Collections fill the gap without reintroducing projects' problems (taxonomy lock-in, FK coupling, scheduler complexity).
+**Consequences:**
+- New tables: `collections`, `collectionPhases`, `collectionTasks` (join, many-to-many).
+- No `projectId` on `tasks` — join table only. Tasks may belong to zero or many collections.
+- Collections don't store time — they reference tasks which reference GCal events (ADR-003 preserved).
+- Phase columns are display/organisation only; blocking lives on tasks via `dependsOn` (unchanged).
+- Bulk-schedule a collection = enqueue `schedule:full-run` with the collection's task set — no new scheduler logic.
+- Task `status` extended: `'backlog' | 'blocked'` added. No SQL migration needed (text column). Backlog/blocked tasks are not considered scheduler candidates (candidates.ts only schedules `pending | scheduled` — unchanged).
+- Chat surface gets 4 new tools: `listCollections`, `createCollection`, `addTaskToCollection`, `bulkScheduleCollection`.
+- Full API surface: CRUD for collections + phases + task membership + progress + bulk schedule.
+- Migration: `0010_collections.sql`.

@@ -12,6 +12,13 @@ import {
 import { listTags, createTag, type Tag } from '@/lib/services/tags';
 import { enqueueJob } from '@/lib/services/jobs';
 import { spawnNextOccurrence } from '@/lib/services/recurrence';
+import {
+  listCollections,
+  createCollection,
+  createPhase,
+  addTaskToCollection,
+  getSchedulableTaskIds,
+} from '@/lib/services/collections';
 import { getWriteCalendarId } from '@/lib/gcal/calendars';
 import { db } from '@/lib/db/client';
 import { tasks } from '@/lib/db/schema';
@@ -367,6 +374,99 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
           idempotencyKey: `full-run:${userId}:${Date.now()}`,
         });
         return { enqueued: true, message: 'Full schedule run enqueued.' };
+      },
+    }),
+
+    listCollections: tool({
+      description: 'List all collections for the current user.',
+      inputSchema: z.object({}),
+      execute: async () => {
+        const result = await listCollections(userId);
+        return result.map((c) => ({
+          id: c.id,
+          title: c.title,
+          status: c.status,
+          taskCount: c.taskCount,
+          doneCount: c.doneCount,
+          phases: c.phases.map((p) => ({ id: p.id, title: p.title })),
+          deadline: c.deadline,
+        }));
+      },
+    }),
+
+    createCollection: tool({
+      description:
+        'Create a new collection (a named group of tasks with optional phases and deadline). ' +
+        'Use this when the user wants to organise tasks for a course, sprint, goal, or any named initiative.',
+      needsApproval,
+      inputSchema: z.object({
+        title: z.string().describe('Collection title (e.g. "SIT221", "Sprint 4", "Research Paper")'),
+        description: z.string().optional().describe('Short description'),
+        deadline: z.string().optional().describe('ISO 8601 deadline (YYYY-MM-DD or with offset)'),
+        color: z.string().optional().describe('Hex color for the collection'),
+        phases: z
+          .array(z.string())
+          .optional()
+          .describe('Phase names to create immediately (e.g. ["Week 1", "Week 2", "Week 3"])'),
+      }),
+      execute: async (args) => {
+        const collection = await createCollection(userId, {
+          title: args.title,
+          description: args.description,
+          deadline: args.deadline,
+          color: args.color,
+        });
+        const createdPhases = [];
+        if (args.phases && args.phases.length > 0) {
+          for (let i = 0; i < args.phases.length; i++) {
+            const phase = await createPhase(userId, collection.id, {
+              title: args.phases[i],
+              order: i,
+            });
+            if (phase) createdPhases.push({ id: phase.id, title: phase.title });
+          }
+        }
+        return { id: collection.id, title: collection.title, phases: createdPhases };
+      },
+    }),
+
+    addTaskToCollection: tool({
+      description:
+        'Add an existing task to a collection, optionally assigning it to a phase. ' +
+        'Call listCollections and listTasks first to get the correct IDs.',
+      needsApproval,
+      inputSchema: z.object({
+        collectionId: z.string().describe('Collection ID'),
+        taskId: z.string().describe('Task ID to add'),
+        phaseId: z.string().optional().describe('Phase ID to assign the task to (optional)'),
+      }),
+      execute: async (args) => {
+        const ct = await addTaskToCollection(userId, args.collectionId, args.taskId, {
+          phaseId: args.phaseId,
+        });
+        if (!ct) return { error: 'Collection or task not found, or task already in collection' };
+        return { collectionId: ct.collectionId, taskId: ct.taskId, phaseId: ct.phaseId };
+      },
+    }),
+
+    bulkScheduleCollection: tool({
+      description:
+        'Trigger a bulk schedule run for all schedulable tasks in a collection.',
+      needsApproval,
+      inputSchema: z.object({
+        collectionId: z.string().describe('Collection ID'),
+      }),
+      execute: async (args) => {
+        const taskIds = await getSchedulableTaskIds(userId, args.collectionId);
+        if (taskIds.length === 0) {
+          return { enqueued: false, message: 'No schedulable tasks in this collection.' };
+        }
+        await enqueueJob('schedule:full-run', {
+          userId,
+          payload: { collectionId: args.collectionId },
+          idempotencyKey: `schedule:collection:${args.collectionId}:${Date.now()}`,
+        });
+        return { enqueued: true, taskCount: taskIds.length };
       },
     }),
 

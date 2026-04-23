@@ -9,7 +9,7 @@ export interface Tag {
   updatedAt: string;
 }
 
-export type TaskStatus = 'pending' | 'scheduled' | 'in_progress' | 'done' | 'cancelled';
+export type TaskStatus = 'pending' | 'scheduled' | 'in_progress' | 'done' | 'cancelled' | 'backlog' | 'blocked';
 
 export interface Task {
   id: string;
@@ -121,6 +121,67 @@ export interface CalendarEvent {
   calendarColor: string | null;
   calendarName: string;
   isAllDay: boolean;
+}
+
+export type CollectionStatus = 'active' | 'completed' | 'archived';
+
+export interface CollectionPhase {
+  id: string;
+  collectionId: string;
+  title: string;
+  order: number;
+  createdAt: string;
+}
+
+export interface CollectionTaskEntry {
+  collectionId: string;
+  taskId: string;
+  phaseId: string | null;
+  order: number;
+  task: {
+    id: string;
+    title: string;
+    status: TaskStatus;
+    priority: number;
+    durationMins: number | null;
+    deadline: string | null;
+    scheduledAt: string | null;
+    tags: Pick<Tag, 'id' | 'name' | 'color'>[];
+  };
+}
+
+export interface Collection {
+  id: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  deadline: string | null;
+  status: CollectionStatus;
+  color: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CollectionWithPhases extends Collection {
+  phases: CollectionPhase[];
+  taskCount: number;
+  doneCount: number;
+}
+
+export interface CollectionWithDetails extends Collection {
+  phases: CollectionPhase[];
+  tasks: CollectionTaskEntry[];
+}
+
+export interface CollectionProgress {
+  total: number;
+  done: number;
+  inProgress: number;
+  scheduled: number;
+  pending: number;
+  backlog: number;
+  blocked: number;
+  cancelled: number;
 }
 
 export interface Plugin {

@@ -134,6 +134,49 @@ Append new entries at the top. Use the template below.
 
 ---
 
+## 2026-04-23 — Collections (Phase 5d): schema, API, UI, chat integration
+
+**Goal:** Implement Collections end-to-end — ADR-R20, data model, full REST API, TanStack Query hooks, list + detail UI, and 4 chat tools.
+
+**Built:**
+- `lib/db/schema/collections.ts` — `collections`, `collectionPhases`, `collectionTasks` tables with cascade deletes and indexes
+- `drizzle/0010_collections.sql` — migration for all three tables
+- `lib/db/schema/tasks.ts` — status enum extended: `'backlog' | 'blocked'` (TypeScript-only, no SQL migration)
+- `lib/db/schema/index.ts` — exports collections schema
+- `lib/services/collections.ts` (~240 lines) — `listCollections`, `getCollectionDetails`, `createCollection`, `updateCollection`, `deleteCollection`, `createPhase`, `updatePhase`, `deletePhase`, `addTaskToCollection`, `removeTaskFromCollection`, `updateCollectionTask`, `getCollectionProgress`, `getSchedulableTaskIds`
+- `app/api/collections/route.ts` — GET list + POST create
+- `app/api/collections/[id]/route.ts` — GET detail + PATCH + DELETE
+- `app/api/collections/[id]/phases/route.ts` — POST create phase
+- `app/api/collections/[id]/phases/[phaseId]/route.ts` — PATCH + DELETE
+- `app/api/collections/[id]/tasks/route.ts` — POST add task
+- `app/api/collections/[id]/tasks/[taskId]/route.ts` — PATCH move phase/order + DELETE remove
+- `app/api/collections/[id]/schedule/route.ts` — POST bulk schedule (enqueues schedule:full-run)
+- `app/api/collections/[id]/progress/route.ts` — GET aggregate status counts
+- `app/api/tasks/route.ts` + `[id]/route.ts` — Zod status enum extended with backlog/blocked
+- `lib/services/tasks.ts` — status types extended
+- `lib/hooks/use-collections.ts` — full TanStack Query hooks (useCollections, useCollection, useCollectionProgress, useCreateCollection, useUpdateCollection, useDeleteCollection, useCreatePhase, useUpdatePhase, useDeletePhase, useAddTaskToCollection, useRemoveTaskFromCollection, useMoveTaskToPhase, useBulkScheduleCollection)
+- `lib/hooks/types.ts` — TaskStatus extended; Collection, CollectionPhase, CollectionTaskEntry, CollectionWithPhases, CollectionWithDetails, CollectionProgress types added
+- `app/(app)/collections/page.tsx` — card grid, progress bars, create modal (deadline + color picker), delete
+- `app/(app)/collections/[id]/page.tsx` — phase columns, task rows with status chips + phase selector, add-task search panel, add-phase panel, bulk-schedule button, archive/unarchive
+- `lib/chat/tools.ts` — 4 new collection tools: `listCollections`, `createCollection`, `addTaskToCollection`, `bulkScheduleCollection`
+- `components/app/sidebar.tsx` + `components/app/mobile-nav.tsx` — Collections nav item added
+- `app/(app)/dashboard/page.tsx` + `app/(app)/tasks/page.tsx` — backlog/blocked status colors added
+- `references/architecture-decisions.md` — ADR-R20 promoted
+
+**Decisions made:**
+- ADR-R20 locked — see references/architecture-decisions.md
+- Many-to-many via join table, no projectId on tasks
+- Bulk schedule is thin wrapper on existing schedule:full-run job
+- backlog/blocked statuses are TypeScript-only extensions (text column), candidates.ts unchanged
+
+**Tests:** 278/278 passing. `pnpm tsc --noEmit` clean. Lint: 0 new errors (6 pre-existing in chat/page.tsx and sign-in/page.tsx unchanged).
+
+**Files touched:** 25 new/modified
+
+**Next action:** Run `pnpm db:migrate` to apply `0010_collections.sql` to production.
+
+---
+
 ## 2026-04-23 — Mobile-friendly dashboard + shadcn setup
 
 **Goal:** Make all dashboard UI screens mobile-responsive; introduce shadcn components.
