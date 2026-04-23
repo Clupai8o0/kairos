@@ -30,6 +30,9 @@ const TOOL_ICONS: Record<string, string> = {
   createGCalEvent: '▣',
   listGCalEvents: '▢',
   deleteGCalEvent: '✕',
+  createCollection: '⊞',
+  addTaskToCollection: '→',
+  bulkScheduleCollection: '▶▶',
 };
 
 const TOOL_LABELS: Record<string, string> = {
@@ -47,6 +50,9 @@ const TOOL_LABELS: Record<string, string> = {
   createGCalEvent: 'Create Event',
   listGCalEvents: 'List Events',
   deleteGCalEvent: 'Delete Event',
+  createCollection: 'Create Collection',
+  addTaskToCollection: 'Add to Collection',
+  bulkScheduleCollection: 'Schedule Collection',
 };
 
 // ── Detail builders ──────────────────────────────────────────────────────
@@ -124,6 +130,20 @@ function getActionDetails(toolName: string, input: unknown): { title: string; de
     case 'deleteGCalEvent':
       return { title: (args.eventName as string) ?? 'Event', details: [] };
 
+    case 'createCollection': {
+      const details: Detail[] = [];
+      if (args.deadline) details.push({ label: 'Deadline', value: formatDateSafe(args.deadline as string) });
+      if (args.phases && (args.phases as string[]).length > 0)
+        details.push({ label: 'Phases', value: (args.phases as string[]).join(', ') });
+      return { title: String(args.title ?? 'Collection'), details };
+    }
+
+    case 'addTaskToCollection':
+      return { title: String(args.taskId ?? 'Task'), details: [] };
+
+    case 'bulkScheduleCollection':
+      return { title: 'Schedule all tasks', details: [] };
+
     default:
       return { title: toolName, details: [] };
   }
@@ -174,6 +194,12 @@ function getResultSummary(toolName: string, result: unknown): { title: string; s
     }
     case 'deleteGCalEvent':
       return r.error ? { title: String(r.error), variant: 'error' } : { title: 'Event deleted', variant: 'success' };
+    case 'createCollection':
+      return r.error ? { title: String(r.error), variant: 'error' } : { title: `"${r.title}" created`, variant: 'success' };
+    case 'addTaskToCollection':
+      return r.error ? { title: String(r.error), variant: 'error' } : { title: 'Task added to collection', variant: 'success' };
+    case 'bulkScheduleCollection':
+      return r.enqueued ? { title: `${r.taskCount ?? '?'} tasks queued for scheduling`, variant: 'success' } : { title: String(r.message ?? 'No schedulable tasks'), variant: 'neutral' };
     default:
       return { title: 'Done', variant: 'success' };
   }
@@ -200,7 +226,7 @@ export function ToolCallBlock({ toolPart, onApprovalResponse }: ToolCallBlockPro
   const { state } = toolPart;
   const icon = TOOL_ICONS[toolName] ?? '•';
   const label = TOOL_LABELS[toolName] ?? toolName;
-  const isMutating = ['createTask', 'bulkCreateTasks', 'updateTask', 'bulkUpdateTasks', 'deleteTask', 'completeTask', 'createGCalEvent', 'deleteGCalEvent'].includes(toolName);
+  const isMutating = ['createTask', 'bulkCreateTasks', 'updateTask', 'bulkUpdateTasks', 'deleteTask', 'completeTask', 'createGCalEvent', 'deleteGCalEvent', 'createCollection', 'addTaskToCollection', 'bulkScheduleCollection'].includes(toolName);
 
   // Compact inline pill for read-only tools (list, schedule)
   if (!isMutating) {
@@ -293,7 +319,11 @@ export function ToolCallBlock({ toolPart, onApprovalResponse }: ToolCallBlockPro
                 <span className="w-1 h-1 rounded-full bg-accent animate-bounce [animation-delay:300ms]" />
               </span>
               <span className="text-fg-4 text-[11px]">
-                {toolName === 'deleteTask' || toolName === 'deleteGCalEvent' ? 'Deleting…' : toolName === 'completeTask' ? 'Completing…' : toolName === 'updateTask' || toolName === 'bulkUpdateTasks' ? 'Updating…' : toolName === 'createGCalEvent' ? 'Creating…' : 'Running…'}
+                {toolName === 'deleteTask' || toolName === 'deleteGCalEvent' ? 'Deleting…'
+                  : toolName === 'completeTask' ? 'Completing…'
+                  : toolName === 'updateTask' || toolName === 'bulkUpdateTasks' ? 'Updating…'
+                  : toolName === 'bulkScheduleCollection' ? 'Scheduling…'
+                  : 'Creating…'}
               </span>
             </div>
           </div>
