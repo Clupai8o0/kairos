@@ -1,5 +1,5 @@
 'use client';
-import { useState, use } from 'react';
+import { useState, use, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,8 +14,11 @@ import {
   useBulkScheduleCollection,
   useUpdateCollection,
 } from '@/lib/hooks/use-collections';
-import { useTasks } from '@/lib/hooks/use-tasks';
-import type { CollectionTaskEntry, CollectionPhase } from '@/lib/hooks/types';
+import { useTasks, useUpdateTask } from '@/lib/hooks/use-tasks';
+import { TaskEditModal } from '@/components/app/task-edit-modal';
+import type { CollectionTaskEntry, CollectionPhase, Task, TaskStatus } from '@/lib/hooks/types';
+
+type ViewMode = 'list' | 'board';
 
 const STATUS_CHIP: Record<string, string> = {
   pending: 'bg-fg-4/10 text-fg-4',
@@ -37,16 +40,22 @@ const STATUS_LABEL: Record<string, string> = {
   blocked: 'Blocked',
 };
 
+const ALL_STATUSES: TaskStatus[] = ['pending', 'scheduled', 'in_progress', 'done', 'cancelled', 'backlog', 'blocked'];
+
 function TaskRow({
   entry,
   phases,
-  collectionId,
+  checked,
+  onToggle,
+  onOpen,
   onRemove,
   onMoveToPhase,
 }: {
   entry: CollectionTaskEntry;
   phases: CollectionPhase[];
-  collectionId: string;
+  checked: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
   onRemove: (taskId: string) => void;
   onMoveToPhase: (taskId: string, phaseId: string | null) => void;
 }) {
@@ -57,9 +66,27 @@ function TaskRow({
       initial={{ opacity: 0, x: -4 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 4 }}
-      className="group flex items-center gap-3 py-2 px-3 rounded-md hover:bg-ghost-2 transition-colors"
+      className={`group flex items-center gap-3 py-2 px-3 rounded-md hover:bg-ghost-2 transition-colors cursor-pointer ${checked ? 'bg-brand/5 ring-1 ring-brand/20' : ''}`}
+      onClick={onOpen}
     >
-      <span className={`text-[10px] font-[510] px-1.5 py-0.5 rounded-full shrink-0 ${STATUS_CHIP[t.status] ?? ''}`}>
+      {/* Checkbox */}
+      <div
+        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+          checked ? 'bg-brand border-brand' : 'border-wire-2 group-hover:border-wire'
+        }`}
+      >
+        {checked && (
+          <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="1.5,5 4,7.5 8.5,2.5" />
+          </svg>
+        )}
+      </div>
+
+      <span
+        className={`text-[10px] font-[510] px-1.5 py-0.5 rounded-full shrink-0 ${STATUS_CHIP[t.status] ?? ''}`}
+        onClick={(e) => { e.stopPropagation(); onOpen(); }}
+      >
         {STATUS_LABEL[t.status] ?? t.status}
       </span>
       <span className="flex-1 text-fg text-[13px] min-w-0 truncate">{t.title}</span>
@@ -83,7 +110,7 @@ function TaskRow({
           </select>
         )}
         <button
-          onClick={() => onRemove(t.id)}
+          onClick={(e) => { e.stopPropagation(); onRemove(t.id); }}
           className="p-1 rounded text-fg-4 hover:text-danger hover:bg-ghost-2 transition-colors"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
@@ -97,14 +124,20 @@ function PhaseColumn({
   phase,
   tasks,
   allPhases,
+  selectedIds,
+  onToggleTask,
+  onOpenTask,
   collectionId,
   onDeletePhase,
   onRemoveTask,
   onMoveToPhase,
 }: {
-  phase: CollectionPhase | null; // null = unphased
+  phase: CollectionPhase | null;
   tasks: CollectionTaskEntry[];
   allPhases: CollectionPhase[];
+  selectedIds: Set<string>;
+  onToggleTask: (taskId: string) => void;
+  onOpenTask: (taskId: string) => void;
   collectionId: string;
   onDeletePhase?: (id: string) => void;
   onRemoveTask: (taskId: string) => void;
@@ -132,7 +165,9 @@ function PhaseColumn({
               key={e.taskId}
               entry={e}
               phases={allPhases}
-              collectionId={collectionId}
+              checked={selectedIds.has(e.taskId)}
+              onToggle={() => onToggleTask(e.taskId)}
+              onOpen={() => onOpenTask(e.taskId)}
               onRemove={onRemoveTask}
               onMoveToPhase={onMoveToPhase}
             />
@@ -143,6 +178,61 @@ function PhaseColumn({
         )}
       </div>
     </div>
+  );
+}
+
+function BulkActionBar({
+  count,
+  onApplyStatus,
+  onRemove,
+  onClear,
+}: {
+  count: number;
+  onApplyStatus: (status: TaskStatus) => void;
+  onRemove: () => void;
+  onClear: () => void;
+}) {
+  const [bulkStatus, setBulkStatus] = useState<TaskStatus>('done');
+  return (
+    <motion.div
+      initial={{ y: 16, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      exit={{ y: 16, opacity: 0 }}
+      transition={{ duration: 0.15 }}
+      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3 py-2 bg-surface border border-wire rounded-lg shadow-xl"
+    >
+      <span className="text-[12px] text-fg-2 font-[510] shrink-0">{count} selected</span>
+      <div className="w-px h-4 bg-wire" />
+      <select
+        value={bulkStatus}
+        onChange={(e) => setBulkStatus(e.target.value as TaskStatus)}
+        className="text-[12px] bg-surface-2 border border-wire rounded px-2 py-1 text-fg outline-none"
+      >
+        {ALL_STATUSES.map((s) => (
+          <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+        ))}
+      </select>
+      <button
+        onClick={() => onApplyStatus(bulkStatus)}
+        className="px-2.5 py-1 text-[12px] font-[510] bg-brand text-white rounded hover:bg-brand/90 transition-colors"
+      >
+        Apply status
+      </button>
+      <div className="w-px h-4 bg-wire" />
+      <button
+        onClick={onRemove}
+        className="px-2.5 py-1 text-[12px] font-[510] text-danger border border-danger/30 rounded hover:border-danger transition-colors"
+      >
+        Remove
+      </button>
+      <button
+        onClick={onClear}
+        className="p-1 text-fg-4 hover:text-fg transition-colors"
+        title="Clear selection"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+      </button>
+    </motion.div>
   );
 }
 
@@ -164,11 +254,33 @@ export default function CollectionDetailPage({
   const moveTask = useMoveTaskToPhase();
   const bulkSchedule = useBulkScheduleCollection();
   const updateCollection = useUpdateCollection();
+  const updateTask = useUpdateTask();
+
+  const [view, setView] = useState<ViewMode>('list');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const [newPhaseTitle, setNewPhaseTitle] = useState('');
   const [addingPhase, setAddingPhase] = useState(false);
   const [addingTask, setAddingTask] = useState(false);
   const [searchTask, setSearchTask] = useState('');
+
+  const toggleSelect = useCallback((taskId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  }, []);
+
+  const openTask = useCallback(
+    (taskId: string) => {
+      const full = (allTasks ?? []).find((t) => t.id === taskId);
+      if (full) setEditingTask(full);
+    },
+    [allTasks],
+  );
 
   if (isLoading) {
     return (
@@ -210,11 +322,7 @@ export default function CollectionDetailPage({
   async function handleAddPhase() {
     if (!newPhaseTitle.trim()) return;
     const p = createPhase.mutateAsync({ collectionId: id, title: newPhaseTitle.trim() });
-    toast.promise(p, {
-      loading: 'Adding phase…',
-      success: 'Phase added',
-      error: (err) => err?.message ?? 'Failed',
-    });
+    toast.promise(p, { loading: 'Adding phase…', success: 'Phase added', error: (err) => err?.message ?? 'Failed' });
     await p.catch(() => {});
     setNewPhaseTitle('');
     setAddingPhase(false);
@@ -238,6 +346,7 @@ export default function CollectionDetailPage({
     if (!confirm('Remove task from this collection?')) return;
     const p = removeTask.mutateAsync({ collectionId: id, taskId });
     toast.promise(p, { loading: 'Removing…', success: 'Removed', error: (err) => err?.message ?? 'Failed' });
+    setSelectedIds((prev) => { const next = new Set(prev); next.delete(taskId); return next; });
   }
 
   function handleMoveToPhase(taskId: string, phaseId: string | null) {
@@ -264,8 +373,44 @@ export default function CollectionDetailPage({
     });
   }
 
+  async function handleBulkStatus(status: TaskStatus) {
+    const ids = [...selectedIds];
+    const promises = ids.map((taskId) => updateTask.mutateAsync({ id: taskId, status }));
+    const p = Promise.all(promises);
+    toast.promise(p, {
+      loading: `Updating ${ids.length} tasks…`,
+      success: `${ids.length} tasks set to ${STATUS_LABEL[status]}`,
+      error: (err) => err?.message ?? 'Some updates failed',
+    });
+    await p.catch(() => {});
+    setSelectedIds(new Set());
+  }
+
+  async function handleBulkRemove() {
+    const ids = [...selectedIds];
+    if (!confirm(`Remove ${ids.length} task${ids.length > 1 ? 's' : ''} from this collection?`)) return;
+    const promises = ids.map((taskId) => removeTask.mutateAsync({ collectionId: id, taskId }));
+    const p = Promise.all(promises);
+    toast.promise(p, {
+      loading: `Removing ${ids.length} tasks…`,
+      success: 'Removed',
+      error: (err) => err?.message ?? 'Some removals failed',
+    });
+    await p.catch(() => {});
+    setSelectedIds(new Set());
+  }
+
+  function handleSelectAll() {
+    if (selectedIds.size === collection!.tasks.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(collection!.tasks.map((t) => t.taskId)));
+    }
+  }
+
   const deadline = collection.deadline ? new Date(collection.deadline) : null;
   const progressPct = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+  const allSelected = collection.tasks.length > 0 && selectedIds.size === collection.tasks.length;
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -348,6 +493,33 @@ export default function CollectionDetailPage({
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
           Add phase
         </button>
+
+        <div className="flex-1" />
+
+        {/* Select all (when tasks exist) */}
+        {collection.tasks.length > 0 && (
+          <button
+            onClick={handleSelectAll}
+            className="text-[12px] text-fg-4 hover:text-fg transition-colors"
+          >
+            {allSelected ? 'Deselect all' : 'Select all'}
+          </button>
+        )}
+
+        {/* View toggle */}
+        <div className="flex items-center gap-0.5 bg-ghost-2 rounded-md p-0.5">
+          {(['list', 'board'] as ViewMode[]).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`px-2.5 py-1 text-[11px] rounded transition-colors ${
+                view === v ? 'bg-surface text-fg shadow-sm' : 'text-fg-4 hover:text-fg'
+              }`}
+            >
+              {v === 'list' ? 'List' : 'Board'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Add task panel */}
@@ -424,14 +596,33 @@ export default function CollectionDetailPage({
         )}
       </AnimatePresence>
 
-      {/* Phase columns */}
+      {/* Task list / board */}
       <div className="flex-1 overflow-x-auto overflow-y-auto p-4 sm:p-6">
         {collection.tasks.length === 0 && collection.phases.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-2 text-center">
             <p className="text-fg-3 text-[13px]">No tasks yet</p>
             <p className="text-fg-4 text-[12px]">Add tasks from your task list, or create new ones via chat.</p>
           </div>
+        ) : view === 'list' ? (
+          /* ── List view: flat, all tasks ─────────────────── */
+          <div className="w-full max-w-xl flex flex-col gap-0.5">
+            <AnimatePresence mode="popLayout">
+              {collection.tasks.map((e) => (
+                <TaskRow
+                  key={e.taskId}
+                  entry={e}
+                  phases={collection.phases}
+                  checked={selectedIds.has(e.taskId)}
+                  onToggle={() => toggleSelect(e.taskId)}
+                  onOpen={() => openTask(e.taskId)}
+                  onRemove={handleRemoveTask}
+                  onMoveToPhase={handleMoveToPhase}
+                />
+              ))}
+            </AnimatePresence>
+          </div>
         ) : (
+          /* ── Board view: phase columns ──────────────────── */
           <div className={`flex gap-4 ${collection.phases.length === 0 ? '' : 'items-start'}`}>
             {collection.phases.length === 0 ? (
               <div className="w-full max-w-xl flex flex-col gap-0.5">
@@ -441,7 +632,9 @@ export default function CollectionDetailPage({
                       key={e.taskId}
                       entry={e}
                       phases={[]}
-                      collectionId={id}
+                      checked={selectedIds.has(e.taskId)}
+                      onToggle={() => toggleSelect(e.taskId)}
+                      onOpen={() => openTask(e.taskId)}
                       onRemove={handleRemoveTask}
                       onMoveToPhase={handleMoveToPhase}
                     />
@@ -456,6 +649,9 @@ export default function CollectionDetailPage({
                     phase={phase}
                     tasks={tasksByPhase.get(phase.id) ?? []}
                     allPhases={collection.phases}
+                    selectedIds={selectedIds}
+                    onToggleTask={toggleSelect}
+                    onOpenTask={openTask}
                     collectionId={id}
                     onDeletePhase={handleDeletePhase}
                     onRemoveTask={handleRemoveTask}
@@ -467,6 +663,9 @@ export default function CollectionDetailPage({
                     phase={null}
                     tasks={tasksByPhase.get(null) ?? []}
                     allPhases={collection.phases}
+                    selectedIds={selectedIds}
+                    onToggleTask={toggleSelect}
+                    onOpenTask={openTask}
                     collectionId={id}
                     onRemoveTask={handleRemoveTask}
                     onMoveToPhase={handleMoveToPhase}
@@ -477,6 +676,28 @@ export default function CollectionDetailPage({
           </div>
         )}
       </div>
+
+      {/* Bulk action bar */}
+      <AnimatePresence>
+        {selectedIds.size > 0 && (
+          <BulkActionBar
+            count={selectedIds.size}
+            onApplyStatus={handleBulkStatus}
+            onRemove={handleBulkRemove}
+            onClear={() => setSelectedIds(new Set())}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Task edit modal */}
+      <AnimatePresence>
+        {editingTask && (
+          <TaskEditModal
+            task={editingTask}
+            onClose={() => setEditingTask(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

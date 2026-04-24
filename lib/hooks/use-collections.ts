@@ -178,6 +178,29 @@ export function useAddTaskToCollection() {
   });
 }
 
+export function useBulkAddTasksToCollection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      collectionId,
+      tasks,
+    }: {
+      collectionId: string;
+      tasks: { taskId: string; phaseId?: string }[];
+    }) =>
+      apiFetch<{ added: number; skipped: number; invalid: number }>(
+        `/api/collections/${collectionId}/tasks/bulk`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tasks }),
+        },
+      ),
+    onSuccess: (_data, vars) =>
+      qc.invalidateQueries({ queryKey: [...COLLECTIONS_KEY, vars.collectionId] }),
+  });
+}
+
 export function useRemoveTaskFromCollection() {
   const qc = useQueryClient();
   return useMutation({

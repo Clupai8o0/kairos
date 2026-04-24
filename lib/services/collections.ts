@@ -331,6 +331,52 @@ export async function addTaskToCollection(
   return row ?? null;
 }
 
+export async function addTasksToCollectionBulk(
+  userId: string,
+  collectionId: string,
+  entries: { taskId: string; phaseId?: string }[],
+): Promise<{ added: number; skipped: number; invalid: number }> {
+  const [col] = await db
+    .select({ id: collections.id })
+    .from(collections)
+    .where(and(eq(collections.id, collectionId), eq(collections.userId, userId)));
+  if (!col) return { added: 0, skipped: 0, invalid: entries.length };
+
+  const requestedIds = entries.map((e) => e.taskId);
+  const validRows = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(eq(tasks.userId, userId), inArray(tasks.id, requestedIds)));
+  const validSet = new Set(validRows.map((r) => r.id));
+  const invalid = requestedIds.filter((id) => !validSet.has(id)).length;
+
+  const validEntries = entries.filter((e) => validSet.has(e.taskId));
+  if (validEntries.length === 0) return { added: 0, skipped: 0, invalid };
+
+  const [maxRow] = await db
+    .select({ m: max(collectionTasks.order) })
+    .from(collectionTasks)
+    .where(eq(collectionTasks.collectionId, collectionId));
+  let order = (maxRow?.m ?? -1) + 1;
+
+  const rows = await db
+    .insert(collectionTasks)
+    .values(
+      validEntries.map((e) => ({
+        collectionId,
+        taskId: e.taskId,
+        phaseId: e.phaseId ?? null,
+        order: order++,
+      })),
+    )
+    .onConflictDoNothing()
+    .returning();
+
+  const added = rows.length;
+  const skipped = validEntries.length - added;
+  return { added, skipped, invalid };
+}
+
 export async function removeTaskFromCollection(
   userId: string,
   collectionId: string,

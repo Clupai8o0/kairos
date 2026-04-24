@@ -18,6 +18,7 @@ import {
   createCollection,
   createPhase,
   addTaskToCollection,
+  addTasksToCollectionBulk,
   getSchedulableTaskIds,
 } from '@/lib/services/collections';
 import { getWriteCalendarId } from '@/lib/gcal/calendars';
@@ -544,6 +545,31 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
         });
         if (!ct) return { error: 'Collection or task not found, or task already in collection' };
         return { collectionId: ct.collectionId, taskId: ct.taskId, phaseId: ct.phaseId };
+      },
+    }),
+
+    bulkAddTasksToCollection: tool({
+      description:
+        'Add multiple existing tasks to a collection at once. ' +
+        'Call listTasks and listCollections first to get the correct IDs. ' +
+        'Each task can optionally be assigned to a phase. Tasks already in the collection are silently skipped.',
+      needsApproval,
+      inputSchema: z.object({
+        collectionId: z.string().describe('Collection ID to add tasks to'),
+        tasks: z
+          .array(
+            z.object({
+              taskId: z.string().describe('Task ID'),
+              phaseId: z.string().optional().describe('Phase ID to assign this task to (optional)'),
+            }),
+          )
+          .min(1)
+          .max(100)
+          .describe('Array of tasks to add'),
+      }),
+      execute: async (args) => {
+        const result = await addTasksToCollectionBulk(userId, args.collectionId, args.tasks);
+        return result;
       },
     }),
 
