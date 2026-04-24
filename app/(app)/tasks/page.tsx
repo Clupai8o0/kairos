@@ -341,7 +341,7 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
-      className="group flex items-center gap-3 px-3 py-2.5 rounded-lg border border-wire-2 bg-ghost hover:bg-ghost-2 hover:border-wire transition-all"
+      className={`group flex items-center gap-3 px-3 py-2.5 rounded-lg border border-wire-2 bg-ghost hover:bg-ghost-2 hover:border-wire transition-all ${task.status === 'done' || task.status === 'cancelled' ? 'opacity-50' : ''}`}
     >
       {/* Status toggle */}
       <button

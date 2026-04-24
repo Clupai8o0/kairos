@@ -7,6 +7,8 @@ import { enqueueJob } from '@/lib/services/jobs';
 import { db } from '@/lib/db/client';
 import { tasks } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
+import { patchEvent } from '@/lib/gcal/events';
+import { getWriteCalendarId } from '@/lib/gcal/calendars';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -26,13 +28,33 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const now = new Date();
 
-  // Mark the task as done with direct DB update
-  await db.update(tasks).set({ 
-    status: 'done', 
-    completedAt: now, 
-    updatedAt: now 
-  })
-    .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+  // If the task is scheduled in the future, move its start back so the block ends at now
+  const scheduledAt = task.scheduledAt ? new Date(task.scheduledAt) : null;
+  const adjustedStart = scheduledAt && scheduledAt > now
+    ? new Date(now.getTime() - (task.durationMins ?? 60) * 60 * 1000)
+    : undefined;
+
+  // Mark done, pin scheduledEnd to now
+  await db.update(tasks).set({
+    status: 'done',
+    completedAt: now,
+    scheduledEnd: now,
+    ...(adjustedStart !== undefined ? { scheduledAt: adjustedStart } : {}),
+    updatedAt: now,
+  }).where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+
+  // Patch the GCal event end (and start if shifted) — non-fatal
+  if (task.gcalEventId) {
+    try {
+      const calendarId = await getWriteCalendarId(userId);
+      await patchEvent(userId, calendarId, task.gcalEventId, {
+        end: now.toISOString(),
+        ...(adjustedStart !== undefined ? { start: adjustedStart.toISOString() } : {}),
+      });
+    } catch {
+      // GCal patch is best-effort; don't fail the completion
+    }
+  }
 
   // If the task has a recurrenceRule, spawn the next occurrence
   if (task.recurrenceRule) {

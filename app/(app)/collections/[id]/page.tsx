@@ -126,7 +126,7 @@ function TaskRow({
       initial={{ opacity: 0, x: -4 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 4 }}
-      className={`group flex items-center gap-3 py-2 px-3 rounded-md hover:bg-ghost-2 transition-colors cursor-pointer ${checked ? 'bg-brand/5 ring-1 ring-brand/20' : ''}`}
+      className={`group flex items-center gap-3 py-2 px-3 rounded-md hover:bg-ghost-2 transition-colors cursor-pointer ${checked ? 'bg-brand/5 ring-1 ring-brand/20' : ''} ${t.status === 'done' || t.status === 'cancelled' ? 'opacity-50' : ''}`}
       onClick={onOpen}
     >
       <div
@@ -144,7 +144,7 @@ function TaskRow({
 
       <StatusChip status={t.status} taskId={t.id} onStatusChange={onStatusChange} />
 
-      <span className="flex-1 text-fg text-[13px] min-w-0 truncate">{t.title}</span>
+      <span className={`flex-1 text-[13px] min-w-0 truncate ${t.status === 'done' || t.status === 'cancelled' ? 'line-through text-fg-4' : 'text-fg'}`}>{t.title}</span>
       {t.tags.length > 0 && (
         <span className="text-[11px] text-fg-4 shrink-0 hidden sm:block truncate max-w-[120px]">
           {t.tags.map((tg) => tg.name).join(', ')}
