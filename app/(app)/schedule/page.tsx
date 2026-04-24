@@ -293,14 +293,7 @@ export default function SchedulePage() {
           </button>
 
           <button
-            onClick={() => {
-              const p = syncGCal.mutateAsync();
-              toast.promise(p, {
-                loading: 'Syncing Google Calendar…',
-                success: (r) => `Synced — ${r.eventsWritten} task event${r.eventsWritten === 1 ? '' : 's'} written, ${r.intervalCount} busy interval${r.intervalCount === 1 ? '' : 's'} cached`,
-                error: (e) => (e as Error)?.message ?? 'Failed to sync calendar',
-              });
-            }}
+            onClick={() => syncGCal.mutate()}
             disabled={syncGCal.isPending}
             title={syncAge?.updatedAt ? `Last synced ${new Date(syncAge.updatedAt).toLocaleTimeString()}` : 'Calendar not yet synced — scheduling ignores busy times until synced'}
             className="flex items-center gap-1.5 text-xs font-[510] text-fg-3 hover:text-fg border border-wire hover:border-wire-2 px-2.5 py-1 rounded transition-colors disabled:opacity-40"
