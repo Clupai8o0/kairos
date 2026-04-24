@@ -90,6 +90,7 @@ interface EventBlockProps {
   sublabel?: string;
   color?: string;
   isTask?: boolean;
+  isDone?: boolean;
   isDragging?: boolean;
   onClick?: () => void;
   onPointerDown?: (e: React.PointerEvent) => void;
@@ -97,15 +98,15 @@ interface EventBlockProps {
   totalCols?: number;
 }
 
-function EventBlock({ top, height, label, sublabel, color, isTask, isDragging, onClick, onPointerDown, col = 0, totalCols = 1 }: EventBlockProps) {
+function EventBlock({ top, height, label, sublabel, color, isTask, isDone, isDragging, onClick, onPointerDown, col = 0, totalCols = 1 }: EventBlockProps) {
   const h = Math.max(18, height);
   const leftStyle: React.CSSProperties['left'] = col === 0 ? 2 : `calc(${(col / totalCols) * 100}% + 1px)`;
   const rightStyle: React.CSSProperties['right'] = col === totalCols - 1 ? 2 : `calc(${((totalCols - col - 1) / totalCols) * 100}% + 1px)`;
   const style: React.CSSProperties = {
     position: 'absolute', top, height: h, left: leftStyle, right: rightStyle,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDone ? 0.35 : isDragging ? 0.5 : 1,
     backgroundColor: isTask ? 'var(--color-task-event-bg)' : color,
-    borderLeft: isTask ? `3px ${isDragging ? 'dashed' : 'solid'} var(--color-accent)` : undefined,
+    borderLeft: isTask ? `3px ${isDragging ? 'dashed' : 'solid'} ${isDone ? 'var(--color-success)' : 'var(--color-accent)'}` : undefined,
     zIndex: isTask ? 3 : 2,
   };
 
@@ -116,11 +117,11 @@ function EventBlock({ top, height, label, sublabel, color, isTask, isDragging, o
       onClick={isDragging ? undefined : onClick}
       onPointerDown={onPointerDown}
     >
-      <p className={`text-[10px] font-[510] leading-tight truncate ${isTask ? 'text-fg' : 'text-white'}`}>{label}</p>
+      <p className={`text-[10px] font-[510] leading-tight truncate ${isTask ? 'text-fg' : 'text-white'} ${isDone ? 'line-through' : ''}`}>{label}</p>
       {sublabel && h > 26 && (
         <p className={`text-[9px] truncate ${isTask ? 'text-fg-3' : 'text-white/70'}`}>{sublabel}</p>
       )}
-      {onPointerDown && h > 24 && (
+      {onPointerDown && !isDone && h > 24 && (
         <div className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize" />
       )}
     </div>
@@ -349,12 +350,15 @@ export function CalendarWeek({
                 })}
 
                 {dayTasks.map((task) => {
+                  const isDone = task.status === 'done';
                   const s = new Date(task.scheduledAt!);
                   const startMins = toMins(s);
-                  const durationMins = task.durationMins ?? 30;
-                  const isSource = dragState?.sourceId === task.id;
+                  const blockDuration = isDone && task.scheduledEnd
+                    ? Math.max(15, Math.round((new Date(task.scheduledEnd).getTime() - s.getTime()) / 60000))
+                    : (task.durationMins ?? 30);
+                  const isSource = !isDone && dragState?.sourceId === task.id;
                   const effectiveEnd = isSource && dragState?.mode === 'resize'
-                    ? dragState.endMins : startMins + durationMins;
+                    ? dragState.endMins : startMins + blockDuration;
                   const layout = colLayout.get(task.id);
                   return (
                     <EventBlock
@@ -362,11 +366,12 @@ export function CalendarWeek({
                       top={startMins * PX_PER_MIN}
                       height={(effectiveEnd - startMins) * PX_PER_MIN}
                       isTask
+                      isDone={isDone}
                       label={task.title}
-                      sublabel={task.durationMins ? `${task.durationMins} min` : undefined}
+                      sublabel={isDone ? 'Done' : task.durationMins ? `${task.durationMins} min` : undefined}
                       isDragging={isSource && dragState?.mode === 'move'}
                       onClick={onTaskClick ? () => onTaskClick(task) : undefined}
-                      onPointerDown={(ev) => handleBlockPointerDown(ev, task.id, 'task', dayIdx, startMins, startMins + durationMins)}
+                      onPointerDown={isDone ? undefined : (ev) => handleBlockPointerDown(ev, task.id, 'task', dayIdx, startMins, startMins + blockDuration)}
                       col={layout?.col}
                       totalCols={layout?.totalCols}
                     />

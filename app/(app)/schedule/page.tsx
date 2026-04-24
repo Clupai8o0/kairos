@@ -101,13 +101,25 @@ export default function SchedulePage() {
     return { rangeStart: viewStart, rangeEnd: end };
   }, [viewStart, viewMode, dayCount]);
 
-  const { data: tasks = [] } = useTasks({ status: 'scheduled' });
+  const { data: scheduledTasks = [] } = useTasks({ status: 'scheduled' });
+  const { data: doneTasks = [] } = useTasks({ status: 'done' });
+  const tasks = useMemo(() => [...scheduledTasks, ...doneTasks], [scheduledTasks, doneTasks]);
   const {
-    data: events = [],
+    data: rawEvents = [],
     isLoading: eventsLoading,
     isFetching: eventsFetching,
     refetch: refetchEvents,
   } = useCalendarEvents(rangeStart, rangeEnd);
+
+  // Hide the GCal event for any done task — the task block itself is the visual
+  const doneGcalIds = useMemo(
+    () => new Set(doneTasks.map((t) => t.gcalEventId).filter(Boolean) as string[]),
+    [doneTasks],
+  );
+  const events = useMemo(
+    () => rawEvents.filter((e) => !doneGcalIds.has(e.id)),
+    [rawEvents, doneGcalIds],
+  );
 
   function handleViewChange(mode: ViewMode) {
     setViewMode(mode);

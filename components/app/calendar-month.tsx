@@ -107,10 +107,10 @@ export function CalendarMonth({ monthStart, tasks, events, isLoading, onTaskClic
             return s >= dayStart && s <= dayEnd;
           });
 
-          type Item = { id: string; label: string; isTask: boolean; color?: string; onClick: () => void };
+          type Item = { id: string; label: string; isTask: boolean; isDone?: boolean; color?: string; onClick: () => void };
           const allItems: Item[] = [
             ...dayTasks.map((t): Item => ({
-              id: t.id, label: t.title, isTask: true,
+              id: t.id, label: t.title, isTask: true, isDone: t.status === 'done',
               onClick: () => onTaskClick?.(t),
             })),
             ...dayEvents.map((e): Item => ({
@@ -150,7 +150,7 @@ export function CalendarMonth({ monthStart, tasks, events, isLoading, onTaskClic
                       }
                       className={`w-full text-left text-[9px] sm:text-[10px] font-[510] truncate px-1 py-px rounded ${
                         item.isTask ? 'border-l-2 text-fg' : 'text-white'
-                      }`}
+                      } ${item.isDone ? 'opacity-40 line-through' : ''}`}
                     >
                       {item.label}
                     </button>
