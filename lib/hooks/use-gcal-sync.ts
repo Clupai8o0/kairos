@@ -20,7 +20,7 @@ export function useSyncGCal() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () =>
-      apiFetch<{ intervalCount: number; updatedAt: string }>('/api/gcal/sync', { method: 'POST' }),
+      apiFetch<{ intervalCount: number; eventsWritten: number; updatedAt: string }>('/api/gcal/sync', { method: 'POST' }),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: ['gcal-sync-age'] }),
   });

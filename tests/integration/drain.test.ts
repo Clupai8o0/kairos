@@ -6,14 +6,6 @@ vi.mock('@/lib/services/jobs', () => ({
   markJobFailed: vi.fn(),
 }));
 vi.mock('@/lib/scheduler/runner', () => ({ scheduleSingleTask: vi.fn().mockResolvedValue(null) }));
-vi.mock('@/lib/gcal/adapter', () => ({ createGCalAdapter: vi.fn() }));
-vi.mock('@/lib/db/client', () => ({
-  db: {
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) }),
-    }),
-  },
-}));
 
 import { GET } from '@/app/api/cron/drain/route';
 
@@ -35,6 +27,6 @@ describe('GET /api/cron/drain', () => {
     ]);
 
     await GET();
-    expect(scheduleSingleTask).toHaveBeenCalledWith('u1', 't1', undefined);
+    expect(scheduleSingleTask).toHaveBeenCalledWith('u1', 't1');
   });
 });

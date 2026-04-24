@@ -20,9 +20,18 @@ export class GCalRateLimitError extends GCalError {
 }
 
 export function mapGoogleError(error: unknown): GCalError {
-  const e = error as { code?: number; message?: string };
+  const e = error as { code?: number; message?: string; errors?: { reason?: string }[] };
   const msg = e.message ?? 'Google Calendar error';
-  if (e.code === 401 || e.code === 403) return new GCalAuthError(msg);
+  // Google returns 403 for both auth errors AND quota/rate-limit errors.
+  // Disambiguate via the errors[0].reason field.
+  if (e.code === 403) {
+    const reason = e.errors?.[0]?.reason ?? '';
+    if (reason === 'rateLimitExceeded' || reason === 'quotaExceeded' || reason === 'userRateLimitExceeded') {
+      return new GCalRateLimitError(msg);
+    }
+    return new GCalAuthError(msg);
+  }
+  if (e.code === 401) return new GCalAuthError(msg);
   if (e.code === 404) return new GCalNotFoundError(msg);
   if (e.code === 429) return new GCalRateLimitError(msg);
   return new GCalError(msg);

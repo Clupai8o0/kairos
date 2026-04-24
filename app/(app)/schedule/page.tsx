@@ -297,7 +297,7 @@ export default function SchedulePage() {
               const p = syncGCal.mutateAsync();
               toast.promise(p, {
                 loading: 'Syncing Google Calendar…',
-                success: (r) => `Synced ${r.intervalCount} busy interval${r.intervalCount === 1 ? '' : 's'}`,
+                success: (r) => `Synced — ${r.eventsWritten} task event${r.eventsWritten === 1 ? '' : 's'} written, ${r.intervalCount} busy interval${r.intervalCount === 1 ? '' : 's'} cached`,
                 error: (e) => (e as Error)?.message ?? 'Failed to sync calendar',
               });
             }}

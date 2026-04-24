@@ -1,37 +1,24 @@
 // app/api/cron/drain/route.ts
 import { NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
-import { db } from '@/lib/db/client';
-import { googleAccounts } from '@/lib/db/schema';
 import { claimPendingJobs, markJobDone, markJobFailed } from '@/lib/services/jobs';
 import { scheduleSingleTask, scheduleFullRunChunk } from '@/lib/scheduler/runner';
-import { createGCalAdapter } from '@/lib/gcal/adapter';
 import type { Job } from '@/lib/db/schema/jobs';
 
 const DRAIN_LIMIT = 5;
 
-async function getGcal(userId: string | null) {
-  if (!userId) return undefined;
-  const [acct] = await db
-    .select({ id: googleAccounts.id })
-    .from(googleAccounts)
-    .where(eq(googleAccounts.userId, userId));
-  return acct ? createGCalAdapter(userId) : undefined;
-}
-
+// GCal writes are intentionally omitted here — the scheduler only updates the DB.
+// Event creation/updates happen when the user presses "Sync GCal" (POST /api/gcal/sync).
 async function processJob(job: Job) {
   const payload = job.payload as Record<string, unknown>;
 
   if (job.type === 'schedule:single-task') {
     const { taskId } = payload as { taskId: string };
-    const gcal = await getGcal(job.userId ?? null);
-    await scheduleSingleTask(job.userId!, taskId, gcal);
+    await scheduleSingleTask(job.userId!, taskId);
     return;
   }
 
   if (job.type === 'schedule:full-run') {
-    const gcal = await getGcal(job.userId ?? null);
-    const { remaining } = await scheduleFullRunChunk(job.userId!, gcal);
+    const { remaining } = await scheduleFullRunChunk(job.userId!);
     if (remaining > 0) {
       const { enqueueJob } = await import('@/lib/services/jobs');
       await enqueueJob('schedule:full-run', { userId: job.userId ?? undefined });
