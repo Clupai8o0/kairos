@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useTasks, useUpdateTask } from '@/lib/hooks/use-tasks';
 import { useCalendars, useCalendarEvents, useUpdateCalendarEvent } from '@/lib/hooks/use-calendars';
 import { useRunSchedule } from '@/lib/hooks/use-schedule';
+import { useSyncGCal, useGCalSyncAge } from '@/lib/hooks/use-gcal-sync';
 import { CalendarWeek } from '@/components/app/calendar-week';
 import { CalendarMonth } from '@/components/app/calendar-month';
 import { TaskEditModal } from '@/components/app/task-edit-modal';
@@ -77,6 +78,8 @@ export default function SchedulePage() {
   const [lockPending, setLockPending] = useState<{ taskId: string; start: string; end: string } | null>(null);
 
   const runSchedule = useRunSchedule();
+  const syncGCal = useSyncGCal();
+  const { data: syncAge } = useGCalSyncAge();
   const updateTask = useUpdateTask();
   const updateEvent = useUpdateCalendarEvent();
   useCalendars();
@@ -287,6 +290,26 @@ export default function SchedulePage() {
               <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
             </svg>
             <span className="hidden sm:inline">Refresh</span>
+          </button>
+
+          <button
+            onClick={() => {
+              const p = syncGCal.mutateAsync();
+              toast.promise(p, {
+                loading: 'Syncing Google Calendar…',
+                success: (r) => `Synced ${r.intervalCount} busy interval${r.intervalCount === 1 ? '' : 's'}`,
+                error: (e) => (e as Error)?.message ?? 'Failed to sync calendar',
+              });
+            }}
+            disabled={syncGCal.isPending}
+            title={syncAge?.updatedAt ? `Last synced ${new Date(syncAge.updatedAt).toLocaleTimeString()}` : 'Calendar not yet synced — scheduling ignores busy times until synced'}
+            className="flex items-center gap-1.5 text-xs font-[510] text-fg-3 hover:text-fg border border-wire hover:border-wire-2 px-2.5 py-1 rounded transition-colors disabled:opacity-40"
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 10H3" /><path d="M21 6H3" /><path d="M21 14H3" /><path d="M21 18H3" />
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+            </svg>
+            <span className="hidden sm:inline">Sync GCal</span>
           </button>
 
           <button

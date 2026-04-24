@@ -81,6 +81,9 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 - **ADR-R19:** Session-scoped chat — core + plugin tools, no persistence (softens ADR-R8)
 - **ADR-R20:** Collections — coordination/grouping for tasks, many-to-many via join table, no projectId
 
+### Active decisions (promoted to ADRs)
+- **ADR-R21:** GCal busy cache — scheduler never reads GCal live; free/busy data cached in `googleAccounts.busyCacheJson` (JSONB), refreshed by explicit `POST /api/gcal/sync`
+
 ### Known issues / blockers
 - Lighthouse perf score not yet measured (needs live deploy)
 - `vercel.json` cron still set to daily at midnight UTC (hobby plan limitation)
@@ -102,6 +105,33 @@ If a decision in this file conflicts with `references/architecture-decisions.md`
 ---
 
 ## Session log
+
+---
+
+## 2026-04-24 — GCal busy cache + explicit sync
+
+**Goal:** Stop scheduler from hitting GCal live during placement (caused `GCalAuthError: Rate Limit Exceeded` on Google 403/quota errors). Add explicit "Sync GCal" button; scheduler uses cached data.
+
+**Built:**
+- `lib/db/schema/gcal.ts` — `busyCacheJson: jsonb`, `busyCacheUpdatedAt: timestamp` added to `googleAccounts`
+- `drizzle/0012_gcal_busy_cache.sql` — migration for both columns
+- `lib/gcal/busy-cache.ts` — `readBusyCache`, `writeBusyCache`, `getBusyCacheAge`
+- `lib/gcal/adapter.ts` — `getFreeBusy` now reads from DB cache; event upsert/delete unchanged
+- `app/api/gcal/sync/route.ts` — `POST`: live freebusy fetch → write cache; `GET`: returns `updatedAt`
+- `lib/hooks/use-gcal-sync.ts` — `useSyncGCal()` mutation + `useGCalSyncAge()` query
+- `app/(app)/schedule/page.tsx` — "Sync GCal" button with tooltip showing last-synced time
+
+**Decisions made:**
+- ADR-R21: GCal busy cache — scheduler reads from JSONB cache, never live GCal. Sync is user-triggered or can be wired to cron in future.
+- The 403 "Rate Limit Exceeded" error from Google maps to `GCalAuthError` (not `GCalRateLimitError`) because Google uses 403 for quota errors, not 429. This is a known mapping bug in `errors.ts` — deferred since the cache eliminates the live read path.
+
+**Pre-existing failures:** 12 tests in `slots.test.ts` failing due to a timezone offset issue (existed before this session).
+
+**Tests:** 266/278 passing (same as before — 12 pre-existing slot timezone failures, no new failures).
+
+**Files touched:** 7 new/modified
+
+**Next action:** Apply migration `0012_gcal_busy_cache.sql` via Neon console, then press "Sync GCal" once to populate the cache.
 
 Append new entries at the top. Use the template below.
 

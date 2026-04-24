@@ -1,5 +1,5 @@
 // lib/db/schema/gcal.ts
-import { boolean, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core';
+import { boolean, jsonb, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core';
 import { user } from './auth';
 
 export const googleAccounts = pgTable(
@@ -14,6 +14,10 @@ export const googleAccounts = pgTable(
     accessToken: text('access_token'),
     refreshToken: text('refresh_token'),
     tokenExpiresAt: timestamp('token_expires_at'),
+    // Cached free/busy intervals for scheduling — populated by POST /api/gcal/sync.
+    // Scheduler always reads from here; never hits GCal live during placement.
+    busyCacheJson: jsonb('busy_cache_json').$type<{ start: string; end: string }[]>(),
+    busyCacheUpdatedAt: timestamp('busy_cache_updated_at'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
