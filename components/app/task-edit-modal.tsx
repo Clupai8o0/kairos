@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { useUpdateTask, useDeleteTask, useDeleteTaskSeries } from '@/lib/hooks/use-tasks';
+import { useUpdateTask, useDeleteTask, useDeleteTaskSeries, useCompleteTask } from '@/lib/hooks/use-tasks';
 import { useTags } from '@/lib/hooks/use-tags';
 import { useWindowTemplates } from '@/lib/hooks/use-window-templates';
 import type { Task } from '@/lib/hooks/types';
@@ -50,6 +50,7 @@ export function TaskEditModal({ task, onClose }: Props) {
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
   const deleteTaskSeries = useDeleteTaskSeries();
+  const completeTask = useCompleteTask();
   const { data: allTags = [] } = useTags();
   const { data: templates = [] } = useWindowTemplates();
 
@@ -60,6 +61,18 @@ export function TaskEditModal({ task, onClose }: Props) {
       else next.add(id);
       return next;
     });
+  }
+
+  function handleComplete() {
+    const p = completeTask.mutateAsync(task.id);
+    toast.promise(p, { loading: 'Marking complete…', success: 'Task completed', error: (e) => e?.message ?? 'Failed' });
+    p.then(onClose).catch(() => {});
+  }
+
+  function handleReopen() {
+    const p = updateTask.mutateAsync({ id: task.id, status: 'pending' });
+    toast.promise(p, { loading: 'Reopening…', success: 'Task reopened', error: (e) => e?.message ?? 'Failed' });
+    p.then(() => setStatus('pending')).catch(() => {});
   }
 
   function handleSave() {
@@ -397,6 +410,29 @@ export function TaskEditModal({ task, onClose }: Props) {
               </button>
             )}
             <div className="flex items-center gap-2">
+              {status !== 'done' ? (
+                <button
+                  onClick={handleComplete}
+                  disabled={completeTask.isPending}
+                  className="text-xs font-[510] text-fg-3 hover:text-success border border-wire hover:border-success/50 px-3 py-1.5 rounded transition-colors flex items-center gap-1.5 disabled:opacity-40"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Complete
+                </button>
+              ) : (
+                <button
+                  onClick={handleReopen}
+                  disabled={updateTask.isPending}
+                  className="text-xs font-[510] text-success border border-success/40 hover:border-success px-3 py-1.5 rounded transition-colors flex items-center gap-1.5 disabled:opacity-40"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Completed
+                </button>
+              )}
               <button
                 onClick={onClose}
                 className="text-xs font-[510] text-fg-3 hover:text-fg border border-wire hover:border-wire-2 px-3 py-1.5 rounded transition-colors"
