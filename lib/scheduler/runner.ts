@@ -4,7 +4,7 @@
 
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
-import { tasks, scheduleWindows, blackoutBlocks, windowTemplates, scheduleLogs } from '@/lib/db/schema';
+import { tasks, scheduleWindows, blackoutBlocks, windowTemplates, scheduleLogs, userPreferences } from '@/lib/db/schema';
 import { newId } from '@/lib/utils/id';
 import type { Task, PlacedChunk, BusyInterval, BlackoutBlock, RecurrenceRule, WindowTemplate } from './types';
 import { selectCandidates, buildDoneSet } from './candidates';
@@ -49,13 +49,15 @@ function lookaheadRange(now: Date): { from: Date; to: Date } {
 }
 
 async function loadContext(userId: string) {
-  const [userTasks, windows, blackouts, templates] = await Promise.all([
+  const [userTasks, windows, blackouts, templates, [prefs]] = await Promise.all([
     db.select().from(tasks).where(eq(tasks.userId, userId)),
     db.select().from(scheduleWindows).where(eq(scheduleWindows.userId, userId)),
     db.select().from(blackoutBlocks).where(eq(blackoutBlocks.userId, userId)),
     db.select().from(windowTemplates).where(eq(windowTemplates.userId, userId)),
+    db.select({ timezone: userPreferences.timezone }).from(userPreferences).where(eq(userPreferences.userId, userId)),
   ]);
-  return { userTasks, windows, blackouts, templates };
+  const timezone = prefs?.timezone ?? 'UTC';
+  return { userTasks, windows, blackouts, templates, timezone };
 }
 
 type LoadedContext = Awaited<ReturnType<typeof loadContext>>;
@@ -98,7 +100,7 @@ export async function scheduleSingleTask(
   const now = new Date();
   const { from, to } = lookaheadRange(now);
 
-  const { userTasks, windows, blackouts, templates } = await loadContext(userId);
+  const { userTasks, windows, blackouts, templates, timezone } = await loadContext(userId);
   const target = userTasks.find((t) => t.id === taskId);
 
   if (!target || !target.schedulable) return null;
@@ -133,6 +135,7 @@ export async function scheduleSingleTask(
     busy,
     from,
     to,
+    timezone,
   );
 
   const rankedSlots = rankSlotsForTask(freeSlots, scored, mapTemplates(templates));
@@ -201,7 +204,7 @@ export async function scheduleFullRunChunk(
   const now = new Date();
   const { from, to } = lookaheadRange(now);
 
-  const { userTasks: rawTasks, windows, blackouts, templates } = await loadContext(userId);
+  const { userTasks: rawTasks, windows, blackouts, templates, timezone } = await loadContext(userId);
 
   // Unlock tasks whose deadline has been exceeded — the user missed the window, so
   // the scheduler reclaims the slot. Tasks without a deadline stay locked until the
@@ -258,6 +261,7 @@ export async function scheduleFullRunChunk(
     busy,
     from,
     to,
+    timezone,
   );
 
   const tmpl = mapTemplates(templates);

@@ -6,11 +6,14 @@ import { requireAuth } from '@/lib/auth/helpers';
 import { db } from '@/lib/db/client';
 import { userPreferences } from '@/lib/db/schema';
 
+const VALID_TIMEZONES = new Set(Intl.supportedValuesOf('timeZone'));
+
 const PatchBody = z.object({
   defaultBufferMins: z.number().int().min(0).max(120).optional(),
   defaultDurationMins: z.number().int().positive().nullable().optional(),
   defaultPriority: z.number().int().min(1).max(4).optional(),
   defaultSchedulable: z.boolean().optional(),
+  timezone: z.string().refine((tz) => VALID_TIMEZONES.has(tz), { message: 'Invalid IANA timezone' }).optional(),
 });
 
 async function getOrCreate(userId: string) {

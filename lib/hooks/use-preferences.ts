@@ -1,4 +1,5 @@
 // lib/hooks/use-preferences.ts
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export interface UserPreferences {
@@ -7,6 +8,7 @@ export interface UserPreferences {
   defaultDurationMins: number | null;
   defaultPriority: number;
   defaultSchedulable: boolean;
+  timezone: string;
 }
 
 export function usePreferences() {
@@ -39,4 +41,23 @@ export function useUpdatePreferences() {
       qc.setQueryData(['preferences'], data);
     },
   });
+}
+
+/**
+ * Auto-syncs the browser's detected timezone to the server if it differs
+ * from the stored preference. Call this once near the top of the app.
+ */
+export function useSyncTimezone() {
+  const { data: prefs } = usePreferences();
+  const update = useUpdatePreferences();
+
+  useEffect(() => {
+    if (!prefs) return;
+    const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (browserTz && browserTz !== prefs.timezone) {
+      update.mutate({ timezone: browserTz });
+    }
+  // Only run when prefs first loads — don't re-run on update mutations
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefs?.userId]);
 }

@@ -23,8 +23,16 @@ import {
 } from '@/lib/services/collections';
 import { getWriteCalendarId } from '@/lib/gcal/calendars';
 import { db } from '@/lib/db/client';
-import { tasks } from '@/lib/db/schema';
+import { tasks, userPreferences } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
+
+async function getDefaultBufferMins(userId: string): Promise<number> {
+  const [prefs] = await db
+    .select({ defaultBufferMins: userPreferences.defaultBufferMins })
+    .from(userPreferences)
+    .where(eq(userPreferences.userId, userId));
+  return prefs?.defaultBufferMins ?? 0;
+}
 
 async function resolveTagNames(userId: string, names: string[]): Promise<string[]> {
   if (names.length === 0) return [];
@@ -86,7 +94,7 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
         durationMins: z.number().int().positive().optional().describe('Duration in minutes'),
         priority: z.number().int().min(1).max(4).default(3).describe('Priority 1 (highest) to 4 (lowest)'),
         schedulable: z.boolean().default(true).describe('Whether the task can be auto-scheduled'),
-        bufferMins: z.number().int().min(0).default(15).describe('Buffer minutes after the task'),
+        bufferMins: z.number().int().min(0).optional().describe('Buffer minutes after the task. Omit to use the user\'s default buffer setting.'),
         isSplittable: z.boolean().default(false).describe('Whether the task can be split into chunks'),
         tags: z.array(z.string()).default([]).describe('Tag names to attach (created automatically if they don\'t exist)'),
         deadline: z.string().optional().describe('ISO 8601 deadline date (YYYY-MM-DD)'),
@@ -111,6 +119,7 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
           }
         }
 
+        const bufferMins = args.bufferMins ?? await getDefaultBufferMins(userId);
         const tagIds = await resolveTagNames(userId, args.tags);
         const isLocked = args.timeLocked && !!args.scheduledAt;
         const task = await createTask(userId, {
@@ -119,7 +128,7 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
           durationMins: args.durationMins,
           priority: args.priority,
           schedulable: args.schedulable,
-          bufferMins: args.bufferMins,
+          bufferMins,
           isSplittable: args.isSplittable,
           tagIds,
           deadline: args.deadline,
@@ -185,7 +194,7 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
               durationMins: z.number().int().positive().optional().describe('Duration in minutes'),
               priority: z.number().int().min(1).max(4).default(3).describe('Priority 1 (highest) to 4 (lowest)'),
               schedulable: z.boolean().default(true).describe('Whether the task can be auto-scheduled'),
-              bufferMins: z.number().int().min(0).default(15).describe('Buffer minutes after the task'),
+              bufferMins: z.number().int().min(0).optional().describe('Buffer minutes after the task. Omit to use the user\'s default buffer setting.'),
               isSplittable: z.boolean().default(false).describe('Whether the task can be split into chunks'),
               tags: z.array(z.string()).default([]).describe('Tag names to attach (created automatically if they don\'t exist)'),
               deadline: z.string().optional().describe('ISO 8601 deadline'),
@@ -196,6 +205,7 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
           .describe('Array of tasks to create'),
       }),
       execute: async (args) => {
+        const defaultBuffer = await getDefaultBufferMins(userId);
         const allNames = [...new Set(args.tasks.flatMap((t) => t.tags))];
         const resolvedMap = new Map<string, string>();
         const resolvedIds = await resolveTagNames(userId, allNames);
@@ -205,6 +215,7 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
           userId,
           args.tasks.map((t) => ({
             ...t,
+            bufferMins: t.bufferMins ?? defaultBuffer,
             tagIds: t.tags.map((n) => resolvedMap.get(n.toLowerCase())!),
             dependsOn: [],
           })),
@@ -596,7 +607,10 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
 
     bulkUpdateTasks: tool({
       description:
-        'Update multiple tasks at once. Use this instead of calling updateTask repeatedly when the user wants to change several tasks simultaneously.',
+        'Update multiple tasks at once — including bufferMins, status, priority, deadline, tags, or any other field. ' +
+        'ALWAYS use this instead of repeated updateTask calls when the user wants to change 2 or more tasks. ' +
+        'This produces a single confirmation dialog for the whole batch. ' +
+        'If the user follows up with an adjustment (e.g. "make it 5 minutes instead"), call bulkUpdateTasks again with the corrected values — one confirm per call.',
       needsApproval,
       inputSchema: z.object({
         updates: z

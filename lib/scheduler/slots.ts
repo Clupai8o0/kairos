@@ -7,11 +7,47 @@ import { generateOccurrences } from './recurrence';
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
-function parseTime(hhMM: string, baseDate: Date): Date {
+/**
+ * Returns the UTC Date representing HH:MM on the same calendar day as `baseDate`
+ * when viewed in `timezone` (an IANA tz string, e.g. "Australia/Sydney").
+ *
+ * Uses the UTC offset of `baseDate` in that timezone as an approximation.
+ * Accurate to within 1h for DST transitions — sufficient for slot scheduling.
+ */
+function parseTimeInTz(hhMM: string, baseDate: Date, timezone: string): Date {
   const [h, m] = hhMM.split(':').map(Number);
-  const d = new Date(baseDate);
-  d.setHours(h, m, 0, 0);
-  return d;
+
+  // Get the local calendar day (year/month/day) for baseDate in the target timezone
+  const dayFmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const [yearStr, monthStr, dayStr] = dayFmt.format(baseDate).split('-');
+  const year = +yearStr, month = +monthStr - 1, day = +dayStr;
+
+  // Create a tentative UTC Date by treating the local HH:MM as if it were UTC
+  const approx = new Date(Date.UTC(year, month, day, h, m));
+
+  // Find the UTC offset at this instant in the target timezone
+  const localFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  });
+  const parts = localFmt.formatToParts(approx);
+  const lh = +parts.find(p => p.type === 'hour')!.value;
+  const lm = +parts.find(p => p.type === 'minute')!.value;
+  const ld = +parts.find(p => p.type === 'day')!.value;
+  const lmo = +parts.find(p => p.type === 'month')!.value - 1;
+  const ly = +parts.find(p => p.type === 'year')!.value;
+
+  const localAsUtc = Date.UTC(ly, lmo, ld, lh, lm);
+  const offsetMs = approx.getTime() - localAsUtc; // positive = east of UTC
+
+  return new Date(Date.UTC(year, month, day, h, m) + offsetMs);
 }
 
 /**
@@ -83,6 +119,10 @@ function expandBlackouts(
 /**
  * Returns all free time slots within [from, to] that fall inside schedule
  * windows, excluding blackout blocks and busy intervals.
+ *
+ * `timezone` is an IANA timezone string (e.g. "Australia/Sydney"). Window
+ * start/end times ("HH:MM") are interpreted in this timezone. Defaults to
+ * 'UTC' which preserves the old behaviour for callers that don't pass it.
  */
 export function computeFreeSlots(
   windows: ScheduleWindow[],
@@ -90,6 +130,7 @@ export function computeFreeSlots(
   busy: BusyInterval[],
   from: Date,
   to: Date,
+  timezone = 'UTC',
 ): TimeSlot[] {
   // Expand blackout blocks into concrete intervals and merge with busy
   const blackoutIntervals = expandBlackouts(blackoutBlocks, from, to);
@@ -97,38 +138,60 @@ export function computeFreeSlots(
 
   const results: TimeSlot[] = [];
 
-  const cursor = new Date(from);
-  cursor.setHours(0, 0, 0, 0);
-  const endDay = new Date(to);
-  endDay.setHours(0, 0, 0, 0);
+  // Step through local calendar days in the user's timezone
+  // Start at midnight of `from` expressed in the user's local day
+  const dayFmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+  });
 
-  while (cursor <= endDay) {
-    const dow = cursor.getDay();
+  // Find the UTC midnight-equivalent for the start of the local day of `from`
+  const fromLocalParts = dayFmt.formatToParts(from);
+  const fromYear = +fromLocalParts.find(p => p.type === 'year')!.value;
+  const fromMonth = +fromLocalParts.find(p => p.type === 'month')!.value - 1;
+  const fromDay = +fromLocalParts.find(p => p.type === 'day')!.value;
+  // Cursor: midnight UTC of the first local day
+  let cursorUtc = parseTimeInTz('00:00', new Date(Date.UTC(fromYear, fromMonth, fromDay)), timezone);
+
+  const endLocalParts = dayFmt.formatToParts(to);
+  const toYear = +endLocalParts.find(p => p.type === 'year')!.value;
+  const toMonth = +endLocalParts.find(p => p.type === 'month')!.value - 1;
+  const toDay = +endLocalParts.find(p => p.type === 'day')!.value;
+  const cursorUtcEnd = parseTimeInTz('00:00', new Date(Date.UTC(toYear, toMonth, toDay)), timezone);
+
+  while (cursorUtc <= cursorUtcEnd) {
+    // Get the day-of-week for this local day
+    const parts = dayFmt.formatToParts(cursorUtc);
+    const weekdayShort = parts.find(p => p.type === 'weekday')!.value; // "Sun", "Mon" …
+    const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dow = WEEKDAYS.indexOf(weekdayShort);
 
     for (const w of windows) {
       if (w.dayOfWeek !== dow) continue;
 
-      const wStart = parseTime(w.startTime, cursor);
-      const wEnd = parseTime(w.endTime, cursor);
-      if (wEnd <= wStart) continue; // skip invalid/zero-width windows
+      const wStart = parseTimeInTz(w.startTime, cursorUtc, timezone);
+      const wEnd = parseTimeInTz(w.endTime, cursorUtc, timezone);
+      if (wEnd <= wStart) continue;
 
-      // Clip window to [from, to]
       const slotStart = wStart < from ? from : wStart;
       const slotEnd = wEnd > to ? to : wEnd;
       if (slotEnd <= slotStart) continue;
 
-      const windowSlot: TimeSlot = {
-        start: slotStart,
-        end: slotEnd,
-        templateId: w.templateId,
-      };
-      const overlapping = allBusy.filter(
-        (b) => b.start < slotEnd && b.end > slotStart,
-      );
+      const windowSlot: TimeSlot = { start: slotStart, end: slotEnd, templateId: w.templateId };
+      const overlapping = allBusy.filter(b => b.start < slotEnd && b.end > slotStart);
       results.push(...subtractBusy(windowSlot, overlapping));
     }
 
-    cursor.setDate(cursor.getDate() + 1);
+    // Advance by one local day (add 25h then truncate to local midnight to handle DST)
+    const nextApprox = new Date(cursorUtc.getTime() + 25 * 60 * 60 * 1000);
+    const np = dayFmt.formatToParts(nextApprox);
+    const ny = +np.find(p => p.type === 'year')!.value;
+    const nmo = +np.find(p => p.type === 'month')!.value - 1;
+    const nd = +np.find(p => p.type === 'day')!.value;
+    cursorUtc = parseTimeInTz('00:00', new Date(Date.UTC(ny, nmo, nd)), timezone);
   }
 
   return results;

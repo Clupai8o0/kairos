@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { Sidebar } from '@/components/app/sidebar';
 import { MobileNav } from '@/components/app/mobile-nav';
 import { CommandPalette } from '@/components/app/command-palette';
+import { TimezoneSync } from '@/components/app/timezone-sync';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -20,6 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {children}
       </div>
       <CommandPalette />
+      <TimezoneSync />
     </div>
   );
 }

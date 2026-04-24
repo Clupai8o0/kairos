@@ -10,4 +10,5 @@ export const userPreferences = pgTable('user_preferences', {
   defaultDurationMins: integer('default_duration_mins'),
   defaultPriority: integer('default_priority').notNull().default(3),
   defaultSchedulable: boolean('default_schedulable').notNull().default(true),
+  timezone: text('timezone').notNull().default('UTC'),
 });
