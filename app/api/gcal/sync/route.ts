@@ -147,21 +147,31 @@ export async function POST() {
             ));
         }
 
-        // Upsert events one at a time with backoff on rate limit
+        // Upsert events one at a time with backoff on rate limit.
+        // If the existing GCal event was manually deleted, fall back to a fresh insert.
         let eventsWritten = 0;
+        const taskArg = (t: typeof scheduledTasks[0]) =>
+          ({ id: t.id, title: t.title, description: t.description }) as Parameters<typeof upsertEvent>[2];
+        const chunkArg = (t: typeof scheduledTasks[0]) =>
+          ({ start: t.scheduledAt!, end: t.scheduledEnd!, chunkIndex: 0 });
+
         for (const task of scheduledTasks) {
-          const gcalEventId = await withBackoff(
-            () => upsertEvent(
-              userId,
-              writeCalId,
-              { id: task.id, title: task.title, description: task.description } as Parameters<typeof upsertEvent>[2],
-              { start: task.scheduledAt!, end: task.scheduledEnd!, chunkIndex: 0 },
-              task.gcalEventId ?? null,
-            ),
+          let gcalEventId = await withBackoff(
+            () => upsertEvent(userId, writeCalId, taskArg(task), chunkArg(task), task.gcalEventId ?? null),
             controller,
             eventsWritten,
             scheduledTasks.length,
           );
+
+          // Stale gcalEventId (event deleted from GCal) — retry as a fresh insert
+          if (gcalEventId === null && task.gcalEventId) {
+            gcalEventId = await withBackoff(
+              () => upsertEvent(userId, writeCalId, taskArg(task), chunkArg(task), null),
+              controller,
+              eventsWritten,
+              scheduledTasks.length,
+            );
+          }
 
           if (gcalEventId) {
             await db
