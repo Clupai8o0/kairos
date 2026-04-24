@@ -88,7 +88,7 @@ function getActionDetails(toolName: string, input: unknown): { title: string; de
       const tasks = (args.tasks as Array<{ title?: string }>) ?? [];
       const titles = tasks.map((t) => t.title ?? '?');
       return {
-        title: `${tasks.length} task${tasks.length === 1 ? '' : 's'}`,
+        title: (args.note as string) ?? `${tasks.length} task${tasks.length === 1 ? '' : 's'}`,
         details: titles.map((t, i) => ({ label: `#${i + 1}`, value: t })),
       };
     }
@@ -113,9 +113,9 @@ function getActionDetails(toolName: string, input: unknown): { title: string; de
       return { title: (args.taskName as string) ?? 'Task', details: [] };
 
     case 'bulkUpdateTasks': {
-      const updates = (args.updates as Array<{ taskName?: string; title?: string; priority?: number; status?: string }>) ?? [];
+      const updates = (args.updates as Array<{ taskName?: string; title?: string }>) ?? [];
       return {
-        title: `${updates.length} task${updates.length === 1 ? '' : 's'}`,
+        title: (args.note as string) ?? `${updates.length} task${updates.length === 1 ? '' : 's'}`,
         details: updates.map((u, i) => ({ label: `#${i + 1}`, value: u.taskName ?? u.title ?? 'Task' })),
       };
     }

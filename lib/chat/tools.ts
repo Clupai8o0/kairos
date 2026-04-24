@@ -183,9 +183,10 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
 
     bulkCreateTasks: tool({
       description:
-        'Create multiple tasks at once from a single prompt. Use this instead of createTask when the user wants to create 2 or more tasks.',
+        'Create multiple tasks at once from a single prompt. Use this instead of createTask when the user wants to create 2 or more tasks. Always fill in the `note` field with a short plain-English summary.',
       needsApproval,
       inputSchema: z.object({
+        note: z.string().describe('Short plain-English summary of what is being created (e.g. "Create 5 study tasks for SIT221 Week 3")'),
         tasks: z
           .array(
             z.object({
@@ -610,9 +611,11 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
         'Update multiple tasks at once — including bufferMins, status, priority, deadline, tags, or any other field. ' +
         'ALWAYS use this instead of repeated updateTask calls when the user wants to change 2 or more tasks. ' +
         'This produces a single confirmation dialog for the whole batch. ' +
-        'If the user follows up with an adjustment (e.g. "make it 5 minutes instead"), call bulkUpdateTasks again with the corrected values — one confirm per call.',
+        'If the user follows up with an adjustment (e.g. "make it 5 minutes instead"), call bulkUpdateTasks again with the corrected values — one confirm per call. ' +
+        'Always fill in the `note` field with a short plain-English summary of what the update does (e.g. "Set buffer to 0 min on all SIT221 tasks").',
       needsApproval,
       inputSchema: z.object({
+        note: z.string().describe('Short plain-English summary of what this bulk update does — always fill this in (e.g. "Set buffer to 0 min on 8 tasks", "Mark all pending tasks as backlog")'),
         updates: z
           .array(
             z.object({
