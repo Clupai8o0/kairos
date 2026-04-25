@@ -98,14 +98,15 @@ interface EventBlockProps {
   totalCols?: number;
 }
 
-const COL_GAP = 4; // px between adjacent overlapping-event columns
+const COL_GAP = 4;   // px between adjacent overlapping-event columns
+const BLOCK_GAP = 4; // px inset from top of each block so consecutive blocks have visible grid between them
 
 function EventBlock({ top, height, label, sublabel, color, isTask, isDone, isDragging, onClick, onPointerDown, col = 0, totalCols = 1 }: EventBlockProps) {
-  const h = Math.max(18, height);
+  const h = Math.max(18, height - BLOCK_GAP);
   const leftStyle: React.CSSProperties['left'] = col === 0 ? 2 : `calc(${(col / totalCols) * 100}% + ${COL_GAP}px)`;
   const rightStyle: React.CSSProperties['right'] = col === totalCols - 1 ? 2 : `calc(${((totalCols - col - 1) / totalCols) * 100}% + ${COL_GAP}px)`;
   const style: React.CSSProperties = {
-    position: 'absolute', top, height: h, left: leftStyle, right: rightStyle,
+    position: 'absolute', top: top + BLOCK_GAP, height: h, left: leftStyle, right: rightStyle,
     opacity: isDone ? 0.35 : isDragging ? 0.5 : 1,
     backgroundColor: isTask ? 'var(--color-task-event-bg)' : color,
     borderLeft: isTask ? `3px ${isDragging ? 'dashed' : 'solid'} ${isDone ? 'var(--color-success)' : 'var(--color-accent)'}` : undefined,
