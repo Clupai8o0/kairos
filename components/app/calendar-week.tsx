@@ -98,10 +98,10 @@ interface EventBlockProps {
   totalCols?: number;
 }
 
-const BLOCK_GAP = 2; // px inset from each time boundary — leaves clickable grid between adjacent blocks
+const BLOCK_GAP = 10; // px inset from each time boundary — leaves clickable grid between adjacent blocks
 
 function EventBlock({ top, height, label, sublabel, color, isTask, isDone, isDragging, onClick, onPointerDown, col = 0, totalCols = 1 }: EventBlockProps) {
-  const h = Math.max(16, height - BLOCK_GAP);
+  const h = Math.max(18, height - BLOCK_GAP);
   const leftStyle: React.CSSProperties['left'] = col === 0 ? 2 : `calc(${(col / totalCols) * 100}% + 1px)`;
   const rightStyle: React.CSSProperties['right'] = col === totalCols - 1 ? 2 : `calc(${((totalCols - col - 1) / totalCols) * 100}% + 1px)`;
   const style: React.CSSProperties = {
