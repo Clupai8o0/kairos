@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { useUpdateTask, useDeleteTask, useDeleteTaskSeries, useCompleteTask } from '@/lib/hooks/use-tasks';
+import { useUpdateTask, useDeleteTask, useDeleteTaskSeries, useCompleteTask, useTasks } from '@/lib/hooks/use-tasks';
 import { useTags } from '@/lib/hooks/use-tags';
 import { useWindowTemplates } from '@/lib/hooks/use-window-templates';
 import type { Task } from '@/lib/hooks/types';
@@ -43,6 +43,8 @@ export function TaskEditModal({ task, onClose }: Props) {
   const [recurrenceMode, setRecurrenceMode] = useState<string>(
     (task.recurrenceRule as Record<string, unknown>)?.mode as string ?? 'fixed'
   );
+  const [dependsOn, setDependsOn] = useState<Set<string>>(new Set(task.dependsOn));
+  const [depSearch, setDepSearch] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const isSeries = !!task.parentTaskId || !!task.recurrenceRule;
@@ -53,6 +55,23 @@ export function TaskEditModal({ task, onClose }: Props) {
   const completeTask = useCompleteTask();
   const { data: allTags = [] } = useTags();
   const { data: templates = [] } = useWindowTemplates();
+  const { data: allTasks = [] } = useTasks();
+
+  const otherTasks = allTasks.filter((t) => t.id !== task.id);
+  const depCandidates = depSearch
+    ? otherTasks.filter((t) => t.title.toLowerCase().includes(depSearch.toLowerCase())).slice(0, 8)
+    : [];
+  const depTasksById = new Map(allTasks.map((t) => [t.id, t]));
+  const isBlocked = [...dependsOn].some((id) => depTasksById.get(id)?.status !== 'done');
+
+  function toggleDep(id: string) {
+    setDependsOn((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+    setDepSearch('');
+  }
 
   function toggleTag(id: string) {
     setSelectedTagIds((prev) => {
@@ -88,6 +107,7 @@ export function TaskEditModal({ task, onClose }: Props) {
       schedulable,
       timeLocked,
       tagIds: [...selectedTagIds],
+      dependsOn: [...dependsOn],
       preferredTemplateId: preferredTemplateId || null,
       recurrenceRule: recurrenceEnabled
         ? { freq: recurrenceFreq, interval: Number(recurrenceInterval), mode: recurrenceMode }
@@ -373,6 +393,58 @@ export function TaskEditModal({ task, onClose }: Props) {
                 </div>
               </div>
             )}
+
+            {/* Dependencies */}
+            <div>
+              <label className="block text-[10px] font-[510] uppercase tracking-wide text-fg-3 mb-1.5">Depends on</label>
+              {dependsOn.size > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {[...dependsOn].map((id) => {
+                    const dep = depTasksById.get(id);
+                    if (!dep) return null;
+                    const done = dep.status === 'done';
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => toggleDep(id)}
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-[510] border transition-colors ${done ? 'border-success/40 text-success' : 'border-warning/40 text-warning'}`}
+                      >
+                        {done ? '✓' : '○'} {dep.title}
+                        <span className="text-fg-4 ml-0.5">×</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <input
+                className="w-full bg-surface border border-wire rounded px-2.5 py-1.5 text-sm text-fg placeholder:text-fg-4 focus:outline-none focus:border-accent transition-colors"
+                placeholder="Search tasks to link…"
+                value={depSearch}
+                onChange={(e) => setDepSearch(e.target.value)}
+              />
+              {depCandidates.length > 0 && (
+                <div className="mt-1 border border-wire rounded bg-surface overflow-hidden">
+                  {depCandidates.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => toggleDep(t.id)}
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 text-sm text-fg-2 hover:bg-ghost text-left transition-colors"
+                    >
+                      <span className={`w-3 h-3 rounded-full border shrink-0 flex items-center justify-center ${dependsOn.has(t.id) ? 'bg-accent border-accent' : 'border-wire-2'}`}>
+                        {dependsOn.has(t.id) && <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1.5,5 4,7.5 8.5,2.5" /></svg>}
+                      </span>
+                      <span className="truncate">{t.title}</span>
+                      {t.status === 'done' && <span className="ml-auto text-[10px] text-success shrink-0">done</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {isBlocked && (
+                <p className="text-[11px] text-warning mt-1.5">Blocked — complete prerequisites first to mark this done.</p>
+              )}
+            </div>
           </div>
 
           {/* Footer */}
@@ -413,7 +485,8 @@ export function TaskEditModal({ task, onClose }: Props) {
               {status !== 'done' ? (
                 <button
                   onClick={handleComplete}
-                  disabled={completeTask.isPending}
+                  disabled={completeTask.isPending || isBlocked}
+                  title={isBlocked ? 'Complete prerequisites first' : undefined}
                   className="text-xs font-[510] text-fg-3 hover:text-success border border-wire hover:border-success/50 px-3 py-1.5 rounded transition-colors flex items-center gap-1.5 disabled:opacity-40"
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

@@ -206,14 +206,16 @@ export async function scheduleFullRunChunk(
 
   const { userTasks: rawTasks, windows, blackouts, templates, timezone } = await loadContext(userId);
 
-  // Unlock tasks whose deadline has been exceeded — the user missed the window, so
-  // the scheduler reclaims the slot. Tasks without a deadline stay locked until the
-  // user explicitly unlocks them via the UI or chat.
+  // Unlock tasks whose scheduled window has fully passed — the slot is gone so the
+  // scheduler reclaims it. A task whose scheduledEnd is still in the future keeps
+  // its lock even if its deadline has already passed; the user placed it there
+  // intentionally and it hasn't happened yet.
   const pastLockedIds = rawTasks
-    .filter((t) => t.timeLocked && (
-      (t.deadline && t.deadline < now) ||
-      (t.scheduledEnd && t.scheduledEnd < now)
-    ))
+    .filter((t) => {
+      if (!t.timeLocked) return false;
+      if (t.scheduledEnd && t.scheduledEnd > now) return false; // still upcoming — keep lock
+      return (t.deadline && t.deadline < now) || (t.scheduledEnd && t.scheduledEnd < now);
+    })
     .map((t) => t.id);
 
   if (pastLockedIds.length > 0) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { useCalendars, useUpdateCalendar, useSyncCalendars } from '@/lib/hooks/use-calendars';
@@ -91,6 +91,29 @@ export default function SettingsPage() {
             </svg>
           </Link>
         </div>
+
+        {/* General */}
+        <Section title="General">
+          {prefs ? (
+            <div className="px-4 py-3 rounded-lg bg-ghost border border-wire-2 space-y-3">
+              <div>
+                <label className="block text-fg-4 text-[10px] font-[510] uppercase tracking-wide mb-1">Timezone</label>
+                <TimezoneSelect
+                  value={prefs.timezone}
+                  onChange={(tz) => {
+                    const p = updatePrefs.mutateAsync({ timezone: tz });
+                    toast.promise(p, { loading: 'Saving…', success: 'Timezone updated', error: (e) => (e as Error)?.message ?? 'Failed' });
+                  }}
+                />
+                <p className="text-fg-4 text-[11px] mt-1.5">
+                  Auto-detected from your browser. Override here if tasks are appearing at the wrong time.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="h-20 bg-ghost rounded-lg animate-pulse" />
+          )}
+        </Section>
 
         {/* Schedule — window templates */}
         <ScheduleSection />
@@ -400,6 +423,71 @@ export default function SettingsPage() {
           />
         </Section>
       </div>
+    </div>
+  );
+}
+
+// ── Timezone select ───────────────────────────────────────────────────────
+
+const AU_TIMEZONES = [
+  'Australia/Sydney',
+  'Australia/Melbourne',
+  'Australia/Brisbane',
+  'Australia/Adelaide',
+  'Australia/Perth',
+  'Australia/Darwin',
+  'Australia/Hobart',
+  'Australia/Lord_Howe',
+];
+
+function TimezoneSelect({ value, onChange }: { value: string; onChange: (tz: string) => void }) {
+  const [search, setSearch] = useState('');
+
+  const allZones = useMemo(() => {
+    try { return Intl.supportedValuesOf('timeZone'); } catch { return []; }
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!search) return null;
+    const q = search.toLowerCase();
+    return allZones.filter((z) => z.toLowerCase().includes(q)).slice(0, 50);
+  }, [search, allZones]);
+
+  return (
+    <div className="space-y-1.5">
+      <input
+        type="text"
+        placeholder="Search timezone…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full bg-surface border border-wire rounded px-2.5 py-1.5 text-sm text-fg placeholder:text-fg-4 focus:outline-none focus:border-accent transition-colors"
+      />
+      <select
+        size={6}
+        value={value}
+        onChange={(e) => { onChange(e.target.value); setSearch(''); }}
+        className="w-full bg-surface border border-wire rounded px-2 py-1 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
+      >
+        {!search && (
+          <optgroup label="Australia">
+            {AU_TIMEZONES.map((tz) => (
+              <option key={tz} value={tz}>{tz.replace('Australia/', '')}</option>
+            ))}
+          </optgroup>
+        )}
+        {!search && <optgroup label="All timezones">
+          {allZones.filter((z) => !AU_TIMEZONES.includes(z)).map((tz) => (
+            <option key={tz} value={tz}>{tz}</option>
+          ))}
+        </optgroup>}
+        {search && (filtered ?? []).map((tz) => (
+          <option key={tz} value={tz}>{tz}</option>
+        ))}
+        {search && (filtered ?? []).length === 0 && (
+          <option disabled>No results</option>
+        )}
+      </select>
+      <p className="text-fg-4 text-[11px]">Current: <span className="text-fg-3 font-[510]">{value}</span></p>
     </div>
   );
 }

@@ -91,6 +91,7 @@ async function attachTagsToTasks(taskRows: (typeof tasks.$inferSelect)[]): Promi
     durationMins: t.durationMins,
     deadline: t.deadline,
     scheduledAt: t.scheduledAt,
+    dependsOn: t.dependsOn ?? [],
     tags: byTask.get(t.id) ?? [],
   }));
 }

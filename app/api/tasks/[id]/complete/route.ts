@@ -6,7 +6,7 @@ import { spawnNextOccurrence } from '@/lib/services/recurrence';
 import { enqueueJob } from '@/lib/services/jobs';
 import { db } from '@/lib/db/client';
 import { tasks } from '@/lib/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { patchEvent } from '@/lib/gcal/events';
 import { getWriteCalendarId } from '@/lib/gcal/calendars';
 
@@ -25,6 +25,21 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   // Idempotent: already done
   if (task.status === 'done') return NextResponse.json(task);
+
+  // Gate: all prerequisite tasks must be done first
+  if (task.dependsOn.length > 0) {
+    const depTasks = await db
+      .select({ id: tasks.id, title: tasks.title, status: tasks.status })
+      .from(tasks)
+      .where(and(inArray(tasks.id, task.dependsOn), eq(tasks.userId, userId)));
+    const incomplete = depTasks.filter((d) => d.status !== 'done');
+    if (incomplete.length > 0) {
+      return NextResponse.json({
+        error: `${incomplete.length} prerequisite task${incomplete.length > 1 ? 's' : ''} not yet done: ${incomplete.map((d) => d.title).join(', ')}`,
+        blockedBy: incomplete.map((d) => ({ id: d.id, title: d.title })),
+      }, { status: 409 });
+    }
+  }
 
   const now = new Date();
 

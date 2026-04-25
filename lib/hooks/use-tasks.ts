@@ -53,6 +53,7 @@ export interface UpdateTaskInput {
   scheduledAt?: string | null;
   scheduledEnd?: string | null;
   tagIds?: string[];
+  dependsOn?: string[];
   preferredTemplateId?: string | null;
   recurrenceRule?: Record<string, unknown> | null;
 }

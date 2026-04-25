@@ -109,6 +109,7 @@ function TaskRow({
   onRemove,
   onMoveToPhase,
   onStatusChange,
+  tasksById,
 }: {
   entry: CollectionTaskEntry;
   phases: CollectionPhase[];
@@ -118,15 +119,18 @@ function TaskRow({
   onRemove: (taskId: string) => void;
   onMoveToPhase: (taskId: string, phaseId: string | null) => void;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
+  tasksById: Map<string, Task>;
 }) {
   const t = entry.task;
+  const isBlocked = t.status !== 'done' && t.dependsOn.length > 0 &&
+    t.dependsOn.some((id) => tasksById.get(id)?.status !== 'done');
   return (
     <motion.div
       layout
       initial={{ opacity: 0, x: -4 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 4 }}
-      className={`group flex items-center gap-3 py-2 px-3 rounded-md hover:bg-ghost-2 transition-colors cursor-pointer ${checked ? 'bg-brand/5 ring-1 ring-brand/20' : ''} ${t.status === 'done' || t.status === 'cancelled' ? 'opacity-50' : ''}`}
+      className={`group flex items-center gap-3 py-2 px-3 rounded-md hover:bg-ghost-2 transition-colors cursor-pointer ${checked ? 'bg-brand/5 ring-1 ring-brand/20' : ''} ${t.status === 'done' || t.status === 'cancelled' ? 'opacity-50' : ''} ${isBlocked ? 'opacity-60' : ''}`}
       onClick={onOpen}
     >
       <div
@@ -143,6 +147,18 @@ function TaskRow({
       </div>
 
       <StatusChip status={t.status} taskId={t.id} onStatusChange={onStatusChange} />
+
+      {t.dependsOn.length > 0 && (
+        <span
+          title={isBlocked ? 'Blocked — prerequisites not done' : 'Has prerequisites'}
+          className={`shrink-0 ${isBlocked ? 'text-warning' : 'text-fg-4'}`}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+            <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+          </svg>
+        </span>
+      )}
 
       <span className={`flex-1 text-[13px] min-w-0 truncate ${t.status === 'done' || t.status === 'cancelled' ? 'line-through text-fg-4' : 'text-fg'}`}>{t.title}</span>
       {t.tags.length > 0 && (
@@ -207,6 +223,12 @@ function KanbanCard({
       </div>
       <div className="flex items-center gap-1.5 flex-wrap">
         <StatusChip status={t.status} taskId={t.id} onStatusChange={onStatusChange} />
+        {t.dependsOn.length > 0 && (
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-fg-4">
+            <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+            <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+          </svg>
+        )}
         {t.tags.map((tag) => (
           <span key={tag.id} className="text-[10px] px-1.5 py-0.5 rounded-full bg-ghost-2 text-fg-3">
             {tag.name}
@@ -396,6 +418,7 @@ export default function CollectionDetailPage({
   }
 
   const memberIds = new Set(collection.tasks.map((t) => t.taskId));
+  const tasksById = new Map((allTasks ?? []).map((t) => [t.id, t]));
   const candidateTasks = (allTasks ?? []).filter(
     (t) => !memberIds.has(t.id) && t.title.toLowerCase().includes(searchTask.toLowerCase()),
   );
@@ -725,6 +748,7 @@ export default function CollectionDetailPage({
                             onRemove={handleRemoveTask}
                             onMoveToPhase={handleMoveToPhase}
                             onStatusChange={handleStatusChange}
+                            tasksById={tasksById}
                           />
                         ))}
                       </AnimatePresence>
@@ -754,6 +778,7 @@ export default function CollectionDetailPage({
                           onRemove={handleRemoveTask}
                           onMoveToPhase={handleMoveToPhase}
                           onStatusChange={handleStatusChange}
+                          tasksById={tasksById}
                         />
                       ))}
                     </AnimatePresence>
@@ -775,6 +800,7 @@ export default function CollectionDetailPage({
                     onRemove={handleRemoveTask}
                     onMoveToPhase={handleMoveToPhase}
                     onStatusChange={handleStatusChange}
+                    tasksById={tasksById}
                   />
                 ))}
               </AnimatePresence>

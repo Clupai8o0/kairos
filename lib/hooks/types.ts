@@ -146,6 +146,7 @@ export interface CollectionTaskEntry {
     durationMins: number | null;
     deadline: string | null;
     scheduledAt: string | null;
+    dependsOn: string[];
     tags: Pick<Tag, 'id' | 'name' | 'color'>[];
   };
 }
