@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { useCalendars, useUpdateCalendar, useSyncCalendars } from '@/lib/hooks/use-calendars';
@@ -11,6 +11,8 @@ import { ScheduleSection } from '@/components/app/schedule-section';
 import { BlackoutsSection } from '@/components/app/blackouts-section';
 import { authClient } from '@/lib/auth/client';
 import { useRouter } from 'next/navigation';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -440,55 +442,65 @@ const AU_TIMEZONES = [
   'Australia/Lord_Howe',
 ];
 
+const ALL_ZONES: string[] = (() => {
+  try { return Intl.supportedValuesOf('timeZone'); } catch { return []; }
+})();
+
 function TimezoneSelect({ value, onChange }: { value: string; onChange: (tz: string) => void }) {
-  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
 
-  const allZones = useMemo(() => {
-    try { return Intl.supportedValuesOf('timeZone'); } catch { return []; }
-  }, []);
-
-  const filtered = useMemo(() => {
-    if (!search) return null;
-    const q = search.toLowerCase();
-    return allZones.filter((z) => z.toLowerCase().includes(q)).slice(0, 50);
-  }, [search, allZones]);
+  const otherZones = ALL_ZONES.filter((z) => !AU_TIMEZONES.includes(z));
 
   return (
-    <div className="space-y-1.5">
-      <input
-        type="text"
-        placeholder="Search timezone…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full bg-surface border border-wire rounded px-2.5 py-1.5 text-sm text-fg placeholder:text-fg-4 focus:outline-none focus:border-accent transition-colors"
-      />
-      <select
-        size={6}
-        value={value}
-        onChange={(e) => { onChange(e.target.value); setSearch(''); }}
-        className="w-full bg-surface border border-wire rounded px-2 py-1 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
-      >
-        {!search && (
-          <optgroup label="Australia">
-            {AU_TIMEZONES.map((tz) => (
-              <option key={tz} value={tz}>{tz.replace('Australia/', '')}</option>
-            ))}
-          </optgroup>
-        )}
-        {!search && <optgroup label="All timezones">
-          {allZones.filter((z) => !AU_TIMEZONES.includes(z)).map((tz) => (
-            <option key={tz} value={tz}>{tz}</option>
-          ))}
-        </optgroup>}
-        {search && (filtered ?? []).map((tz) => (
-          <option key={tz} value={tz}>{tz}</option>
-        ))}
-        {search && (filtered ?? []).length === 0 && (
-          <option disabled>No results</option>
-        )}
-      </select>
-      <p className="text-fg-4 text-[11px]">Current: <span className="text-fg-3 font-[510]">{value}</span></p>
-    </div>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger className="w-full flex items-center justify-between bg-surface border border-wire rounded px-2.5 py-1.5 text-sm text-fg hover:border-wire-2 focus:outline-none focus:border-accent transition-colors">
+        <span>{value || 'Select timezone…'}</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-fg-4 shrink-0">
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </PopoverTrigger>
+      <PopoverContent className="w-[320px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search timezone…" />
+          <CommandList>
+            <CommandEmpty>No timezone found.</CommandEmpty>
+            <CommandGroup heading="Australia">
+              {AU_TIMEZONES.map((tz) => (
+                <CommandItem
+                  key={tz}
+                  value={tz}
+                  onSelect={() => { onChange(tz); setOpen(false); }}
+                >
+                  <span className={value === tz ? 'text-accent' : ''}>{tz}</span>
+                  {value === tz && (
+                    <svg className="ml-auto text-accent" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            <CommandSeparator />
+            <CommandGroup heading="All timezones">
+              {otherZones.map((tz) => (
+                <CommandItem
+                  key={tz}
+                  value={tz}
+                  onSelect={() => { onChange(tz); setOpen(false); }}
+                >
+                  <span className={value === tz ? 'text-accent' : ''}>{tz}</span>
+                  {value === tz && (
+                    <svg className="ml-auto text-accent" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 
