@@ -2,9 +2,12 @@
 import { auth } from './index';
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { verifyApiKey } from '@/lib/services/api-keys';
 
 /**
  * Call at the top of every route handler.
+ * Checks Authorization: Bearer kairos_sk_... first (API key auth),
+ * then falls back to session cookie auth.
  * Returns { userId } on success, or a 401 Response to return immediately.
  *
  * Usage:
@@ -13,7 +16,17 @@ import { NextResponse } from 'next/server';
  *   const { userId } = authResult;
  */
 export async function requireAuth(): Promise<{ userId: string } | NextResponse> {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const reqHeaders = await headers();
+
+  const authHeader = reqHeaders.get('authorization');
+  if (authHeader?.startsWith('Bearer kairos_sk_')) {
+    const rawKey = authHeader.slice('Bearer '.length).trim();
+    const result = await verifyApiKey(rawKey);
+    if (!result) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return result;
+  }
+
+  const session = await auth.api.getSession({ headers: reqHeaders });
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

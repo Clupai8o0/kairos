@@ -9,6 +9,7 @@ import { useAiKeys, useSetAiKey, useDeleteAiKey } from '@/lib/hooks/use-ai-keys'
 import { usePreferences, useUpdatePreferences } from '@/lib/hooks/use-preferences';
 import { ScheduleSection } from '@/components/app/schedule-section';
 import { BlackoutsSection } from '@/components/app/blackouts-section';
+import { DeveloperKeysSection } from '@/components/app/developer-keys-section';
 import { authClient } from '@/lib/auth/client';
 import { useRouter } from 'next/navigation';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -423,6 +424,14 @@ export default function SettingsPage() {
             }
             isSaving={setAiKey.isPending}
           />
+        </Section>
+
+        {/* Developer / Agent API */}
+        <Section
+          title="Developer"
+          description="API keys for agent access. Keys authenticate as you — treat them like passwords."
+        >
+          <DeveloperKeysSection />
         </Section>
       </div>
     </div>
