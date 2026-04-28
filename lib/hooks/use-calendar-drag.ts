@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, type RefObject, type PointerEvent } from 'react';
+import { useState, useRef, useCallback, type RefObject, type PointerEvent } from 'react';
 
 // --- Constants ---
 export const HOUR_PX = 64;
@@ -44,6 +44,7 @@ export interface UseCalendarDragOptions {
 
 export interface UseCalendarDragReturn {
   dragState: DragState | null;
+  suppressClickRef: RefObject<boolean>;
   handleBlockPointerDown: (
     e: PointerEvent,
     id: string,
@@ -79,6 +80,7 @@ function clampMins(mins: number): number {
 export function useCalendarDrag(options: UseCalendarDragOptions): UseCalendarDragReturn {
   const { gridRef, dayCount, onMoveEnd, onResizeEnd, onCreateEnd } = options;
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const suppressClickRef = useRef(false);
 
   const autoScroll = useCallback((clientY: number) => {
     const grid = gridRef.current;
@@ -168,6 +170,8 @@ export function useCalendarDrag(options: UseCalendarDragOptions): UseCalendarDra
         || latestBlock.startMins !== startMins
         || latestBlock.endMins !== endMins;
       if (!moved) return;
+      suppressClickRef.current = true;
+      requestAnimationFrame(() => { suppressClickRef.current = false; });
       const result: DragResult = latestBlock;
       if (mode === 'move') onMoveEnd?.(id, type, result);
       else onResizeEnd?.(id, type, result);
@@ -221,5 +225,5 @@ export function useCalendarDrag(options: UseCalendarDragOptions): UseCalendarDra
     target.addEventListener('pointercancel', onUp);
   }, [autoScroll, getGridY, getGridRect, dayCount, onCreateEnd]);
 
-  return { dragState, handleBlockPointerDown, handleGridPointerDown };
+  return { dragState, suppressClickRef, handleBlockPointerDown, handleGridPointerDown };
 }

@@ -187,36 +187,37 @@ export default function SchedulePage() {
   const handleEventMove = useCallback((eventId: string, result: DragResult) => {
     const event = events.find((e) => e.id === eventId);
     if (!event) return;
+    const originalStart = event.start;
+    const originalEnd = event.end;
     const { start, end } = dragToTimes(result);
-    const p = updateEvent.mutateAsync({ id: eventId, calendarId: event.calendarId, start, end });
-    toast.promise(p, {
-      loading: 'Moving event…',
-      success: 'Event moved',
-      error: (e) => (e as Error)?.message ?? 'Failed to move event',
-    });
+    const tid = toast.loading('Moving event…');
+    updateEvent.mutateAsync({ id: eventId, calendarId: event.calendarId, start, end })
+      .then(() => toast.success('Event moved', { id: tid, action: { label: 'Undo', onClick: () => { const p = updateEvent.mutateAsync({ id: eventId, calendarId: event.calendarId, start: originalStart, end: originalEnd }); toast.promise(p, { loading: 'Undoing…', success: 'Undone', error: 'Failed to undo' }); } } }))
+      .catch((e) => toast.error((e as Error)?.message ?? 'Failed to move event', { id: tid }));
   }, [dragToTimes, updateEvent, events]);
 
   const handleTaskResize = useCallback((taskId: string, result: DragResult) => {
+    const task = tasks.find((t) => t.id === taskId);
+    const originalEnd = task?.scheduledEnd ?? null;
+    const originalDuration = task?.durationMins ?? null;
     const { end } = dragToTimes(result);
     const newDurationMins = result.endMins - result.startMins;
-    const p = updateTask.mutateAsync({ id: taskId, scheduledEnd: end, durationMins: newDurationMins });
-    toast.promise(p, {
-      loading: 'Updating task…',
-      success: 'Task updated',
-      error: (e) => (e as Error)?.message ?? 'Failed to update task',
-    });
-  }, [dragToTimes, updateTask]);
+    const tid = toast.loading('Updating task…');
+    updateTask.mutateAsync({ id: taskId, scheduledEnd: end, durationMins: newDurationMins })
+      .then(() => toast.success('Task extended', { id: tid, action: { label: 'Undo', onClick: () => { const p = updateTask.mutateAsync({ id: taskId, scheduledEnd: originalEnd, durationMins: originalDuration ?? undefined }); toast.promise(p, { loading: 'Undoing…', success: 'Undone', error: 'Failed to undo' }); } } }))
+      .catch((e) => toast.error((e as Error)?.message ?? 'Failed to update task', { id: tid }));
+  }, [dragToTimes, updateTask, tasks]);
 
   const handleEventResize = useCallback((eventId: string, result: DragResult) => {
     const event = events.find((e) => e.id === eventId);
     if (!event) return;
+    const originalStart = event.start;
+    const originalEnd = event.end;
     const { start, end } = dragToTimes(result);
-    const p = updateEvent.mutateAsync({ id: eventId, calendarId: event.calendarId, start, end });
-    toast.promise(p, {
-      loading: 'Resizing event…',
-      success: 'Event updated',
-      error: (e) => (e as Error)?.message ?? 'Failed to resize event',
-    });
+    const tid = toast.loading('Resizing event…');
+    updateEvent.mutateAsync({ id: eventId, calendarId: event.calendarId, start, end })
+      .then(() => toast.success('Event updated', { id: tid, action: { label: 'Undo', onClick: () => { const p = updateEvent.mutateAsync({ id: eventId, calendarId: event.calendarId, start: originalStart, end: originalEnd }); toast.promise(p, { loading: 'Undoing…', success: 'Undone', error: 'Failed to undo' }); } } }))
+      .catch((e) => toast.error((e as Error)?.message ?? 'Failed to resize event', { id: tid }));
   }, [dragToTimes, updateEvent, events]);
 
   const handleCreateEvent = useCallback((result: DragResult) => {
@@ -229,36 +230,37 @@ export default function SchedulePage() {
     if (contextMenu.kind === 'task') {
       const { task } = contextMenu;
       if (!task.scheduledAt) return;
+      const originalAt = task.scheduledAt;
+      const originalEnd = task.scheduledEnd;
       const newStart = new Date(new Date(task.scheduledAt).getTime() + ms).toISOString();
-      const newEnd = task.scheduledEnd
-        ? new Date(new Date(task.scheduledEnd).getTime() + ms).toISOString()
-        : null;
-      const p = updateTask.mutateAsync({ id: task.id, scheduledAt: newStart, scheduledEnd: newEnd });
-      toast.promise(p, { loading: 'Rescheduling task…', success: 'Task rescheduled', error: (e) => (e as Error)?.message ?? 'Failed' });
+      const newEnd = task.scheduledEnd ? new Date(new Date(task.scheduledEnd).getTime() + ms).toISOString() : null;
+      const tid = toast.loading('Rescheduling task…');
+      updateTask.mutateAsync({ id: task.id, scheduledAt: newStart, scheduledEnd: newEnd })
+        .then(() => toast.success('Task rescheduled', { id: tid, action: { label: 'Undo', onClick: () => { const p = updateTask.mutateAsync({ id: task.id, scheduledAt: originalAt, scheduledEnd: originalEnd }); toast.promise(p, { loading: 'Undoing…', success: 'Undone', error: 'Failed to undo' }); } } }))
+        .catch((e) => toast.error((e as Error)?.message ?? 'Failed to reschedule', { id: tid }));
     } else {
       const { event } = contextMenu;
+      const originalStart = event.start;
+      const originalEnd = event.end;
       const newStart = new Date(new Date(event.start).getTime() + ms).toISOString();
       const newEnd = new Date(new Date(event.end).getTime() + ms).toISOString();
-      const p = updateEvent.mutateAsync({ id: event.id, calendarId: event.calendarId, start: newStart, end: newEnd });
-      toast.promise(p, { loading: 'Rescheduling event…', success: 'Event rescheduled', error: (e) => (e as Error)?.message ?? 'Failed' });
+      const tid = toast.loading('Rescheduling event…');
+      updateEvent.mutateAsync({ id: event.id, calendarId: event.calendarId, start: newStart, end: newEnd })
+        .then(() => toast.success('Event rescheduled', { id: tid, action: { label: 'Undo', onClick: () => { const p = updateEvent.mutateAsync({ id: event.id, calendarId: event.calendarId, start: originalStart, end: originalEnd }); toast.promise(p, { loading: 'Undoing…', success: 'Undone', error: 'Failed to undo' }); } } }))
+        .catch((e) => toast.error((e as Error)?.message ?? 'Failed to reschedule', { id: tid }));
     }
   }
 
   function confirmLock() {
     if (!lockPending) return;
-    const p = updateTask.mutateAsync({
-      id: lockPending.taskId,
-      scheduledAt: lockPending.start,
-      scheduledEnd: lockPending.end,
-      timeLocked: true,
-      schedulable: true,
-      status: 'scheduled',
-    });
-    toast.promise(p, {
-      loading: 'Locking task…',
-      success: 'Task locked to this time',
-      error: (e) => (e as Error)?.message ?? 'Failed to lock task',
-    });
+    const task = tasks.find((t) => t.id === lockPending.taskId);
+    const originalAt = task?.scheduledAt ?? null;
+    const originalEnd = task?.scheduledEnd ?? null;
+    const { taskId, start, end } = lockPending;
+    const tid = toast.loading('Locking task…');
+    updateTask.mutateAsync({ id: taskId, scheduledAt: start, scheduledEnd: end, timeLocked: true, schedulable: true, status: 'scheduled' })
+      .then(() => toast.success('Task locked to this time', { id: tid, action: { label: 'Undo', onClick: () => { const p = updateTask.mutateAsync({ id: taskId, scheduledAt: originalAt, scheduledEnd: originalEnd, timeLocked: false }); toast.promise(p, { loading: 'Undoing…', success: 'Undone', error: 'Failed to undo' }); } } }))
+      .catch((e) => toast.error((e as Error)?.message ?? 'Failed to lock task', { id: tid }));
     setLockPending(null);
   }
 

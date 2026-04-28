@@ -198,7 +198,7 @@ export function CalendarWeek({
     target.addEventListener('pointercancel', onUp);
   }, [onNavigate]);
 
-  const { dragState, handleBlockPointerDown, handleGridPointerDown } = useCalendarDrag({
+  const { dragState, suppressClickRef, handleBlockPointerDown, handleGridPointerDown } = useCalendarDrag({
     gridRef: scrollRef,
     dayCount,
     onMoveEnd: (id, type, result) => {
@@ -350,7 +350,7 @@ export function CalendarWeek({
                       label={event.summary ?? '(no title)'}
                       sublabel={event.calendarName}
                       isDragging={isSource && dragState?.mode === 'move'}
-                      onClick={onEventClick ? () => onEventClick(event) : undefined}
+                      onClick={onEventClick ? () => { if (!suppressClickRef.current) onEventClick(event); } : undefined}
                       onPointerDown={(ev) => handleBlockPointerDown(ev, event.id, 'event', dayIdx, startMins, startMins + durationMins)}
                       onContextMenu={onEventContextMenu ? (e) => { e.preventDefault(); onEventContextMenu(event, e.clientX, e.clientY); } : undefined}
                       col={layout?.col}
@@ -380,7 +380,7 @@ export function CalendarWeek({
                       label={task.title}
                       sublabel={isDone ? 'Done' : task.durationMins ? `${task.durationMins} min` : undefined}
                       isDragging={isSource && dragState?.mode === 'move'}
-                      onClick={onTaskClick ? () => onTaskClick(task) : undefined}
+                      onClick={onTaskClick ? () => { if (!suppressClickRef.current) onTaskClick(task); } : undefined}
                       onPointerDown={isDone ? undefined : (ev) => handleBlockPointerDown(ev, task.id, 'task', dayIdx, startMins, startMins + blockDuration)}
                       onContextMenu={!isDone && onTaskContextMenu ? (e) => { e.preventDefault(); onTaskContextMenu(task, e.clientX, e.clientY); } : undefined}
                       col={layout?.col}
