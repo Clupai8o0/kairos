@@ -94,13 +94,14 @@ interface EventBlockProps {
   isDragging?: boolean;
   onClick?: () => void;
   onPointerDown?: (e: React.PointerEvent) => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
   col?: number;
   totalCols?: number;
 }
 
 const COL_GAP = 4; // px between adjacent overlapping-event columns
 
-function EventBlock({ top, height, label, sublabel, color, isTask, isDone, isDragging, onClick, onPointerDown, col = 0, totalCols = 1 }: EventBlockProps) {
+function EventBlock({ top, height, label, sublabel, color, isTask, isDone, isDragging, onClick, onPointerDown, onContextMenu, col = 0, totalCols = 1 }: EventBlockProps) {
   const h = Math.max(18, height);
   const leftStyle: React.CSSProperties['left'] = col === 0 ? 2 : `calc(${(col / totalCols) * 100}% + ${COL_GAP}px)`;
   const rightStyle: React.CSSProperties['right'] = col === totalCols - 1 ? 8 : `calc(${((totalCols - col - 1) / totalCols) * 100}% + ${COL_GAP}px)`;
@@ -118,6 +119,7 @@ function EventBlock({ top, height, label, sublabel, color, isTask, isDone, isDra
       className={`rounded px-1.5 py-0.5 overflow-hidden select-none ${!isDragging && onClick ? 'cursor-pointer hover:brightness-110' : 'cursor-default'}`}
       onClick={isDragging ? undefined : onClick}
       onPointerDown={onPointerDown}
+      onContextMenu={onContextMenu}
     >
       <p className={`text-[10px] font-[510] leading-tight truncate ${isTask ? 'text-fg' : 'text-white'} ${isDone ? 'line-through' : ''}`}>{label}</p>
       {sublabel && h > 26 && (
@@ -152,16 +154,20 @@ interface Props {
   onTaskClick?: (task: Task) => void;
   onEventClick?: (event: CalendarEvent) => void;
   onTaskMove?: (taskId: string, result: DragResult) => void;
+  onTaskResize?: (taskId: string, result: DragResult) => void;
   onEventMove?: (eventId: string, result: DragResult) => void;
   onEventResize?: (eventId: string, result: DragResult) => void;
   onCreateEvent?: (result: DragResult) => void;
   onNavigate?: (dir: 'prev' | 'next') => void;
+  onTaskContextMenu?: (task: Task, x: number, y: number) => void;
+  onEventContextMenu?: (event: CalendarEvent, x: number, y: number) => void;
 }
 
 export function CalendarWeek({
   weekStart, dayCount = 7, tasks, events, isLoading = false,
   onTaskClick, onEventClick,
-  onTaskMove, onEventMove, onEventResize, onCreateEvent, onNavigate,
+  onTaskMove, onTaskResize, onEventMove, onEventResize, onCreateEvent, onNavigate,
+  onTaskContextMenu, onEventContextMenu,
 }: Props) {
   const [now, setNow] = useState(() => new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -200,7 +206,8 @@ export function CalendarWeek({
       else onEventMove?.(id, result);
     },
     onResizeEnd: (id, type, result) => {
-      if (type === 'event') onEventResize?.(id, result);
+      if (type === 'task') onTaskResize?.(id, result);
+      else onEventResize?.(id, result);
     },
     onCreateEnd: (result) => onCreateEvent?.(result),
   });
@@ -345,6 +352,7 @@ export function CalendarWeek({
                       isDragging={isSource && dragState?.mode === 'move'}
                       onClick={onEventClick ? () => onEventClick(event) : undefined}
                       onPointerDown={(ev) => handleBlockPointerDown(ev, event.id, 'event', dayIdx, startMins, startMins + durationMins)}
+                      onContextMenu={onEventContextMenu ? (e) => { e.preventDefault(); onEventContextMenu(event, e.clientX, e.clientY); } : undefined}
                       col={layout?.col}
                       totalCols={layout?.totalCols}
                     />
@@ -374,6 +382,7 @@ export function CalendarWeek({
                       isDragging={isSource && dragState?.mode === 'move'}
                       onClick={onTaskClick ? () => onTaskClick(task) : undefined}
                       onPointerDown={isDone ? undefined : (ev) => handleBlockPointerDown(ev, task.id, 'task', dayIdx, startMins, startMins + blockDuration)}
+                      onContextMenu={!isDone && onTaskContextMenu ? (e) => { e.preventDefault(); onTaskContextMenu(task, e.clientX, e.clientY); } : undefined}
                       col={layout?.col}
                       totalCols={layout?.totalCols}
                     />

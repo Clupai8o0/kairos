@@ -12,10 +12,16 @@ import { CalendarMonth } from '@/components/app/calendar-month';
 import { TaskEditModal } from '@/components/app/task-edit-modal';
 import { EventEditModal } from '@/components/app/event-edit-modal';
 import { QuickCreateModal } from '@/components/app/quick-create-modal';
+import { EventContextMenu } from '@/components/app/event-context-menu';
 import type { Task, CalendarEvent } from '@/lib/hooks/types';
 import type { DragResult } from '@/lib/hooks/use-calendar-drag';
 
 type ViewMode = 'day' | '3-day' | 'week' | 'month';
+
+type ContextMenuState = { x: number; y: number } & (
+  | { kind: 'task'; task: Task }
+  | { kind: 'event'; event: CalendarEvent }
+);
 
 const VIEW_OPTIONS: { mode: ViewMode; label: string; short: string }[] = [
   { mode: 'day', label: 'Day', short: 'D' },
@@ -76,6 +82,7 @@ export default function SchedulePage() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [createDraft, setCreateDraft] = useState<{ start: string; end: string } | null>(null);
   const [lockPending, setLockPending] = useState<{ taskId: string; start: string; end: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   const runSchedule = useRunSchedule();
   const syncGCal = useSyncGCal();
@@ -189,6 +196,17 @@ export default function SchedulePage() {
     });
   }, [dragToTimes, updateEvent, events]);
 
+  const handleTaskResize = useCallback((taskId: string, result: DragResult) => {
+    const { end } = dragToTimes(result);
+    const newDurationMins = result.endMins - result.startMins;
+    const p = updateTask.mutateAsync({ id: taskId, scheduledEnd: end, durationMins: newDurationMins });
+    toast.promise(p, {
+      loading: 'Updating task…',
+      success: 'Task updated',
+      error: (e) => (e as Error)?.message ?? 'Failed to update task',
+    });
+  }, [dragToTimes, updateTask]);
+
   const handleEventResize = useCallback((eventId: string, result: DragResult) => {
     const event = events.find((e) => e.id === eventId);
     if (!event) return;
@@ -205,6 +223,26 @@ export default function SchedulePage() {
     const { start, end } = dragToTimes(result);
     setCreateDraft({ start, end });
   }, [dragToTimes]);
+
+  function handlePush(ms: number) {
+    if (!contextMenu) return;
+    if (contextMenu.kind === 'task') {
+      const { task } = contextMenu;
+      if (!task.scheduledAt) return;
+      const newStart = new Date(new Date(task.scheduledAt).getTime() + ms).toISOString();
+      const newEnd = task.scheduledEnd
+        ? new Date(new Date(task.scheduledEnd).getTime() + ms).toISOString()
+        : null;
+      const p = updateTask.mutateAsync({ id: task.id, scheduledAt: newStart, scheduledEnd: newEnd });
+      toast.promise(p, { loading: 'Rescheduling task…', success: 'Task rescheduled', error: (e) => (e as Error)?.message ?? 'Failed' });
+    } else {
+      const { event } = contextMenu;
+      const newStart = new Date(new Date(event.start).getTime() + ms).toISOString();
+      const newEnd = new Date(new Date(event.end).getTime() + ms).toISOString();
+      const p = updateEvent.mutateAsync({ id: event.id, calendarId: event.calendarId, start: newStart, end: newEnd });
+      toast.promise(p, { loading: 'Rescheduling event…', success: 'Event rescheduled', error: (e) => (e as Error)?.message ?? 'Failed' });
+    }
+  }
 
   function confirmLock() {
     if (!lockPending) return;
@@ -349,6 +387,8 @@ export default function SchedulePage() {
           onTaskClick={setSelectedTask}
           onEventClick={setSelectedEvent}
           onNavigate={(dir) => (dir === 'next' ? nextPeriod() : prevPeriod())}
+          onTaskContextMenu={(task, x, y) => setContextMenu({ kind: 'task', task, x, y })}
+          onEventContextMenu={(event, x, y) => setContextMenu({ kind: 'event', event, x, y })}
         />
       ) : (
         <CalendarWeek
@@ -360,10 +400,13 @@ export default function SchedulePage() {
           onTaskClick={setSelectedTask}
           onEventClick={setSelectedEvent}
           onTaskMove={handleTaskMove}
+          onTaskResize={handleTaskResize}
           onEventMove={handleEventMove}
           onEventResize={handleEventResize}
           onCreateEvent={handleCreateEvent}
           onNavigate={(dir) => (dir === 'next' ? nextPeriod() : prevPeriod())}
+          onTaskContextMenu={(task, x, y) => setContextMenu({ kind: 'task', task, x, y })}
+          onEventContextMenu={(event, x, y) => setContextMenu({ kind: 'event', event, x, y })}
         />
       )}
 
@@ -389,6 +432,15 @@ export default function SchedulePage() {
           />
         )}
       </AnimatePresence>
+
+      {contextMenu && (
+        <EventContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onPush={handlePush}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
 
       <AnimatePresence>
         {lockPending && (

@@ -32,9 +32,11 @@ interface Props {
   onTaskClick?: (task: Task) => void;
   onEventClick?: (event: CalendarEvent) => void;
   onNavigate?: (dir: 'prev' | 'next') => void;
+  onTaskContextMenu?: (task: Task, x: number, y: number) => void;
+  onEventContextMenu?: (event: CalendarEvent, x: number, y: number) => void;
 }
 
-export function CalendarMonth({ monthStart, tasks, events, isLoading, onTaskClick, onEventClick, onNavigate }: Props) {
+export function CalendarMonth({ monthStart, tasks, events, isLoading, onTaskClick, onEventClick, onNavigate, onTaskContextMenu, onEventContextMenu }: Props) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
   const month = monthStart.getMonth();
   const days = useMemo(() => getMonthGrid(monthStart), [monthStart]);
@@ -107,16 +109,18 @@ export function CalendarMonth({ monthStart, tasks, events, isLoading, onTaskClic
             return s >= dayStart && s <= dayEnd;
           });
 
-          type Item = { id: string; label: string; isTask: boolean; isDone?: boolean; color?: string; onClick: () => void };
+          type Item = { id: string; label: string; isTask: boolean; isDone?: boolean; color?: string; onClick: () => void; onContextMenu?: (x: number, y: number) => void };
           const allItems: Item[] = [
             ...dayTasks.map((t): Item => ({
               id: t.id, label: t.title, isTask: true, isDone: t.status === 'done',
               onClick: () => onTaskClick?.(t),
+              onContextMenu: t.status !== 'done' && onTaskContextMenu ? (x, y) => onTaskContextMenu(t, x, y) : undefined,
             })),
             ...dayEvents.map((e): Item => ({
               id: e.id, label: e.summary ?? '(no title)', isTask: false,
               color: e.calendarColor ?? undefined,
               onClick: () => onEventClick?.(e),
+              onContextMenu: onEventContextMenu ? (x, y) => onEventContextMenu(e, x, y) : undefined,
             })),
           ];
           const visible = allItems.slice(0, 3);
@@ -143,6 +147,7 @@ export function CalendarMonth({ monthStart, tasks, events, isLoading, onTaskClic
                     <button
                       key={item.id}
                       onClick={item.onClick}
+                      onContextMenu={item.onContextMenu ? (e) => { e.preventDefault(); item.onContextMenu!(e.clientX, e.clientY); } : undefined}
                       style={
                         item.isTask
                           ? { borderLeftColor: 'var(--color-accent)', backgroundColor: 'var(--color-task-event-bg)' }
