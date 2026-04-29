@@ -1,10 +1,10 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport, isTextUIPart, isStaticToolUIPart, type UIMessage } from 'ai';
+import { DefaultChatTransport, isTextUIPart, isStaticToolUIPart, type UIMessage, type FileUIPart } from 'ai';
 import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { Transcript } from '@/components/app/chat/transcript';
-import { Composer } from '@/components/app/chat/composer';
+import { Composer, type ChatAttachment } from '@/components/app/chat/composer';
 import { ModelSelector } from '@/components/app/chat/model-selector';
 import { MODELS, DEFAULT_MODEL_ID } from '@/lib/llm/models';
 import { useAiKeys } from '@/lib/hooks/use-ai-keys';
@@ -123,8 +123,9 @@ export default function ChatPage() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState('');
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const restoredRef = useRef(false);
-  const pendingMsgRef = useRef<string | null>(null);
+  const pendingMsgRef = useRef<{ text: string; attachments: ChatAttachment[] } | null>(null);
   const isLoading = status === 'submitted' || status === 'streaming';
 
   const pendingApprovalIds = useMemo(() => {
@@ -139,9 +140,10 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (pendingApprovalIds.length === 0 && pendingMsgRef.current) {
-      const text = pendingMsgRef.current;
+      const { text, attachments: pendingAttachments } = pendingMsgRef.current;
       pendingMsgRef.current = null;
-      sendMessage({ text });
+      const files: FileUIPart[] = pendingAttachments.map((a) => ({ type: 'file' as const, mediaType: a.contentType, filename: a.name, url: a.url }));
+      sendMessage({ text, files });
     }
   }, [pendingApprovalIds, sendMessage]);
 
@@ -268,16 +270,19 @@ export default function ChatPage() {
     (e: React.FormEvent) => {
       e.preventDefault();
       const trimmed = input.trim();
-      if (!trimmed || isLoading) return;
+      if ((!trimmed && attachments.length === 0) || isLoading) return;
       setInput('');
+      const currentAttachments = attachments;
+      setAttachments([]);
       if (pendingApprovalIds.length > 0) {
-        pendingMsgRef.current = trimmed;
+        pendingMsgRef.current = { text: trimmed, attachments: currentAttachments };
         pendingApprovalIds.forEach((id) => addToolApprovalResponse({ id, approved: false }));
       } else {
-        sendMessage({ text: trimmed });
+        const files: FileUIPart[] = currentAttachments.map((a) => ({ type: 'file' as const, mediaType: a.contentType, filename: a.name, url: a.url }));
+        sendMessage({ text: trimmed, files });
       }
     },
-    [input, isLoading, pendingApprovalIds, sendMessage, addToolApprovalResponse],
+    [input, attachments, isLoading, pendingApprovalIds, sendMessage, addToolApprovalResponse],
   );
 
   const handleApprovalResponse = useCallback(
@@ -386,7 +391,15 @@ export default function ChatPage() {
 
       {/* Composer */}
       <div className="shrink-0 border-t border-wire">
-        <Composer input={input} onInputChange={setInput} onSubmit={handleSubmit} onStop={stop} isLoading={isLoading} />
+        <Composer
+          input={input}
+          onInputChange={setInput}
+          onSubmit={handleSubmit}
+          onStop={stop}
+          isLoading={isLoading}
+          attachments={attachments}
+          onAttachmentsChange={setAttachments}
+        />
       </div>
     </div>
   );

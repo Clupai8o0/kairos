@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Full-bleed background — maskable icons are cropped by the OS, no rounded corners needed -->
+  <rect width="512" height="512" fill="#0f1011"/>
+  <!-- K centered with ~20% padding on all sides to stay within safe zone -->
+  <text
+    x="256"
+    y="332"
+    font-family="-apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif"
+    font-size="220"
+    font-weight="800"
+    text-anchor="middle"
+    fill="#7170ff"
+  >K</text>
+</svg>
