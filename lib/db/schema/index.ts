@@ -13,3 +13,4 @@ export * from './preferences';
 export * from './beta-gate';
 export * from './collections';
 export * from './api-keys';
+export * from './chat';

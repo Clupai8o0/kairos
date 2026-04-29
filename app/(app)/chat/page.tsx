@@ -10,42 +10,27 @@ import { MODELS, DEFAULT_MODEL_ID } from '@/lib/llm/models';
 import { useAiKeys } from '@/lib/hooks/use-ai-keys';
 import { toast } from 'sonner';
 
-// --- session storage helpers ---
-
-const SESSIONS_KEY = 'kairos-chat-sessions';
-const SESSION_ID_KEY = 'kairos-chat-session-id';
-const STORAGE_MODEL_KEY = 'kairos-chat-model';
+// --- types ---
 
 interface StoredSession {
   id: string;
   title: string;
-  createdAt: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface FullSession extends StoredSession {
   messages: UIMessage[];
 }
 
-function newSessionId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
+const STORAGE_MODEL_KEY = 'kairos-chat-model';
 
-function loadSessions(): StoredSession[] {
-  try {
-    const raw = localStorage.getItem(SESSIONS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as StoredSession[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch { return []; }
-}
+// --- api helpers ---
 
-function saveSessions(sessions: StoredSession[]) {
-  try { localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions)); } catch {}
-}
-
-function loadCurrentId(): string | null {
-  try { return localStorage.getItem(SESSION_ID_KEY); } catch { return null; }
-}
-
-function saveCurrentId(id: string) {
-  try { localStorage.setItem(SESSION_ID_KEY, id); } catch {}
+async function apiFetch(path: string, init?: RequestInit) {
+  const res = await fetch(path, { ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) } });
+  if (!res.ok) throw new Error(`API ${path} failed: ${res.status}`);
+  return res.json();
 }
 
 function deriveTitle(messages: UIMessage[]): string {
@@ -59,9 +44,8 @@ function deriveTitle(messages: UIMessage[]): string {
   return text.length > 40 ? text.slice(0, 40) + '…' : text || 'New chat';
 }
 
-function formatDate(ts: number): string {
-  const d = new Date(ts);
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+function formatDate(ts: string): string {
+  return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 // --- tool chips ---
@@ -97,8 +81,11 @@ export default function ChatPage() {
   const [sessions, setSessions] = useState<StoredSession[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [showSessions, setShowSessions] = useState(false);
-  const sessionsRef = useRef<StoredSession[]>([]);
-  sessionsRef.current = sessions;
+  const [loadingSession, setLoadingSession] = useState(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restoredRef = useRef(false);
+  const currentIdRef = useRef<string | null>(null);
+  currentIdRef.current = currentId;
 
   const transport = useMemo(
     () => new DefaultChatTransport({
@@ -124,7 +111,6 @@ export default function ChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
-  const restoredRef = useRef(false);
   const pendingMsgRef = useRef<{ text: string; attachments: ChatAttachment[] } | null>(null);
   const isLoading = status === 'submitted' || status === 'streaming';
 
@@ -147,61 +133,54 @@ export default function ChatPage() {
     }
   }, [pendingApprovalIds, sendMessage]);
 
-  // Bootstrap: load sessions + current session on mount
+  // Bootstrap: fetch sessions from DB on mount
   useEffect(() => {
     if (restoredRef.current) return;
     restoredRef.current = true;
 
-    let stored = loadSessions();
-    let id = loadCurrentId();
-
-    // Migrate legacy single-session data
-    const legacyRaw = localStorage.getItem('kairos-chat-messages');
-    if (legacyRaw) {
+    (async () => {
       try {
-        const legacyMsgs = JSON.parse(legacyRaw) as UIMessage[];
-        if (Array.isArray(legacyMsgs) && legacyMsgs.length > 0) {
-          const migrated: StoredSession = {
-            id: newSessionId(),
-            title: deriveTitle(legacyMsgs),
-            createdAt: Date.now(),
-            messages: legacyMsgs,
-          };
-          stored = [migrated, ...stored];
-          id = migrated.id;
-          localStorage.removeItem('kairos-chat-messages');
+        const list: StoredSession[] = await apiFetch('/api/chat/sessions');
+        if (list.length === 0) {
+          const fresh: FullSession = await apiFetch('/api/chat/sessions', { method: 'POST', body: JSON.stringify({ title: 'New chat' }) });
+          setSessions([fresh]);
+          setCurrentId(fresh.id);
+        } else {
+          setSessions(list);
+          const first = list[0];
+          setCurrentId(first.id);
+          setLoadingSession(true);
+          const full: FullSession = await apiFetch(`/api/chat/sessions/${first.id}`);
+          setLoadingSession(false);
+          if (full.messages.length > 0) setMessages(full.messages);
         }
-      } catch {}
-    }
-
-    if (stored.length === 0) {
-      const fresh: StoredSession = { id: newSessionId(), title: 'New chat', createdAt: Date.now(), messages: [] };
-      stored = [fresh];
-      id = fresh.id;
-    }
-
-    const active = stored.find((s) => s.id === id) ?? stored[0];
-    saveSessions(stored);
-    saveCurrentId(active.id);
-    setSessions(stored);
-    setCurrentId(active.id);
-    if (active.messages.length > 0) setMessages(active.messages);
-  }, [setMessages]);
-
-  // Persist messages into current session on change
-  useEffect(() => {
-    if (!restoredRef.current || !currentId) return;
-    setSessions((prev) => {
-      const next = prev.map((s) =>
-        s.id === currentId
-          ? { ...s, messages, title: messages.length > 0 ? deriveTitle(messages) : s.title }
-          : s,
-      );
-      saveSessions(next);
-      return next;
-    });
+      } catch {
+        toast.error('Failed to load chat history');
+      }
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, currentId]);
+  }, []);
+
+  // Debounced save: persist messages + title to DB after changes settle
+  useEffect(() => {
+    if (!restoredRef.current || !currentId || isLoading) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      const id = currentIdRef.current;
+      if (!id) return;
+      const title = messages.length > 0 ? deriveTitle(messages) : undefined;
+      try {
+        const updated: StoredSession = await apiFetch(`/api/chat/sessions/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ messages, ...(title ? { title } : {}) }),
+        });
+        setSessions((prev) => prev.map((s) => (s.id === id ? { ...s, title: updated.title, updatedAt: updated.updatedAt } : s)));
+      } catch {
+        // silent — next save will retry
+      }
+    }, 1000);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, isLoading]);
 
   // Auto-scroll
   useEffect(() => {
@@ -212,47 +191,64 @@ export default function ChatPage() {
     if (error) toast.error(error.message || 'Chat request failed');
   }, [error]);
 
-  const switchSession = useCallback((id: string) => {
-    const session = sessionsRef.current.find((s) => s.id === id);
-    if (!session) return;
-    saveCurrentId(id);
-    setCurrentId(id);
-    setMessages(session.messages.length > 0 ? session.messages : []);
+  const switchSession = useCallback(async (id: string) => {
+    if (id === currentIdRef.current) { setShowSessions(false); return; }
     setShowSessions(false);
+    setLoadingSession(true);
+    try {
+      const full: FullSession = await apiFetch(`/api/chat/sessions/${id}`);
+      setCurrentId(id);
+      setMessages(full.messages.length > 0 ? full.messages : []);
+    } catch {
+      toast.error('Failed to load session');
+    } finally {
+      setLoadingSession(false);
+    }
   }, [setMessages]);
 
-  const handleNewChat = useCallback(() => {
-    const fresh: StoredSession = { id: newSessionId(), title: 'New chat', createdAt: Date.now(), messages: [] };
-    setSessions((prev) => {
-      const next = [fresh, ...prev];
-      saveSessions(next);
-      return next;
-    });
-    saveCurrentId(fresh.id);
-    setCurrentId(fresh.id);
-    setMessages([]);
+  const handleNewChat = useCallback(async () => {
     setShowSessions(false);
+    try {
+      const fresh: FullSession = await apiFetch('/api/chat/sessions', { method: 'POST', body: JSON.stringify({ title: 'New chat' }) });
+      setSessions((prev) => [fresh, ...prev]);
+      setCurrentId(fresh.id);
+      setMessages([]);
+    } catch {
+      toast.error('Failed to create new chat');
+    }
   }, [setMessages]);
 
-  const handleDeleteSession = useCallback((id: string, e: React.MouseEvent) => {
+  const handleDeleteSession = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    try {
+      await apiFetch(`/api/chat/sessions/${id}`, { method: 'DELETE' });
+    } catch {
+      toast.error('Failed to delete chat');
+      return;
+    }
     setSessions((prev) => {
       const next = prev.filter((s) => s.id !== id);
-      if (next.length === 0) {
-        const fresh: StoredSession = { id: newSessionId(), title: 'New chat', createdAt: Date.now(), messages: [] };
-        next.push(fresh);
-        saveCurrentId(fresh.id);
-        setCurrentId(fresh.id);
-        setMessages([]);
-      } else if (id === currentId) {
-        saveCurrentId(next[0].id);
-        setCurrentId(next[0].id);
-        setMessages(next[0].messages.length > 0 ? next[0].messages : []);
+      if (id === currentIdRef.current) {
+        if (next.length === 0) {
+          // create a new session asynchronously
+          apiFetch('/api/chat/sessions', { method: 'POST', body: JSON.stringify({ title: 'New chat' }) })
+            .then((fresh: FullSession) => {
+              setSessions([fresh]);
+              setCurrentId(fresh.id);
+              setMessages([]);
+            })
+            .catch(() => {});
+        } else {
+          const first = next[0];
+          setCurrentId(first.id);
+          apiFetch(`/api/chat/sessions/${first.id}`)
+            .then((full: FullSession) => setMessages(full.messages.length > 0 ? full.messages : []))
+            .catch(() => {});
+        }
       }
-      saveSessions(next);
       return next;
     });
-  }, [currentId, setMessages]);
+  }, [setMessages]);
 
   const handleCopyMarkdown = useCallback(() => {
     const md = messages
@@ -311,9 +307,7 @@ export default function ChatPage() {
 
             {showSessions && (
               <>
-                {/* Backdrop */}
                 <div className="fixed inset-0 z-10" onClick={() => setShowSessions(false)} />
-                {/* Panel */}
                 <div className="absolute top-full left-0 mt-1 z-20 w-64 bg-surface border border-wire rounded-lg shadow-lg overflow-hidden">
                   <div className="flex items-center justify-between px-3 py-2 border-b border-wire">
                     <span className="text-fg-3 text-[11px] font-[510] uppercase tracking-wide">Chats</span>
@@ -338,7 +332,7 @@ export default function ChatPage() {
                             <p className={`text-[12px] font-[510] truncate ${s.id === currentId ? 'text-fg' : 'text-fg-2'}`}>
                               {s.title}
                             </p>
-                            <p className="text-fg-4 text-[11px]">{formatDate(s.createdAt)}</p>
+                            <p className="text-fg-4 text-[11px]">{formatDate(s.updatedAt)}</p>
                           </div>
                           <button
                             onClick={(e) => handleDeleteSession(s.id, e)}
@@ -386,7 +380,13 @@ export default function ChatPage() {
 
       {/* Transcript */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <Transcript messages={messages} onApprovalResponse={handleApprovalResponse} />
+        {loadingSession ? (
+          <div className="flex items-center justify-center h-full">
+            <span className="text-fg-4 text-sm animate-pulse">Loading…</span>
+          </div>
+        ) : (
+          <Transcript messages={messages} onApprovalResponse={handleApprovalResponse} />
+        )}
       </div>
 
       {/* Composer */}
