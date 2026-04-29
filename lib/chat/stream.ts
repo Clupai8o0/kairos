@@ -52,7 +52,10 @@ function buildSystemPrompt(timezone?: string): string {
     hour12: true,
   });
   const iso = now.toLocaleDateString('en-CA', { timeZone: tz }); // YYYY-MM-DD
-  const offsetMins = -now.getTimezoneOffset();
+  // Derive offset from the named timezone, not the server's getTimezoneOffset() (which is always UTC on Vercel)
+  const utcMs = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' })).getTime();
+  const tzMs = new Date(now.toLocaleString('en-US', { timeZone: tz })).getTime();
+  const offsetMins = (tzMs - utcMs) / 60000;
   const sign = offsetMins >= 0 ? '+' : '-';
   const hh = String(Math.floor(Math.abs(offsetMins) / 60)).padStart(2, '0');
   const mm = String(Math.abs(offsetMins) % 60).padStart(2, '0');
