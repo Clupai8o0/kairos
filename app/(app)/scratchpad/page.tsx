@@ -223,6 +223,7 @@ export default function ScratchpadPage() {
   const [candidates, setCandidates] = useState<CandidateTask[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [currentPadId, setCurrentPadId] = useState<string | undefined>();
+  const [currentPadContent, setCurrentPadContent] = useState<string | undefined>();
   const [taskCount, setTaskCount] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | undefined>();
   const [pluginName, setPluginName] = useState<string | undefined>();
@@ -257,6 +258,7 @@ export default function ScratchpadPage() {
     setCandidates([]);
     setSelected(new Set());
     setCurrentPadId(undefined);
+    setCurrentPadContent(undefined);
     setErrorMsg(undefined);
     setPluginName(undefined);
   }, []);
@@ -267,8 +269,16 @@ export default function ScratchpadPage() {
     setCandidates([]);
 
     try {
-      const pad = await createPad.mutateAsync({ content: text });
-      const processed = await processPad.mutateAsync({ id: pad.id, model: selectedModel });
+      let padId: string;
+      if (currentPadId && currentPadContent === text.trim()) {
+        padId = currentPadId;
+      } else {
+        const pad = await createPad.mutateAsync({ content: text });
+        padId = pad.id;
+        setCurrentPadId(padId);
+        setCurrentPadContent(text.trim());
+      }
+      const processed = await processPad.mutateAsync({ id: padId, model: selectedModel });
       const tasks = processed.parseResult?.tasks ?? [];
       (processed.parseResult?.warnings ?? []).forEach((w) => toast.warning(w));
 
@@ -278,7 +288,7 @@ export default function ScratchpadPage() {
         return;
       }
 
-      setCurrentPadId(pad.id);
+      setCurrentPadId(padId);
       setCandidates(tasks);
       setSelected(new Set(tasks.map((_, i) => i)));
       setPluginName(processed.pluginName ?? undefined);
@@ -287,7 +297,7 @@ export default function ScratchpadPage() {
       setExtractState('error');
       setErrorMsg(err instanceof Error ? err.message : 'Extraction failed');
     }
-  }, [text, extractState, selectedModel, createPad, processPad]);
+  }, [text, extractState, selectedModel, currentPadId, currentPadContent, createPad, processPad]);
 
   const handleToggle = useCallback((i: number) => {
     setSelected((prev) => {
@@ -315,17 +325,22 @@ export default function ScratchpadPage() {
 
   const handleLoadPad = useCallback((pad: Scratchpad) => {
     setText(pad.content);
+    setCurrentPadId(pad.id);
+    setCurrentPadContent(pad.content.trim());
     if (pad.processed && (pad.parseResult?.tasks.length ?? 0) > 0) {
       setCandidates(pad.parseResult!.tasks);
       setSelected(new Set(pad.parseResult!.tasks.map((_, i) => i)));
-      setCurrentPadId(pad.id);
       setPluginName(pad.pluginName ?? undefined);
       setTaskCount(pad.extractedTaskIds.length);
       setExtractState(pad.extractedTaskIds.length > 0 ? 'committed' : 'preview');
     } else {
-      resetExtract();
+      setExtractState('idle');
+      setCandidates([]);
+      setSelected(new Set());
+      setErrorMsg(undefined);
+      setPluginName(undefined);
     }
-  }, [resetExtract]);
+  }, []);
 
   const handleNewNote = useCallback(() => {
     setText('');

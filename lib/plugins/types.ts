@@ -15,7 +15,7 @@ export const CandidateTaskSchema = z.object({
   description: z.string().nullable().optional(),
   durationMins: z.number().int().nullable().optional(),
   deadline: z.string().nullable().optional(),
-  priority: z.number().int().min(1).max(4).default(3),
+  priority: z.number().int().default(3), // 1=urgent 2=high 3=normal 4=low
   tags: z.array(z.string()).default([]),
   sourceMetadata: z.record(z.string(), z.unknown()).default({}),
 });
