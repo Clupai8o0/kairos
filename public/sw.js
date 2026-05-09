@@ -1,4 +1,4 @@
-const CACHE = 'kairos-v1';
+const CACHE = 'kairos-v2';
 const OFFLINE_URL = '/offline';
 
 self.addEventListener('install', (event) => {
@@ -50,21 +50,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first for page navigations; fall back to cached version, then offline page
+  // Network-only for page navigations — Next.js App Router RSC payloads are dynamic
+  // and must not be cached (stale RSC payloads cause hydration failures).
+  // Fall back to the offline page only when the network is unreachable.
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        })
-        .catch(async () => {
-          const cached = await caches.match(request);
-          return cached ?? (await caches.match(OFFLINE_URL));
-        })
+      fetch(request).catch(async () => {
+        return (await caches.match(OFFLINE_URL)) ?? Response.error();
+      })
     );
   }
 });
