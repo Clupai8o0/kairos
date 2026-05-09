@@ -43,8 +43,12 @@ export function useProcessScratchpad() {
 export function useCommitScratchpad() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch<{ taskIds: string[] }>(`/api/scratchpad/${id}/commit`, { method: 'POST' }),
+    mutationFn: ({ id, taskIndices }: { id: string; taskIndices?: number[] }) =>
+      apiFetch<{ taskIds: string[] }>(`/api/scratchpad/${id}/commit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskIndices }),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: PADS_KEY });
       qc.invalidateQueries({ queryKey: ['tasks'] });

@@ -6,13 +6,16 @@ import { enqueueJob } from '@/lib/services/jobs';
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function POST(_req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, { params }: Params) {
   const authResult = await requireAuth();
   if (authResult instanceof Response) return authResult;
   const { userId } = authResult;
   const { id } = await params;
 
-  const { taskIds } = await commitScratchpad(userId, id);
+  const body = await req.json().catch(() => ({})) as { taskIndices?: number[] };
+  const taskIndices = Array.isArray(body.taskIndices) ? body.taskIndices as number[] : undefined;
+
+  const { taskIds } = await commitScratchpad(userId, id, taskIndices);
 
   // Enqueue placement for each task
   await Promise.all(

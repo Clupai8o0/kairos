@@ -86,6 +86,7 @@ export async function processScratchpad(userId: string, id: string): Promise<Scr
 export async function commitScratchpad(
   userId: string,
   id: string,
+  taskIndices?: number[],
 ): Promise<{ taskIds: string[] }> {
   const pad = await getScratchpad(userId, id);
   if (!pad || !pad.parseResult) throw new Error('Scratchpad not processed');
@@ -103,8 +104,11 @@ export async function commitScratchpad(
   };
 
   const taskIds: string[] = [];
+  const selectedTasks = taskIndices
+    ? parseResult.tasks.filter((_, i) => taskIndices.includes(i))
+    : parseResult.tasks;
 
-  for (const candidate of parseResult.tasks) {
+  for (const candidate of selectedTasks) {
     const taskId = newId();
 
     await db.insert(tasks).values({
