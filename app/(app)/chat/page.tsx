@@ -58,11 +58,14 @@ const TOOL_CHIPS = [
 ] as const;
 
 export default function ChatPage() {
-  const [selectedModel, setSelectedModel] = useState(() => {
-    try { return localStorage.getItem(STORAGE_MODEL_KEY) || DEFAULT_MODEL_ID; } catch { return DEFAULT_MODEL_ID; }
-  });
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID);
   const selectedModelRef = useRef(selectedModel);
   selectedModelRef.current = selectedModel;
+
+  // Load stored model after mount — must not run during SSR to avoid hydration mismatch.
+  useEffect(() => {
+    try { const s = localStorage.getItem(STORAGE_MODEL_KEY); if (s) setSelectedModel(s); } catch {}
+  }, []);
 
   useEffect(() => {
     try { localStorage.setItem(STORAGE_MODEL_KEY, selectedModel); } catch {}

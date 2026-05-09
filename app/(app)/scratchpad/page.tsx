@@ -229,9 +229,13 @@ export default function ScratchpadPage() {
   const [pluginName, setPluginName] = useState<string | undefined>();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const [selectedModel, setSelectedModel] = useState(() => {
-    try { return localStorage.getItem(STORAGE_MODEL_KEY) || DEFAULT_MODEL_ID; } catch { return DEFAULT_MODEL_ID; }
-  });
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID);
+
+  // Load stored model after mount — must not run during SSR to avoid hydration mismatch.
+  useEffect(() => {
+    try { const s = localStorage.getItem(STORAGE_MODEL_KEY); if (s) setSelectedModel(s); } catch {}
+  }, []);
+
   useEffect(() => {
     try { localStorage.setItem(STORAGE_MODEL_KEY, selectedModel); } catch {}
   }, [selectedModel]);
