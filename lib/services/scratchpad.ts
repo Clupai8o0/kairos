@@ -96,7 +96,7 @@ export async function commitScratchpad(
       title: string;
       description?: string | null;
       durationMins?: number | null;
-      deadline?: Date | null;
+      deadline?: string | null;
       priority: number;
       tags: string[];
       sourceMetadata?: Record<string, unknown>;
@@ -117,7 +117,7 @@ export async function commitScratchpad(
       title: candidate.title,
       description: candidate.description ?? undefined,
       durationMins: candidate.durationMins ?? undefined,
-      deadline: candidate.deadline ?? undefined,
+      deadline: candidate.deadline ? new Date(candidate.deadline) : undefined,
       priority: candidate.priority,
       source: `scratchpad:${pad.pluginName ?? 'unknown'}`,
       sourceRef: pad.id,
