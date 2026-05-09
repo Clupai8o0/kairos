@@ -21,7 +21,7 @@ async function getOrCreate(userId: string, pluginName: string) {
   return created!;
 }
 
-export function createPluginContext(userId: string, pluginName: string): PluginContext {
+export function createPluginContext(userId: string, pluginName: string, model?: string): PluginContext {
   const where = () => and(eq(scratchpadPluginConfigs.userId, userId), eq(scratchpadPluginConfigs.pluginName, pluginName));
 
   return {
@@ -60,11 +60,11 @@ export function createPluginContext(userId: string, pluginName: string): PluginC
     },
 
     async complete(prompt: string) {
-      return llmComplete(prompt);
+      return llmComplete(prompt, model);
     },
 
     async completeStructured<T>(prompt: string, schema: z.ZodSchema<T>) {
-      return llmCompleteStructured(prompt, schema);
+      return llmCompleteStructured(prompt, schema, model);
     },
 
     log(level, message, fields) {

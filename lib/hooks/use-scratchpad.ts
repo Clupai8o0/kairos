@@ -34,8 +34,12 @@ export function useCreateScratchpad() {
 export function useProcessScratchpad() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch<Scratchpad>(`/api/scratchpad/${id}/process`, { method: 'POST' }),
+    mutationFn: ({ id, model }: { id: string; model?: string }) =>
+      apiFetch<Scratchpad>(`/api/scratchpad/${id}/process`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model }),
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: PADS_KEY }),
   });
 }

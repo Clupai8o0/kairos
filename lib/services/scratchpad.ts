@@ -54,7 +54,7 @@ export async function deleteScratchpad(userId: string, id: string): Promise<bool
   return !!deleted;
 }
 
-export async function processScratchpad(userId: string, id: string): Promise<Scratchpad | null> {
+export async function processScratchpad(userId: string, id: string, model?: string): Promise<Scratchpad | null> {
   const pad = await getScratchpad(userId, id);
   if (!pad) return null;
 
@@ -67,7 +67,7 @@ export async function processScratchpad(userId: string, id: string): Promise<Scr
     createdAt: pad.createdAt,
   };
 
-  const result = await dispatchToPlugin(pluginInput, userId);
+  const result = await dispatchToPlugin(pluginInput, userId, model);
 
   const [updated] = await db
     .update(scratchpads)
