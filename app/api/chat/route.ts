@@ -24,24 +24,27 @@ async function executePendingApprovals(messages: UIMessage[], tools: ToolSet): P
     let modified = false;
     const newParts: UIMessage['parts'] = [];
     for (const part of msg.parts) {
-      if (
-        isStaticToolUIPart(part) &&
-        part.state === 'approval-responded' &&
-        part.approval?.approved === true
-      ) {
-        const toolName = part.type.split('-').slice(1).join('-');
-        const toolDef = tools[toolName] as { execute?: (input: unknown, opts: unknown) => Promise<unknown> } | undefined;
-        if (toolDef?.execute) {
-          try {
-            const output = await toolDef.execute(part.input, { toolCallId: part.toolCallId, messages: [] });
-            modified = true;
-            newParts.push({ ...part, state: 'output-available', output } as unknown as UIMessage['parts'][number]);
-          } catch (err) {
-            modified = true;
-            newParts.push({ ...part, state: 'output-error', errorText: err instanceof Error ? err.message : String(err) } as unknown as UIMessage['parts'][number]);
+      if (isStaticToolUIPart(part) && part.state === 'approval-responded') {
+        if (part.approval?.approved === true) {
+          // User approved: execute the tool so convertToModelMessages gets a real tool_result
+          const toolName = part.type.split('-').slice(1).join('-');
+          const toolDef = tools[toolName] as { execute?: (input: unknown, opts: unknown) => Promise<unknown> } | undefined;
+          if (toolDef?.execute) {
+            try {
+              const output = await toolDef.execute(part.input, { toolCallId: part.toolCallId, messages: [] });
+              modified = true;
+              newParts.push({ ...part, state: 'output-available', output } as unknown as UIMessage['parts'][number]);
+            } catch (err) {
+              modified = true;
+              newParts.push({ ...part, state: 'output-error', errorText: err instanceof Error ? err.message : String(err) } as unknown as UIMessage['parts'][number]);
+            }
+          } else {
+            newParts.push(part);
           }
         } else {
-          newParts.push(part);
+          // User denied: mark as output-denied so convertToModelMessages emits an error tool_result
+          modified = true;
+          newParts.push({ ...part, state: 'output-denied' } as unknown as UIMessage['parts'][number]);
         }
       } else {
         newParts.push(part);
