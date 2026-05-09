@@ -1,12 +1,56 @@
 // app/api/chat/route.ts — Session-scoped chat endpoint
 import { NextRequest } from 'next/server';
-import { convertToModelMessages, type UIMessage } from 'ai';
+import { convertToModelMessages, isStaticToolUIPart, type UIMessage, type ToolSet } from 'ai';
 import { requireAuth } from '@/lib/auth/helpers';
 import { isLLMConfigured, MODEL_CATALOG, hasKeyForProvider } from '@/lib/llm';
 import { createAllTools } from '@/lib/chat/router';
 import { createChatStream } from '@/lib/chat/stream';
 import { getUserKey } from '@/lib/services/ai-keys';
 import type { AiProvider } from '@/lib/services/ai-keys';
+
+/**
+ * Executes tools that are in `approval-responded + approved` state before converting
+ * UIMessages to ModelMessages. Without this, convertToModelMessages produces an assistant
+ * message with tool_use but no tool_result for those tools, which the Anthropic API rejects
+ * with a 400 "tool_use ids found without tool_result blocks" error.
+ */
+async function executePendingApprovals(messages: UIMessage[], tools: ToolSet): Promise<UIMessage[]> {
+  const result: UIMessage[] = [];
+  for (const msg of messages) {
+    if (msg.role !== 'assistant') {
+      result.push(msg);
+      continue;
+    }
+    let modified = false;
+    const newParts: UIMessage['parts'] = [];
+    for (const part of msg.parts) {
+      if (
+        isStaticToolUIPart(part) &&
+        part.state === 'approval-responded' &&
+        part.approval?.approved === true
+      ) {
+        const toolName = part.type.split('-').slice(1).join('-');
+        const toolDef = tools[toolName] as { execute?: (input: unknown, opts: unknown) => Promise<unknown> } | undefined;
+        if (toolDef?.execute) {
+          try {
+            const output = await toolDef.execute(part.input, { toolCallId: part.toolCallId, messages: [] });
+            modified = true;
+            newParts.push({ ...part, state: 'output-available', output } as unknown as UIMessage['parts'][number]);
+          } catch (err) {
+            modified = true;
+            newParts.push({ ...part, state: 'output-error', errorText: err instanceof Error ? err.message : String(err) } as unknown as UIMessage['parts'][number]);
+          }
+        } else {
+          newParts.push(part);
+        }
+      } else {
+        newParts.push(part);
+      }
+    }
+    result.push(modified ? { ...msg, parts: newParts } : msg);
+  }
+  return result;
+}
 
 export async function POST(req: NextRequest) {
   const authResult = await requireAuth();
@@ -50,8 +94,9 @@ export async function POST(req: NextRequest) {
     },
   );
 
-  const modelMessages = await convertToModelMessages(uiMessages);
   const tools = await createAllTools(userId, { skipConfirmation, timezone });
+  const processedMessages = await executePendingApprovals(uiMessages, tools);
+  const modelMessages = await convertToModelMessages(processedMessages);
   const result = createChatStream(modelMessages, tools, { timezone, modelId: requestedModel, apiKey });
   return result.toUIMessageStreamResponse();
 }
