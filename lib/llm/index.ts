@@ -88,8 +88,8 @@ function createProviderModel(provider: LLMProvider, modelId: string, userApiKey?
   return openai(modelId);
 }
 
-export async function complete(prompt: string, modelId?: string): Promise<string> {
-  const model = resolveModel({ modelId });
+export async function complete(prompt: string, modelId?: string, apiKey?: string): Promise<string> {
+  const model = resolveModel({ modelId, apiKey });
   const { text } = await generateText({ model, prompt });
   return text;
 }
@@ -98,8 +98,9 @@ export async function completeStructured<T>(
   prompt: string,
   schema: z.ZodSchema<T>,
   modelId?: string,
+  apiKey?: string,
 ): Promise<T> {
-  const model = resolveModel({ modelId });
+  const model = resolveModel({ modelId, apiKey });
   const { object } = await generateObject({ model, prompt, schema });
   return object;
 }

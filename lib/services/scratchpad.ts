@@ -4,6 +4,8 @@ import { db } from '@/lib/db/client';
 import { scratchpads, tasks, taskTags, tags } from '@/lib/db/schema';
 import { newId } from '@/lib/utils/id';
 import { dispatchToPlugin } from '@/lib/plugins/host';
+import { getUserKey } from '@/lib/services/ai-keys';
+import { MODEL_CATALOG } from '@/lib/llm';
 import type { ScratchpadInput } from '@/lib/plugins/types';
 
 export type Scratchpad = typeof scratchpads.$inferSelect;
@@ -67,7 +69,10 @@ export async function processScratchpad(userId: string, id: string, model?: stri
     createdAt: pad.createdAt,
   };
 
-  const result = await dispatchToPlugin(pluginInput, userId, model);
+  const provider = model ? MODEL_CATALOG[model]?.provider : undefined;
+  const apiKey = provider ? (await getUserKey(userId, provider as 'openai' | 'anthropic' | 'google')) ?? undefined : undefined;
+
+  const result = await dispatchToPlugin(pluginInput, userId, model, apiKey);
 
   const [updated] = await db
     .update(scratchpads)

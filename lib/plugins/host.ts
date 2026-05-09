@@ -70,7 +70,7 @@ async function enabledNames(userId: string): Promise<Set<string>> {
   return new Set(allNames.filter((n) => !disabled.has(n)));
 }
 
-export async function dispatchToPlugin(input: ScratchpadInput, userId: string, model?: string): Promise<ParseResult> {
+export async function dispatchToPlugin(input: ScratchpadInput, userId: string, model?: string, apiKey?: string): Promise<ParseResult> {
   ensureRegistry();
   const enabled = await enabledNames(userId);
   const httpPlugins = await loadHttpPlugins(userId);
@@ -81,7 +81,7 @@ export async function dispatchToPlugin(input: ScratchpadInput, userId: string, m
   for (const plugin of allPlugins) {
     if (!enabled.has(plugin.name)) continue;
     if (!plugin.canHandle(input)) continue;
-    const context = createPluginContext(userId, plugin.name, model);
+    const context = createPluginContext(userId, plugin.name, model, apiKey);
     return plugin.parse(input, context);
   }
 
