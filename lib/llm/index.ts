@@ -101,6 +101,8 @@ export async function completeStructured<T>(
   apiKey?: string,
 ): Promise<T> {
   const model = resolveModel({ modelId, apiKey });
-  const { object } = await generateObject({ model, prompt, schema });
+  // mode:'tool' uses function-calling rather than native structured output,
+  // avoiding Anthropic's output_config restrictions (e.g. no integer min/max).
+  const { object } = await generateObject({ model, prompt, schema, mode: 'tool' });
   return object;
 }
