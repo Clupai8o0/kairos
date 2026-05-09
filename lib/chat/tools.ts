@@ -572,6 +572,7 @@ export function createCoreTools(userId: string, opts?: { skipConfirmation?: bool
           .array(
             z.object({
               taskId: z.string().describe('Task ID'),
+              taskName: z.string().optional().describe('Task title (for display in approval UI)'),
               phaseId: z.string().optional().describe('Phase ID to assign this task to (optional)'),
             }),
           )

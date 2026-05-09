@@ -144,10 +144,10 @@ function getActionDetails(toolName: string, input: unknown): { title: string; de
       return { title: String(args.taskId ?? 'Task'), details: [] };
 
     case 'bulkAddTasksToCollection': {
-      const tasks = (args.tasks as Array<{ taskId?: string }>) ?? [];
+      const tasks = (args.tasks as Array<{ taskId?: string; taskName?: string; phaseId?: string }>) ?? [];
       return {
         title: `Add ${tasks.length} task${tasks.length === 1 ? '' : 's'} to collection`,
-        details: tasks.slice(0, 5).map((t, i) => ({ label: `#${i + 1}`, value: t.taskId ?? '?' })),
+        details: tasks.slice(0, 5).map((t, i) => ({ label: `#${i + 1}`, value: t.taskName ?? t.taskId ?? '?' })),
       };
     }
 
