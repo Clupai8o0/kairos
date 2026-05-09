@@ -101,8 +101,13 @@ export async function completeStructured<T>(
   apiKey?: string,
 ): Promise<T> {
   const model = resolveModel({ modelId, apiKey });
-  // mode:'tool' uses function-calling rather than native structured output,
-  // avoiding Anthropic's output_config restrictions (e.g. no integer min/max).
-  const { object } = await generateObject({ model, prompt, schema, mode: 'tool' });
+  // jsonTool uses function-calling instead of Anthropic's native output_config,
+  // which rejects integer min/max constraints. Other providers ignore this key.
+  const { object } = await generateObject({
+    model,
+    prompt,
+    schema,
+    providerOptions: { anthropic: { structuredOutputMode: 'jsonTool' } },
+  });
   return object;
 }
