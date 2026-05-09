@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyBetaCookie, COOKIE_NAME } from '@/lib/beta-gate';
 
 const PUBLIC_PREFIXES = ['/beta-gate', '/api', '/sign-in', '/docs', '/_next'];
+// PWA files must be reachable without a beta-gate session (browser fetches them
+// without always including cookies, and the SW install caches /offline at startup).
+const PUBLIC_EXACT = new Set(['/manifest.webmanifest', '/sw.js', '/offline', '/icons']);
 
 function isPublic(pathname: string): boolean {
   if (pathname === '/') return true;
+  if (PUBLIC_EXACT.has(pathname) || pathname.startsWith('/icons/')) return true;
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'));
 }
 
