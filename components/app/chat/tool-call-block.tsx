@@ -32,6 +32,7 @@ const TOOL_ICONS: Record<string, string> = {
   deleteGCalEvent: '✕',
   createCollection: '⊞',
   addTaskToCollection: '→',
+  bulkAddTasksToCollection: '→→',
   bulkScheduleCollection: '▶▶',
 };
 
@@ -52,6 +53,7 @@ const TOOL_LABELS: Record<string, string> = {
   deleteGCalEvent: 'Delete Event',
   createCollection: 'Create Collection',
   addTaskToCollection: 'Add to Collection',
+  bulkAddTasksToCollection: 'Bulk Add to Collection',
   bulkScheduleCollection: 'Schedule Collection',
 };
 
@@ -141,6 +143,14 @@ function getActionDetails(toolName: string, input: unknown): { title: string; de
     case 'addTaskToCollection':
       return { title: String(args.taskId ?? 'Task'), details: [] };
 
+    case 'bulkAddTasksToCollection': {
+      const tasks = (args.tasks as Array<{ taskId?: string }>) ?? [];
+      return {
+        title: `Add ${tasks.length} task${tasks.length === 1 ? '' : 's'} to collection`,
+        details: tasks.slice(0, 5).map((t, i) => ({ label: `#${i + 1}`, value: t.taskId ?? '?' })),
+      };
+    }
+
     case 'bulkScheduleCollection':
       return { title: 'Schedule all tasks', details: [] };
 
@@ -198,6 +208,12 @@ function getResultSummary(toolName: string, result: unknown): { title: string; s
       return r.error ? { title: String(r.error), variant: 'error' } : { title: `"${r.title}" created`, variant: 'success' };
     case 'addTaskToCollection':
       return r.error ? { title: String(r.error), variant: 'error' } : { title: 'Task added to collection', variant: 'success' };
+    case 'bulkAddTasksToCollection': {
+      const added = r.added as number ?? 0;
+      const skipped = r.skipped as number ?? 0;
+      const subtitle = skipped > 0 ? `${skipped} already in collection` : undefined;
+      return { title: `${added} task${added === 1 ? '' : 's'} added`, subtitle, variant: added > 0 ? 'success' : 'neutral' };
+    }
     case 'bulkScheduleCollection':
       return r.enqueued ? { title: `${r.taskCount ?? '?'} tasks queued for scheduling`, variant: 'success' } : { title: String(r.message ?? 'No schedulable tasks'), variant: 'neutral' };
     default:
@@ -226,7 +242,7 @@ export function ToolCallBlock({ toolPart, onApprovalResponse }: ToolCallBlockPro
   const { state } = toolPart;
   const icon = TOOL_ICONS[toolName] ?? '•';
   const label = TOOL_LABELS[toolName] ?? toolName;
-  const isMutating = ['createTask', 'bulkCreateTasks', 'updateTask', 'bulkUpdateTasks', 'deleteTask', 'completeTask', 'createGCalEvent', 'deleteGCalEvent', 'createCollection', 'addTaskToCollection', 'bulkScheduleCollection'].includes(toolName);
+  const isMutating = ['createTask', 'bulkCreateTasks', 'updateTask', 'bulkUpdateTasks', 'deleteTask', 'completeTask', 'createGCalEvent', 'deleteGCalEvent', 'createCollection', 'addTaskToCollection', 'bulkAddTasksToCollection', 'bulkScheduleCollection'].includes(toolName);
 
   // Compact inline pill for read-only tools (list, schedule)
   if (!isMutating) {

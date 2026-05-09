@@ -54,7 +54,7 @@ const TOOL_CHIPS = [
   'listTasks', 'createTask', 'bulkCreateTasks', 'updateTask', 'bulkUpdateTasks',
   'deleteTask', 'completeTask', 'listTags', 'createTag', 'listSchedule',
   'runSchedule', 'createGCalEvent', 'listGCalEvents', 'deleteGCalEvent',
-  'listCollections', 'createCollection', 'addTaskToCollection', 'bulkScheduleCollection',
+  'listCollections', 'createCollection', 'addTaskToCollection', 'bulkAddTasksToCollection', 'bulkScheduleCollection',
 ] as const;
 
 export default function ChatPage() {
